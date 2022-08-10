@@ -1,4 +1,3 @@
-
 FROM cr.loongnix.cn/loongson/loongnix:20
 
 LABEL maintainer="wangweijie@loongson.cn"
