@@ -7,6 +7,7 @@ TAG?=scm
 
 IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):$(TAG)
 
+ALIAS=cr.loongnix.cn/library/buildpack-deps:buster-scm cr.loongnix.cn/library/buildpack-deps:stable-scm
 
 default: image
 
@@ -15,5 +16,13 @@ image:
 		-t $(IMAGE) \
 		.
 
-push:
+push: alias
 	docker push $(IMAGE)
+	for i in $(ALIAS);do \
+		docker push $$i; \
+	done
+
+alias:
+	for i in $(ALIAS);do \
+		docker tag $(IMAGE) $$i; \
+	done
