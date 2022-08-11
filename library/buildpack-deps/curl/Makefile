@@ -7,6 +7,7 @@ TAG?=curl
 
 IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):$(TAG)
 
+ALIAS=cr.loongnix.cn/library/buildpack-deps:buster-curl
 
 default: image
 
@@ -15,5 +16,9 @@ image:
 		-t $(IMAGE) \
 		.
 
-push:
+push: alias
 	docker push $(IMAGE)
+	docker push $(ALIAS)
+
+alias:
+	docker tag $(IMAGE) $(ALIAS)
