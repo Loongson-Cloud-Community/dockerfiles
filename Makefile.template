@@ -11,7 +11,7 @@ IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):$(TAG)
 default: image
 
 image:
-	docker build --no-cache \
+	docker build \
 		-t $(IMAGE) \
 		.
 
