@@ -17,7 +17,6 @@ RUN set -eux; \
 		wget \
 	;
 
-#ENV GPG_KEY E3FF2839C048B25C084DEBE9B26995E310250568
 ENV PYTHON_VERSION 3.8.0
 
 RUN set -eux; \
@@ -28,13 +27,6 @@ RUN set -eux; \
 		xz \
 	; \
 	\
-#	wget -O python.tar.xz "https://www.python.org/ftp/python/${PYTHON_VERSION%%[a-z]*}/Python-$PYTHON_VERSION.tar.xz"; \
-#	wget -O python.tar.xz.asc "https://www.python.org/ftp/python/${PYTHON_VERSION%%[a-z]*}/Python-$PYTHON_VERSION.tar.xz.asc"; \
-#	GNUPGHOME="$(mktemp -d)"; export GNUPGHOME; \
-#	gpg --batch --keyserver hkps://keys.openpgp.org --recv-keys "$GPG_KEY"; \
-#	gpg --batch --verify python.tar.xz.asc python.tar.xz; \
-#	command -v gpgconf > /dev/null && gpgconf --kill all || :; \
-#	rm -rf "$GNUPGHOME" python.tar.xz.asc; \
 	mkdir -p /usr/src/python; \
 	tar --extract --directory /usr/src/python --strip-components=1 --file python.tar.xz; \
 	rm python.tar.xz; \
