@@ -54,7 +54,7 @@ RUN set -eux; \
 	rm python.tar.xz; \
 	\
 	cd /usr/src/python; \
-#update config.sub && config.guess
+# update config.sub && config.guess
 	wget -O ./config.sub "git.savannah.gnu.org/gitweb/?p=config.git;a=blob_plain;f=config.sub;hb=HEAD"; \
 	wget -O ./config.guess "git.savannah.gnu.org/gitweb/?p=config.git;a=blob_plain;f=config.guess;hb=HEAD"; \
 	gnuArch="$(dpkg-architecture --query DEB_BUILD_GNU_TYPE)"; \

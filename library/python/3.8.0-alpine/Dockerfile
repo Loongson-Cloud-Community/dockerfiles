@@ -59,7 +59,7 @@ RUN set -eux; \
 	; \
 	\
 	cd /usr/src/python; \
-#update config.sub && config.guess
+# update config.sub && config.guess
 	wget -O ./config.sub "git.savannah.gnu.org/gitweb/?p=config.git;a=blob_plain;f=config.sub;hb=HEAD"; \
 	wget -O ./config.guess "git.savannah.gnu.org/gitweb/?p=config.git;a=blob_plain;f=config.guess;hb=HEAD"; \
 
