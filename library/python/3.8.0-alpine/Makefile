@@ -7,10 +7,17 @@ TAG?=3.8.0-alpine
 
 IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):$(TAG)
 
+PYTHON_VERSION?=3.8.0
+PYTHON_PIP_VERSION?=19.3.1
+PYTHON_GET_PIP_URL?=https://github.com/pypa/get-pip/raw/ffe826207a010164265d9cc807978e3604d18ca0/get-pip.py
 
 default: image
 
-image:
+download:
+	wget -O Python-$(PYTHON_VERSION).tar.xz "https://www.python.org/ftp/python/$(PYTHON_VERSION)/Python-$(PYTHON_VERSION).tar.xz"&& \
+	wget -O get-pip.py "$(PYTHON_GET_PIP_URL)"
+
+image: download
 	docker build \
 		-t $(IMAGE) \
 		.
