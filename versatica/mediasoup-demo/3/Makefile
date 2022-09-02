@@ -2,8 +2,8 @@
 
 REGISTRY?=cr.loongnix.cn
 ORGANIZATION?=versatica
-REPOSITORY?=mediasoup-demooooo
-TAG?=devvv
+REPOSITORY?=mediasoup-demo
+TAG?=3
 
 IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):$(TAG)
 
