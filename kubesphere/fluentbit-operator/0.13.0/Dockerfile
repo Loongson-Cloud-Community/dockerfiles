@@ -8,7 +8,7 @@ COPY go.mod go.mod
 # cache deps before building and copying source so that we don't need to re-download as much
 # and so that source changes don't invalidate our downloaded layer
 RUN set -x \
-	&& go env -w GOPROXY=http://10.130.0.16:8081 \
+	&& go env -w GOPROXY=http://goproxy.loongnix.cn \
 	&& go env -w GOSUMDB=off \
 	&& go mod download 
 
