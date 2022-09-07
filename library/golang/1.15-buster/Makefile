@@ -6,7 +6,7 @@ REPOSITORY?=golang
 TAG?=1.15-buster
 
 IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):$(TAG)
-
+ALIAS=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):1.15
 
 default: image
 
@@ -15,5 +15,9 @@ image:
 		-t $(IMAGE) \
 		.
 
-push:
+alias:
+	docker tag $(IMAGE) $(ALIAS)
+	
+push: alias
 	docker push $(IMAGE)
+	docker push $(ALIAS)
