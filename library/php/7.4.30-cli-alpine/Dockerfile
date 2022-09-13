@@ -5,6 +5,7 @@
 #
 
 FROM cr.loongnix.cn/library/alpine:3.11
+MAINTAINER Xuhui Qiang <qiangxuhui@loongson.cn>
 
 # dependencies required for running "phpize"
 # these get automatically installed and removed by "docker-php-ext-*" (unless they're already installed)
