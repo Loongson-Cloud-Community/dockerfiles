@@ -10,7 +10,11 @@ IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):$(TAG)
 
 default: image
 
-image:
+thanos: 
+	wget -O thanos "https://github.com/Loongson-Cloud-Community/thanos/releases/download/v0.25.2/thanos"
+	chmod +x thanos
+
+image: thanos
 	docker build \
 		-t $(IMAGE) \
 		.
