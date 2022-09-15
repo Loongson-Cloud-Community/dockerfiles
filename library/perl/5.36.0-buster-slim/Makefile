@@ -12,7 +12,6 @@ default: image
 
 image:
 	docker build \
-		--build-arg https_proxy=http://10.130.0.16:7890 \
 		-t $(IMAGE) \
 		.
 
