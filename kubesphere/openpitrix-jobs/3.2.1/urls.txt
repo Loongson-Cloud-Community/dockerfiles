@@ -1,0 +1,17 @@
+https://charts.kubesphere.io/main/elasticsearch-exporter-3.3.4.tgz
+https://charts.kubesphere.io/main/harbor-1.4.1.tgz
+https://charts.kubesphere.io/main/memcached-3.2.5.tgz
+https://charts.kubesphere.io/main/minio-6.0.5.tgz
+https://charts.kubesphere.io/main/mysql-1.6.8.tgz
+https://charts.kubesphere.io/main/mysql-exporter-0.5.6.tgz
+https://charts.kubesphere.io/main/nginx-1.3.5.tgz
+https://charts.kubesphere.io/main/redis-exporter-3.4.5.tgz
+https://charts.kubesphere.io/main/tomcat-0.4.3.tgz
+https://charts.kubesphere.io/test/apisix-0.1.7.tgz
+https://charts.kubesphere.io/test/etcd-0.1.3.tgz
+https://charts.kubesphere.io/test/mongodb-0.3.2.tgz
+https://charts.kubesphere.io/test/postgresql-0.4.2.tgz
+https://charts.kubesphere.io/test/rabbitmq-0.3.2.tgz
+https://charts.kubesphere.io/test/redis-0.3.5.tgz
+https://charts.kubesphere.io/test/radondb-mysql-1.0.0.tgz
+https://charts.kubesphere.io/test/radondb-postgresql-1.0.1.tgz
