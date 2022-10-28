@@ -1,0 +1,37 @@
+version: '2.1'
+services:
+  onlyoffice-documentserver:
+    container_name: onlyoffice-documentserver
+    build:
+      context: ../.
+    depends_on:
+      - onlyoffice-mysql
+    environment:
+      - DB_TYPE=${DB_TYPE:-mysql}
+      - DB_HOST=${DB_HOST:-onlyoffice-mysql}
+      - DB_PORT=${DB_PORT:-3306}
+      - DB_NAME=${DB_NAME:-onlyoffice}
+      - DB_USER=${DB_USER:-onlyoffice}
+      - DB_PWD=${DB_PWD:-onlyoffice}
+    stdin_open: true
+    restart: always
+    ports:
+      - '80:80'
+
+  onlyoffice-mysql:
+    container_name: onlyoffice-mysql
+    image: mysql:${MYSQL_VERSION:-5.7}
+    command: --default-authentication-plugin=mysql_native_password
+    environment:
+      - MYSQL_DATABASE=${MYSQL_DATABASE:-onlyoffice}
+      - MYSQL_USER=${MYSQL_USER:-onlyoffice}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD:-onlyoffice}
+      - MYSQL_ALLOW_EMPTY_PASSWORD=${MYSQL_ALLOW_EMPTY_PASSWORD:-yes}
+    restart: always
+    volumes:
+      - mysql_data:/var/lib/mysql
+    expose:
+      - '3306'
+
+volumes:
+  mysql_data:
