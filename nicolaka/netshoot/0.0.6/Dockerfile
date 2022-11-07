@@ -1,4 +1,4 @@
-FROM debian:stable-slim as fetcher
+FROM cr.loongnix.cn/library/debian:buster-slim as fetcher
 COPY build/fetch_binaries.sh /tmp/fetch_binaries.sh
 
 RUN apt-get update && apt-get install -y \
@@ -7,12 +7,9 @@ RUN apt-get update && apt-get install -y \
 
 RUN /tmp/fetch_binaries.sh
 
-FROM alpine:3.15.4
+FROM cr.loongnix.cn/library/alpine:3.11.11
 
 RUN set -ex \
-    && echo "http://nl.alpinelinux.org/alpine/edge/main" >> /etc/apk/repositories \
-    && echo "http://nl.alpinelinux.org/alpine/edge/testing" >> /etc/apk/repositories \
-    && echo "http://nl.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories \
     && apk update \
     && apk upgrade \
     && apk add --no-cache \
@@ -31,7 +28,6 @@ RUN set -ex \
     fping \
     iftop \
     iperf \
-    iperf3 \
     iproute2 \
     ipset \
     iptables \
@@ -55,15 +51,16 @@ RUN set -ex \
     scapy \
     socat \
     speedtest-cli \
-    strace \
     tcpdump \
     tcptraceroute \
-    tshark \
     util-linux \
     vim \
     git \
     zsh \
-    websocat \
+		gcc \
+		python3-dev \
+		linux-headers \
+		musl-dev \
     swaks
 
 # Installing httpie ( https://httpie.io/docs#installation)
@@ -92,7 +89,7 @@ COPY motd motd
 
 # Fix permissions for OpenShift and tshark
 RUN chmod -R g=u /root
-RUN chown root:root /usr/bin/dumpcap
+# RUN chown root:root /usr/bin/dumpcap
 
 # Running ZSH
 CMD ["zsh"]
