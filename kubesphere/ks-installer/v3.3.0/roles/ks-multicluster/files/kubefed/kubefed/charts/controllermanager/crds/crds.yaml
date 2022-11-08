@@ -1,0 +1,926 @@
+
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  creationTimestamp: null
+  name: clusterpropagatedversions.core.kubefed.io
+spec:
+  group: core.kubefed.io
+  names:
+    kind: ClusterPropagatedVersion
+    listKind: ClusterPropagatedVersionList
+    plural: clusterpropagatedversions
+    singular: clusterpropagatedversion
+  scope: Cluster
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: ClusterPropagatedVersion holds version information about the
+          state propagated from KubeFed APIs (configured by FederatedTypeConfig resources)
+          to member clusters. The name of a ClusterPropagatedVersion encodes the kind
+          and name of the resource it stores information for (i.e. <lower-case kind>-<resource
+          name>). If a target resource has a populated metadata.Generation field,
+          the generation will be stored with a prefix of `gen:` as the version for
+          the cluster.  If metadata.Generation is not available, metadata.ResourceVersion
+          will be stored with a prefix of `rv:` as the version for the cluster.
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          status:
+            description: PropagatedVersionStatus defines the observed state of PropagatedVersion
+            properties:
+              clusterVersions:
+                description: The last versions produced in each cluster for this resource.
+                items:
+                  properties:
+                    clusterName:
+                      description: The name of the cluster the version is for.
+                      type: string
+                    version:
+                      description: The last version produced for the resource by a
+                        KubeFed operation.
+                      type: string
+                  required:
+                  - clusterName
+                  - version
+                  type: object
+                type: array
+              overridesVersion:
+                description: The observed version of the overrides for this resource.
+                type: string
+              templateVersion:
+                description: The observed version of the template for this resource.
+                type: string
+            required:
+            - overridesVersion
+            - templateVersion
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  creationTimestamp: null
+  name: federatedservicestatuses.core.kubefed.io
+spec:
+  group: core.kubefed.io
+  names:
+    kind: FederatedServiceStatus
+    listKind: FederatedServiceStatusList
+    plural: federatedservicestatuses
+    singular: federatedservicestatus
+  scope: Namespaced
+  preserveUnknownFields: false
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          clusterStatus:
+            items:
+              description: FederatedServiceClusterStatus is the observed status of
+                the resource for a named cluster
+              properties:
+                clusterName:
+                  type: string
+                status:
+                  description: ServiceStatus represents the current status of a service.
+                  properties:
+                    conditions:
+                      description: Current service state
+                      items:
+                        description: "Condition contains details for one aspect of
+                          the current state of this API Resource. --- This struct
+                          is intended for direct use as an array at the field path
+                          .status.conditions.  For example, type FooStatus struct{
+                          \    // Represents the observations of a foo's current state.
+                          \    // Known .status.conditions.type are: \"Available\",
+                          \"Progressing\", and \"Degraded\"     // +patchMergeKey=type
+                          \    // +patchStrategy=merge     // +listType=map     //
+                          +listMapKey=type     Conditions []metav1.Condition `json:\"conditions,omitempty\"
+                          patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`
+                          \n     // other fields }"
+                        properties:
+                          lastTransitionTime:
+                            description: lastTransitionTime is the last time the condition
+                              transitioned from one status to another. This should
+                              be when the underlying condition changed.  If that is
+                              not known, then using the time when the API field changed
+                              is acceptable.
+                            format: date-time
+                            type: string
+                          message:
+                            description: message is a human readable message indicating
+                              details about the transition. This may be an empty string.
+                            maxLength: 32768
+                            type: string
+                          observedGeneration:
+                            description: observedGeneration represents the .metadata.generation
+                              that the condition was set based upon. For instance,
+                              if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration
+                              is 9, the condition is out of date with respect to the
+                              current state of the instance.
+                            format: int64
+                            minimum: 0
+                            type: integer
+                          reason:
+                            description: reason contains a programmatic identifier
+                              indicating the reason for the condition's last transition.
+                              Producers of specific condition types may define expected
+                              values and meanings for this field, and whether the
+                              values are considered a guaranteed API. The value should
+                              be a CamelCase string. This field may not be empty.
+                            maxLength: 1024
+                            minLength: 1
+                            pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                            type: string
+                          status:
+                            description: status of the condition, one of True, False,
+                              Unknown.
+                            enum:
+                            - "True"
+                            - "False"
+                            - Unknown
+                            type: string
+                          type:
+                            description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                              --- Many .condition.type values are consistent across
+                              resources like Available, but because arbitrary conditions
+                              can be useful (see .node.status.conditions), the ability
+                              to deconflict is important. The regex it matches is
+                              (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+                            maxLength: 316
+                            pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                            type: string
+                        required:
+                        - lastTransitionTime
+                        - message
+                        - reason
+                        - status
+                        - type
+                        type: object
+                      type: array
+                      x-kubernetes-list-map-keys:
+                      - type
+                      x-kubernetes-list-type: map
+                    loadBalancer:
+                      description: LoadBalancer contains the current status of the
+                        load-balancer, if one is present.
+                      properties:
+                        ingress:
+                          description: Ingress is a list containing ingress points
+                            for the load-balancer. Traffic intended for the service
+                            should be sent to these ingress points.
+                          items:
+                            description: 'LoadBalancerIngress represents the status
+                              of a load-balancer ingress point: traffic intended for
+                              the service should be sent to an ingress point.'
+                            properties:
+                              hostname:
+                                description: Hostname is set for load-balancer ingress
+                                  points that are DNS based (typically AWS load-balancers)
+                                type: string
+                              ip:
+                                description: IP is set for load-balancer ingress points
+                                  that are IP based (typically GCE or OpenStack load-balancers)
+                                type: string
+                              ports:
+                                description: Ports is a list of records of service
+                                  ports If used, every port defined in the service
+                                  should have an entry in it
+                                items:
+                                  properties:
+                                    error:
+                                      description: 'Error is to record the problem
+                                        with the service port The format of the error
+                                        shall comply with the following rules: - built-in
+                                        error values shall be specified in this file
+                                        and those shall use   CamelCase names - cloud
+                                        provider specific error values must have names
+                                        that comply with the   format foo.example.com/CamelCase.
+                                        --- The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)'
+                                      maxLength: 316
+                                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                                      type: string
+                                    port:
+                                      description: Port is the port number of the
+                                        service port of which status is recorded here
+                                      format: int32
+                                      type: integer
+                                    protocol:
+                                      default: TCP
+                                      description: 'Protocol is the protocol of the
+                                        service port of which status is recorded here
+                                        The supported values are: "TCP", "UDP", "SCTP"'
+                                      type: string
+                                  required:
+                                  - port
+                                  - protocol
+                                  type: object
+                                type: array
+                                x-kubernetes-list-type: atomic
+                            type: object
+                          type: array
+                      type: object
+                  type: object
+              required:
+              - clusterName
+              - status
+              type: object
+            type: array
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+        type: object
+    served: true
+    storage: true
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  creationTimestamp: null
+  name: federatedtypeconfigs.core.kubefed.io
+spec:
+  group: core.kubefed.io
+  names:
+    kind: FederatedTypeConfig
+    listKind: FederatedTypeConfigList
+    plural: federatedtypeconfigs
+    shortNames:
+    - ftc
+    singular: federatedtypeconfig
+  scope: Namespaced
+  versions:
+  - name: v1beta1
+    schema:
+      openAPIV3Schema:
+        description: "FederatedTypeConfig programs KubeFed to know about a single
+          API type - the \"target type\" - that a user wants to federate. For each
+          target type, there is a corresponding FederatedType that has the following
+          fields: \n - The \"template\" field specifies the basic definition of a
+          federated resource - The \"placement\" field specifies the placement information
+          for the federated   resource - The \"overrides\" field specifies how the
+          target resource should vary across   clusters."
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: FederatedTypeConfigSpec defines the desired state of FederatedTypeConfig.
+            properties:
+              federatedType:
+                description: Configuration for the federated type that defines (via
+                  template, placement and overrides fields) how the target type should
+                  appear in multiple cluster.
+                properties:
+                  group:
+                    description: Group of the resource.
+                    type: string
+                  kind:
+                    description: Camel-cased singular name of the resource (e.g. ConfigMap)
+                    type: string
+                  pluralName:
+                    description: Lower-cased plural name of the resource (e.g. configmaps).  If
+                      not provided, it will be computed by lower-casing the kind and
+                      suffixing an 's'.
+                    type: string
+                  scope:
+                    description: Scope of the resource.
+                    type: string
+                  version:
+                    description: Version of the resource.
+                    type: string
+                required:
+                - kind
+                - pluralName
+                - scope
+                - version
+                type: object
+              propagation:
+                description: Whether or not propagation to member clusters should
+                  be enabled.
+                type: string
+              statusCollection:
+                description: Whether or not Status object should be populated.
+                type: string
+              statusType:
+                description: Configuration for the status type that holds information
+                  about which type holds the status of the federated resource. If
+                  not provided, the group and version will default to those provided
+                  for the federated type api resource.
+                properties:
+                  group:
+                    description: Group of the resource.
+                    type: string
+                  kind:
+                    description: Camel-cased singular name of the resource (e.g. ConfigMap)
+                    type: string
+                  pluralName:
+                    description: Lower-cased plural name of the resource (e.g. configmaps).  If
+                      not provided, it will be computed by lower-casing the kind and
+                      suffixing an 's'.
+                    type: string
+                  scope:
+                    description: Scope of the resource.
+                    type: string
+                  version:
+                    description: Version of the resource.
+                    type: string
+                required:
+                - kind
+                - pluralName
+                - scope
+                - version
+                type: object
+              targetType:
+                description: The configuration of the target type. If not set, the
+                  pluralName and groupName fields will be set from the metadata.name
+                  of this resource. The kind field must be set.
+                properties:
+                  group:
+                    description: Group of the resource.
+                    type: string
+                  kind:
+                    description: Camel-cased singular name of the resource (e.g. ConfigMap)
+                    type: string
+                  pluralName:
+                    description: Lower-cased plural name of the resource (e.g. configmaps).  If
+                      not provided, it will be computed by lower-casing the kind and
+                      suffixing an 's'.
+                    type: string
+                  scope:
+                    description: Scope of the resource.
+                    type: string
+                  version:
+                    description: Version of the resource.
+                    type: string
+                required:
+                - kind
+                - pluralName
+                - scope
+                - version
+                type: object
+            required:
+            - federatedType
+            - propagation
+            - targetType
+            type: object
+          status:
+            description: FederatedTypeConfigStatus defines the observed state of FederatedTypeConfig
+            properties:
+              observedGeneration:
+                description: ObservedGeneration is the generation as observed by the
+                  controller consuming the FederatedTypeConfig.
+                format: int64
+                type: integer
+              propagationController:
+                description: PropagationController tracks the status of the sync controller.
+                type: string
+              statusController:
+                description: StatusController tracks the status of the status controller.
+                type: string
+            required:
+            - observedGeneration
+            - propagationController
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  creationTimestamp: null
+  name: kubefedclusters.core.kubefed.io
+spec:
+  group: core.kubefed.io
+  names:
+    kind: KubeFedCluster
+    listKind: KubeFedClusterList
+    plural: kubefedclusters
+    singular: kubefedcluster
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .metadata.creationTimestamp
+      name: age
+      type: date
+    - jsonPath: .status.conditions[?(@.type=='Ready')].status
+      name: ready
+      type: string
+    name: v1beta1
+    schema:
+      openAPIV3Schema:
+        description: KubeFedCluster configures KubeFed to be aware of a Kubernetes
+          cluster and encapsulates the details necessary to communicate with the cluster.
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: KubeFedClusterSpec defines the desired state of KubeFedCluster
+            properties:
+              apiEndpoint:
+                description: The API endpoint of the member cluster. This can be a
+                  hostname, hostname:port, IP or IP:port.
+                type: string
+              caBundle:
+                description: CABundle contains the certificate authority information.
+                format: byte
+                type: string
+              disabledTLSValidations:
+                description: DisabledTLSValidations defines a list of checks to ignore
+                  when validating the TLS connection to the member cluster.  This
+                  can be any of *, SubjectName, or ValidityPeriod. If * is specified,
+                  it is expected to be the only option in list.
+                items:
+                  type: string
+                type: array
+              proxyURL:
+                description: ProxyURL allows to set proxy URL for the cluster.
+                type: string
+              secretRef:
+                description: Name of the secret containing the token required to access
+                  the member cluster. The secret needs to exist in the same namespace
+                  as the control plane and should have a "token" key.
+                properties:
+                  name:
+                    description: Name of a secret within the enclosing namespace
+                    type: string
+                required:
+                - name
+                type: object
+            required:
+            - apiEndpoint
+            - secretRef
+            type: object
+          status:
+            description: KubeFedClusterStatus contains information about the current
+              status of a cluster updated periodically by cluster controller.
+            properties:
+              conditions:
+                description: Conditions is an array of current cluster conditions.
+                items:
+                  description: ClusterCondition describes current state of a cluster.
+                  properties:
+                    lastProbeTime:
+                      description: Last time the condition was checked.
+                      format: date-time
+                      type: string
+                    lastTransitionTime:
+                      description: Last time the condition transit from one status
+                        to another.
+                      format: date-time
+                      type: string
+                    message:
+                      description: Human readable message indicating details about
+                        last transition.
+                      type: string
+                    reason:
+                      description: (brief) reason for the condition's last transition.
+                      type: string
+                    status:
+                      description: Status of the condition, one of True, False, Unknown.
+                      type: string
+                    type:
+                      description: Type of cluster condition, Ready or Offline.
+                      type: string
+                  required:
+                  - lastProbeTime
+                  - status
+                  - type
+                  type: object
+                type: array
+              region:
+                description: Region is the name of the region in which all of the
+                  nodes in the cluster exist.  e.g. 'us-east1'.
+                type: string
+              zones:
+                description: Zones are the names of availability zones in which the
+                  nodes of the cluster exist, e.g. 'us-east1-a'.
+                items:
+                  type: string
+                type: array
+            required:
+            - conditions
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  creationTimestamp: null
+  name: kubefedconfigs.core.kubefed.io
+spec:
+  group: core.kubefed.io
+  names:
+    kind: KubeFedConfig
+    listKind: KubeFedConfigList
+    plural: kubefedconfigs
+    singular: kubefedconfig
+  scope: Namespaced
+  versions:
+  - name: v1beta1
+    schema:
+      openAPIV3Schema:
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: KubeFedConfigSpec defines the desired state of KubeFedConfig
+            properties:
+              clusterHealthCheck:
+                properties:
+                  failureThreshold:
+                    description: Minimum consecutive failures for the cluster health
+                      to be considered failed after having succeeded.
+                    format: int64
+                    type: integer
+                  period:
+                    description: How often to monitor the cluster health.
+                    type: string
+                  successThreshold:
+                    description: Minimum consecutive successes for the cluster health
+                      to be considered successful after having failed.
+                    format: int64
+                    type: integer
+                  timeout:
+                    description: Duration after which the cluster health check times
+                      out.
+                    type: string
+                type: object
+              controllerDuration:
+                properties:
+                  availableDelay:
+                    description: Time to wait before reconciling on a healthy cluster.
+                    type: string
+                  unavailableDelay:
+                    description: Time to wait before giving up on an unhealthy cluster.
+                    type: string
+                type: object
+              featureGates:
+                items:
+                  properties:
+                    configuration:
+                      type: string
+                    name:
+                      type: string
+                  required:
+                  - configuration
+                  - name
+                  type: object
+                type: array
+              leaderElect:
+                properties:
+                  leaseDuration:
+                    description: The duration that non-leader candidates will wait
+                      after observing a leadership renewal until attempting to acquire
+                      leadership of a led but unrenewed leader slot. This is effectively
+                      the maximum duration that a leader can be stopped before it
+                      is replaced by another candidate. This is only applicable if
+                      leader election is enabled.
+                    type: string
+                  renewDeadline:
+                    description: The interval between attempts by the acting master
+                      to renew a leadership slot before it stops leading. This must
+                      be less than or equal to the lease duration. This is only applicable
+                      if leader election is enabled.
+                    type: string
+                  resourceLock:
+                    description: The type of resource object that is used for locking
+                      during leader election. Supported options are `configmaps` (default)
+                      and `endpoints`.
+                    type: string
+                  retryPeriod:
+                    description: The duration the clients should wait between attempting
+                      acquisition and renewal of a leadership. This is only applicable
+                      if leader election is enabled.
+                    type: string
+                type: object
+              scope:
+                description: The scope of the KubeFed control plane should be either
+                  `Namespaced` or `Cluster`. `Namespaced` indicates that the KubeFed
+                  namespace will be the only target of the control plane.
+                type: string
+              statusController:
+                properties:
+                  maxConcurrentReconciles:
+                    description: The maximum number of concurrent Reconciles of status
+                      controller which can be run. Defaults to 1.
+                    format: int64
+                    type: integer
+                type: object
+              syncController:
+                properties:
+                  adoptResources:
+                    description: Whether to adopt pre-existing resources in member
+                      clusters. Defaults to "Enabled".
+                    type: string
+                  maxConcurrentReconciles:
+                    description: The maximum number of concurrent Reconciles of sync
+                      controller which can be run. Defaults to 1.
+                    format: int64
+                    type: integer
+                type: object
+            required:
+            - scope
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  creationTimestamp: null
+  name: propagatedversions.core.kubefed.io
+spec:
+  group: core.kubefed.io
+  names:
+    kind: PropagatedVersion
+    listKind: PropagatedVersionList
+    plural: propagatedversions
+    singular: propagatedversion
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: PropagatedVersion holds version information about the state propagated
+          from KubeFed APIs (configured by FederatedTypeConfig resources) to member
+          clusters. The name of a PropagatedVersion encodes the kind and name of the
+          resource it stores information for (i.e. <lower-case kind>-<resource name>).
+          If a target resource has a populated metadata.Generation field, the generation
+          will be stored with a prefix of `gen:` as the version for the cluster.  If
+          metadata.Generation is not available, metadata.ResourceVersion will be stored
+          with a prefix of `rv:` as the version for the cluster.
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          status:
+            description: PropagatedVersionStatus defines the observed state of PropagatedVersion
+            properties:
+              clusterVersions:
+                description: The last versions produced in each cluster for this resource.
+                items:
+                  properties:
+                    clusterName:
+                      description: The name of the cluster the version is for.
+                      type: string
+                    version:
+                      description: The last version produced for the resource by a
+                        KubeFed operation.
+                      type: string
+                  required:
+                  - clusterName
+                  - version
+                  type: object
+                type: array
+              overridesVersion:
+                description: The observed version of the overrides for this resource.
+                type: string
+              templateVersion:
+                description: The observed version of the template for this resource.
+                type: string
+            required:
+            - overridesVersion
+            - templateVersion
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  creationTimestamp: null
+  name: replicaschedulingpreferences.scheduling.kubefed.io
+spec:
+  group: scheduling.kubefed.io
+  names:
+    kind: ReplicaSchedulingPreference
+    listKind: ReplicaSchedulingPreferenceList
+    plural: replicaschedulingpreferences
+    shortNames:
+    - rsp
+    singular: replicaschedulingpreference
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: ReplicaSchedulingPreferenceSpec defines the desired state
+              of ReplicaSchedulingPreference
+            properties:
+              clusters:
+                additionalProperties:
+                  description: Preferences regarding number of replicas assigned to
+                    a cluster workload object (dep, rs, ..) within a federated workload
+                    object.
+                  properties:
+                    maxReplicas:
+                      description: Maximum number of replicas that should be assigned
+                        to this cluster workload object. Unbounded if no value provided
+                        (default).
+                      format: int64
+                      type: integer
+                    minReplicas:
+                      description: Minimum number of replicas that should be assigned
+                        to this cluster workload object. 0 by default.
+                      format: int64
+                      type: integer
+                    weight:
+                      description: A number expressing the preference to put an additional
+                        replica to this cluster workload object. 0 by default.
+                      format: int64
+                      type: integer
+                  type: object
+                description: A mapping between cluster names and preferences regarding
+                  a local workload object (dep, rs, .. ) in these clusters. "*" (if
+                  provided) applies to all clusters if an explicit mapping is not
+                  provided. If omitted, clusters without explicit preferences should
+                  not have any replicas scheduled.
+                type: object
+              intersectWithClusterSelector:
+                description: If set to true, the placement of target kind will be
+                  determined using the instersection of RSP placement scheduling result
+                  and the clusterSelector (spec.placement.clusterSelector) specified
+                  on the target kind. If set to false or not defined, RSP placement
+                  scheduling result overwrites the clusters list in the spec.placement.clusters
+                  of the target resource.
+                type: boolean
+              rebalance:
+                description: If set to true then already scheduled and running replicas
+                  may be moved to other clusters in order to match current state to
+                  the specified preferences. Otherwise, if set to false, up and running
+                  replicas will not be moved.
+                type: boolean
+              targetKind:
+                description: TODO (@irfanurrehman); upgrade this to label selector
+                  only if need be. The idea of this API is to have a a set of preferences
+                  which can be used for a target FederatedDeployment or FederatedReplicaset.
+                  Although the set of preferences in question can be applied to multiple
+                  target objects using label selectors, but there are no clear advantages
+                  of doing that as of now. To keep the implementation and usage simple,
+                  matching ns/name of RSP resource to the target resource is sufficient
+                  and only additional information needed in RSP resource is a target
+                  kind (FederatedDeployment or FederatedReplicaset).
+                type: string
+              totalReplicas:
+                description: Total number of pods desired across federated clusters.
+                  Replicas specified in the spec for target deployment template or
+                  replicaset template will be discarded/overridden when scheduling
+                  preferences are specified.
+                format: int32
+                type: integer
+            required:
+            - targetKind
+            - totalReplicas
+            type: object
+          status:
+            description: ReplicaSchedulingPreferenceStatus defines the observed state
+              of ReplicaSchedulingPreference
+            type: object
+        type: object
+    served: true
+    storage: true
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

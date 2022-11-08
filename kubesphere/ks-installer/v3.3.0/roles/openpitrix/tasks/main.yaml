@@ -1,0 +1,53 @@
+---
+
+- name: OpenPitrix | Getting OpenPitrix jobs files
+  copy:
+    src: "openpitrix"
+    dest: "{{ kubesphere_dir }}/"
+
+- name: OpenPitrix | Getting OpenPitrix jobs files
+  template:
+    src: "{{ item.file }}.j2"
+    dest: "{{ kubesphere_dir }}/{{ item.path }}/{{ item.file }}"
+  with_items:
+    - { path: openpitrix, file: ks-openpitrix-import.yaml }
+    - { path: openpitrix, file: builtin-repo.yaml }
+
+- name: OpenPitrix | Check OpenPitrix v3.0.0
+  shell: >
+    {{ bin_dir }}/kubectl get deploy openpitrix-hyperpitrix-deployment -n openpitrix-system 2>1 -oNAME | wc -l
+  register: openpitrix_deploy_count
+
+- name: OpenPitrix | Check openpitrix jobs exists or not
+  shell: >
+    {{ bin_dir }}/kubectl get job openpitrix-import-job -n kubesphere-system 2>1 -oNAME | wc -l
+  register: openpitrix_job_count
+  when:
+    - openpitrix_deploy_count.stdout == "0"
+
+- name: OpenPitrix | Delete previous openpitrix jobs
+  shell: >
+    {{ bin_dir }}/kubectl delete job openpitrix-import-job -n kubesphere-system
+  when:
+    - openpitrix_job_count is defined
+    - openpitrix_job_count.stdout is defined and openpitrix_job_count.stdout == "1"
+    - openpitrix_deploy_count.stdout == "0"
+
+- name: OpenPitrix | Import App
+  shell: >
+    {{ bin_dir }}/kubectl apply -f {{ kubesphere_dir }}/openpitrix/ks-openpitrix-import.yaml
+  when:
+    - openpitrix_deploy_count.stdout == "0"
+
+- name: OpenPitrix | Check whether builtin repo exists
+  shell: >
+    {{ bin_dir }}/kubectl get hrepo builtin-stable -oname
+  register: builtin_repo_output
+  failed_when: false
+
+- name: OpenPitrix | Create builtin repo
+  shell: >
+    {{ bin_dir }}/kubectl apply -f {{ kubesphere_dir }}/openpitrix/builtin-repo.yaml
+  when:
+    - builtin_repo_output.stdout is not defined or builtin_repo_output.stdout == ""
+

@@ -1,0 +1,108 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  labels:
+    app.kubernetes.io/component: exporter
+    app.kubernetes.io/name: node-exporter
+    app.kubernetes.io/part-of: kube-prometheus
+    app.kubernetes.io/version: {{ node_exporter_tag | replace("v", "") }}
+  name: node-exporter
+  namespace: kubesphere-monitoring-system
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: exporter
+      app.kubernetes.io/name: node-exporter
+      app.kubernetes.io/part-of: kube-prometheus
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: exporter
+        app.kubernetes.io/name: node-exporter
+        app.kubernetes.io/part-of: kube-prometheus
+        app.kubernetes.io/version: {{ node_exporter_tag | replace("v", "") }}
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: node-role.kubernetes.io/edge
+                operator: DoesNotExist
+      containers:
+      - args:
+        - --web.listen-address=127.0.0.1:{{ monitoring.node_exporter.port | default("9100") }}
+        - --path.procfs=/host/proc
+        - --path.sysfs=/host/sys
+        - --path.rootfs=/host/root
+        - --no-collector.wifi
+        - --no-collector.hwmon
+        - --collector.filesystem.ignored-mount-points=^/(dev|proc|sys|var/lib/docker/.+)($|/)
+        - --collector.filesystem.ignored-fs-types=^(autofs|binfmt_misc|cgroup|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|mqueue|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|sysfs|tracefs)$
+        image: {{ node_exporter_repo }}:{{ node_exporter_tag }}
+        name: node-exporter
+        resources:
+          limits:
+            cpu: {{ monitoring.node_exporter.resources.limits.cpu | default(monitoring.node_exporter.limits.cpu) | default("1") }}
+            memory: {{ monitoring.node_exporter.resources.limits.memory | default(monitoring.node_exporter.limits.memory) | default("500Mi") }}
+          requests:
+            cpu: {{ monitoring.node_exporter.resources.requests.cpu | default(monitoring.node_exporter.requests.cpu) | default("102m")  }}
+            memory: {{ monitoring.node_exporter.resources.requests.memory | default(monitoring.node_exporter.requests.memory) | default("180Mi")  }}
+        volumeMounts:
+        - mountPath: /host/proc
+          name: proc
+          readOnly: true
+        - mountPath: /host/sys
+          name: sys
+          readOnly: true
+        - mountPath: /host/root
+          mountPropagation: HostToContainer
+          name: root
+          readOnly: true
+      - args:
+        - --logtostderr
+        - --secure-listen-address=[$(IP)]:{{ monitoring.node_exporter.port | default("9100") }}
+        - --tls-cipher-suites=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_RSA_WITH_AES_128_CBC_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256
+        - --upstream=http://127.0.0.1:{{ monitoring.node_exporter.port | default("9100") }}/
+        env:
+        - name: IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        image: {{ kube_rbac_proxy_repo }}:{{ kube_rbac_proxy_tag }}
+        name: kube-rbac-proxy
+        ports:
+        - containerPort: {{ monitoring.node_exporter.port | default("9100") }}
+          hostPort: {{ monitoring.node_exporter.port | default("9100") }}
+          name: https
+        securityContext:
+          runAsGroup: 65532
+          runAsNonRoot: true
+          runAsUser: 65532
+        resources:
+          limits:
+            cpu: {{ monitoring.kube_rbac_proxy.resources.limits.cpu | default(monitoring.kube_rbac_proxy.limits.cpu) | default("1") }}
+            memory: {{ monitoring.kube_rbac_proxy.resources.limits.memory | default(monitoring.kube_rbac_proxy.limits.memory) | default("100Mi") }}
+          requests:
+            cpu: {{ monitoring.kube_rbac_proxy.resources.requests.cpu | default(monitoring.kube_rbac_proxy.requests.cpu) | default("10m") }}
+            memory: {{ monitoring.kube_rbac_proxy.resources.requests.memory | default(monitoring.kube_rbac_proxy.requests.memory) | default("20Mi") }}
+      hostNetwork: true
+      hostPID: true
+      nodeSelector:
+        kubernetes.io/os: linux
+      tolerations:
+      - operator: Exists
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+      serviceAccountName: node-exporter
+      volumes:
+      - hostPath:
+          path: /proc
+        name: proc
+      - hostPath:
+          path: /sys
+        name: sys
+      - hostPath:
+          path: /
+        name: root

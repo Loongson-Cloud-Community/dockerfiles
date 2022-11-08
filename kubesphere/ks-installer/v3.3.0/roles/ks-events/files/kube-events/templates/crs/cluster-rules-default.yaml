@@ -1,0 +1,878 @@
+{{- if .Values.rule.createDefaults }}
+apiVersion: events.kubesphere.io/v1alpha1
+kind: Rule
+metadata:
+  name: {{ template "kube-events.cluster-rules-default.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    kubesphere.io/rule-scope: cluster
+{{ include "kube-events.labels" . | indent 4 }}
+  annotations:
+    "helm.sh/hook": pre-install{{- if .Values.rule.overrideDefaults }},pre-upgrade{{- end }}
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  rules:
+    - name: ContainerCreated
+      condition: |
+        type="Normal" and involvedObject.kind="Pod" and reason="Created" and involvedObject.fieldPath != ""
+      enable: true
+      type: notification
+    - name: ContainerStarted
+      condition: |
+        type="Normal" and involvedObject.kind="Pod" and reason="Started" and involvedObject.fieldPath != ""
+      enable: true
+      type: notification
+    - name: ContainerFailed
+      condition: |
+        type="Warning" and involvedObject.kind="Pod" and reason="Failed" and involvedObject.fieldPath != ""
+      labels:
+        severity: warning
+      annotations:
+        message: '%message'
+        summary: Container failed
+        summaryCn: 容器失败
+      enable: true
+      type: alert
+    - name: ContainerKilling
+      condition: |
+        type="Normal" and involvedObject.kind="Pod" and reason="Killing" and involvedObject.fieldPath != ""
+      enable: true
+      type: notification
+    - name: ContainerPreempting
+      condition: |
+        type="Warning" and involvedObject.kind="Pod" and reason="Preempting"
+      labels:
+        severity: warning
+      annotations:
+        message: '%message'
+        summary: Container is preemting
+        summaryCn: 容器抢占中
+      enable: true
+      type: alert
+    - name: ContainerBackoff
+      condition: |
+        type="Warning" and involvedObject.kind="Pod" and reason="BackOff" and involvedObject.fieldPath != "" and count>3
+      labels:
+        severity: warning
+      annotations:
+        message: '%message'
+        summary: Container back-off
+        summaryCn: 容器回退
+      enable: true
+      type: alert
+    - name: ContainerUnhealthy
+      condition: |
+        type="Warning" and involvedObject.kind="Pod" and reason="Unhealthy" and count>3
+      labels:
+        severity: warning
+      annotations:
+        message: '%message'
+        summary: Container is unhealthy
+        summaryCn: 容器状态不良
+      enable: true
+      type: alert
+    - name: ContainerProbeWarning
+      condition: |
+        type="Warning" and involvedObject.kind="Pod" and reason="ProbeWarning" and count>3
+      labels:
+        severity: warning
+      annotations:
+        message: '%message'
+        summary: Warning to perform a probe to the container
+        summaryCn: 容器探测警告
+      enable: true
+      type: alert
+    - name: PodKillingExceededGracePeriod
+      condition: |
+        type="Warning" and involvedObject.kind="Pod" and reason="ExceededGracePeriod"
+      labels:
+        severity: warning
+      annotations:
+        message: '%message'
+        summary: Pod killing exceeded specified grace period
+        summaryCn: pod终止超时
+      enable: true
+      type: alert
+    - name: PodKillFailed
+      condition: |
+        type="Warning" and reason="FailedKillPod"
+      labels:
+        severity: warning
+      annotations:
+        message: '%message'
+        summary: Failed to kill pod
+        summaryCn: pod终止失败
+      enable: true
+      type: alert
+    - name: PodContainerCreateFailed
+      condition: |
+        type="Warning" and reason="FailedCreatePodContainer"
+      labels:
+        severity: warning
+      annotations:
+        message: '%message'
+        summary: Failed to create pod container
+        summaryCn: pod容器创建失败
+      enable: true
+      type: alert
+    - name: PodFailed
+      condition: |
+        type="Warning" and involvedObject.kind="Pod" and reason="Failed" and involvedObject.fieldPath=""
+      labels:
+        severity: warning
+      annotations:
+        message: '%message'
+        summary: Pod failed
+        summaryCn: pod失败
+      enable: true
+      type: alert
+    - name: PodNetworkNotReady
+      condition: |
+        type="Warning" and involvedObject.kind="Pod" and reason="NetworkNotReady"
+      labels:
+        severity: warning
+      annotations:
+        message: '%message'
+        summary: Pod network is not ready
+        summaryCn: Pod网络异常
+      enable: true
+      type: alert
+    - name: ImagePulling
+      condition: |
+        type="Normal" and involvedObject.kind="Pod" and reason="Pulling"
+      enable: true
+      type: notification
+    - name: ImagePulled
+      condition: |
+        type="Normal" and involvedObject.kind="Pod" and reason="Pulled"
+      enable: true
+      type: notification
+    - name: ImagePullPolicyError
+      condition: |
+        type="Warning" and involvedObject.kind="Pod" and reason="ErrImageNeverPull"
+      labels:
+        severity: warning
+      annotations:
+        message: '%message'
+        summary: Wrong image pull policy
+        summaryCn: 镜像拉取策略错误
+      enable: true
+      type: alert
+    - name: ImageInspectFailed
+      condition: |
+        type="Warning" and involvedObject.kind="Pod" and reason="InspectFailed"
+      labels:
+        severity: warning
+      annotations:
+        message: '%message'
+        summary: Failed to inspect image
+        summaryCn: 镜像检查失败
+      enable: true
+      type: alert
+    - name: NodeReady
+      condition: |
+        type="Normal" and involvedObject.kind="Node" and reason="NodeReady"
+      enable: true
+      type: notification
+    - name: NodeNotReady
+      condition: |
+        type="Normal" and involvedObject.kind="Node" and reason="NodeNotReady"
+      enable: true
+      type: notification
+    - name: NodeSchedulable
+      condition: |
+        type="Normal" and involvedObject.kind="Node" and reason="NodeSchedulable"
+      enable: true
+      type: notification
+    - name: NodeNotSchedulable
+      condition: |
+        type="Normal" and involvedObject.kind="Node" and reason="NodeNotSchedulable"
+      enable: true
+      type: notification
+    - name: KubeletStarting
+      condition: |
+        type="Normal" and involvedObject.kind="Node" and reason="Starting"
+      enable: true
+      type: notification
+    - name: KubeletSetupFailed
+      condition: |
+        type="Warning" and involvedObject.kind="Node" and reason="KubeletSetupFailed"
+      labels:
+        severity: warning
+      annotations:
+        message: '%message'
+        summary: Failed to setup kubelet
+        summaryCn: kubelet安装失败
+      enable: true
+      type: alert
+    - name: VolumeAttachFailed
+      condition: |
+        type="Warning" and reason="FailedAttachVolume"
+      labels:
+        severity: warning
+      annotations:
+        message: '%message'
+        summary: Failed to attach volume
+        summaryCn: 存储卷装载失败
+      enable: true
+      type: alert
+    - name: VolumeMountFailed
+      condition: |
+        type="Warning" and reason="FailedMount"
+      labels:
+        severity: warning
+      annotations:
+        message: '%message'
+        summary: Failed to mount volume
+        summaryCn: 存储卷挂载失败
+      enable: true
+      type: alert
+    - name: VolumeResizeFailed
+      condition: |
+        type="Warning" and reason="VolumeResizeFailed"
+      labels:
+        severity: warning
+      annotations:
+        message: '%message'
+        summary: Failed to expand/reduce volume
+        summaryCn: 存储卷扩缩容失败
+      enable: true
+      type: alert
+    - name: VolumeResizeSuccess
+      condition: |
+        type="Normal" and reason="VolumeResizeSuccessful"
+      enable: true
+      type: notification
+    - name: FileSystemResizeFailed
+      condition: |
+        type="Warning" and reason="FileSystemResizeFailed"
+      labels:
+        severity: warning
+      annotations:
+        message: '%message'
+        summary: Failed to expand/reduce file system
+        summaryCn: 文件系统扩缩容失败
+      enable: true
+      type: alert
+    - name: FileSystemResized
+      condition: |
+        type="Normal" and reason="FileSystemResizeSuccessful"
+      enable: true
+      type: notification
+    - name: VolumeMapFailed
+      condition: |
+        type="Warning" and reason="FailedMapVolume"
+      labels:
+        severity: warning
+      annotations:
+        message: '%message'
+        summary: Failed to map volume
+        summaryCn: 存储卷映射失败
+      enable: true
+      type: alert
+    - name: VolumeAlreadyMounted
+      condition: |
+        type="Warning" and reason="AlreadyMountedVolume"
+      labels:
+        severity: warning
+      annotations:
+        message: '%message'
+        summary: Volume is already mounted
+        summaryCn: 存储卷已被挂载
+      enable: true
+      type: alert
+    - name: VolumeAttached
+      condition: |
+        type="Normal" and reason="SuccessfulAttachVolume"
+      enable: true
+      type: notification
+    - name: VolumeMounted
+      condition: |
+        type="Normal" and reason="SuccessfulMountVolume"
+      enable: true
+      type: notification
+    - name: NodeRebooted
+      condition: |
+        type="Warning" and involvedObject.kind="Node" and reason="Rebooted"
+      labels:
+        severity: warning
+      annotations:
+        message: '%message'
+        summary: Node Rebooted
+        summaryCn: 节点重启
+      enable: true
+      type: alert
+    - name: ContainerGCFailed
+      condition: |
+        type="Warning" and reason="ContainerGCFailed"
+      labels:
+        severity: warning
+      annotations:
+        message: '%message'
+        summary: Container GC failed
+        summaryCn: 容器GC失败
+      enable: true
+      type: alert
+    - name: ImageGCFailed
+      condition: |
+        type="Warning" and reason="ImageGCFailed"
+      labels:
+        severity: warning
+      annotations:
+        message: '%message'
+        summary: Image GC failed
+        summaryCn: 镜像GC失败
+      enable: true
+      type: alert
+    - name: NodeAllocatableEnforcementFailed
+      condition: |
+        type="Warning" and reason="FailedNodeAllocatableEnforcement"
+      labels:
+        severity: warning
+      annotations:
+        message: '%message'
+        summary: Node allocatable enforcement failed
+        summaryCn: 节点可分配资源更新失败
+      enable: true
+      type: alert
+    - name: NodeAllocatableEnforcedSuccess
+      condition: |
+        type="Normal" and involvedObject.kind="Node" and reason="NodeAllocatableEnforced"
+      enable: true
+      type: notification
+    - name: SandboxChanged
+      condition: |
+        type="Normal" and reason="SandboxChanged"
+      enable: true
+      type: notification
+    - name: SandboxCreateFailed
+      condition: |
+        type="Warning" and reason="FailedCreatePodSandBox"
+      labels:
+        severity: warning
+      annotations:
+        message: '%message'
+        summary: Failed to create sandbox
+        summaryCn: Sandbox创建失败
+      enable: true
+      type: alert
+    - name: SandboxStatusFailed
+      condition: |
+        type="Warning" and reason="FailedPodSandBoxStatus"
+      labels:
+        severity: warning
+      annotations:
+        message: '%message'
+        summary: Failed to get sandbox status
+        summaryCn: 获取Sandbox状态错误
+      enable: true
+      type: alert
+    - name: DiskCapacityInvalid
+      condition: |
+        type="Warning" and reason="InvalidDiskCapacity"
+      labels:
+        severity: warning
+      annotations:
+        message: '%message'
+        summary: Invalid disk capacity
+        summaryCn: 磁盘容量配置不合法
+      enable: true
+      type: alert
+    - name: DiskSpaceFreeFailed
+      condition: |
+        type="Warning" and reason="FreeDiskSpaceFailed"
+      labels:
+        severity: warning
+      annotations:
+        message: '%message'
+        summary: Failed to free disk space
+        summaryCn: 磁盘空间释放失败
+      enable: true
+      type: alert
+    - name: PodStatusSyncFailed
+      condition: |
+        type="Warning" and involvedObject.kind="Pod" and reason="FailedSync"
+      labels:
+        severity: warning
+      annotations:
+        message: '%message'
+        summary: Failed To Sync Pod Status
+        summaryCn: Pod状态同步失败
+      enable: true
+      type: alert
+    - name: ConfigurationValidationFailed
+      condition: |
+        type="Warning" and involvedObject.kind="Pod" and reason="FailedValidation"
+      labels:
+        severity: warning
+      annotations:
+        message: '%message'
+        summary: Configuration Validation Failed
+        summaryCn: 配置验证失败
+      enable: true
+      type: alert
+    - name: LifecycleHookPostStartFailed
+      condition: |
+        type="Warning" and reason="FailedPostStartHook"
+      labels:
+        severity: warning
+      annotations:
+        message: '%message'
+        summary: Failed to postStart LifecycleHook
+        summaryCn: 容器启动后的生命周期钩子运行失败
+      enable: true
+      type: alert
+    - name: LifecycleHookPreStopFailed
+      condition: |
+        type="Warning" and reason="FailedPreStopHook"
+      labels:
+        severity: warning
+      annotations:
+        message: '%message'
+        summary: Failed to preStop LifecycleHook
+        summaryCn: 容器停止前的生命周期钩子运行失败
+      enable: true
+      type: alert
+    - name: HPASelectorError
+      condition: |
+        type="Warning" and involvedObject.kind="HorizontalPodAutoscaler" and reason in ("SelectorRequired","InvalidSelector")
+      labels:
+        severity: warning
+      annotations:
+        message: '%message'
+        summary: HPA selector error
+        summaryCn: HPA选择器错误
+      enable: true
+      type: alert
+    - name: HPAMetricError
+      condition: |
+        type="Warning" and involvedObject.kind="HorizontalPodAutoscaler" and reason in ("FailedGetObjectMetric","InvalidMetricSourceType")
+      labels:
+        severity: warning
+      annotations:
+        message: '%message'
+        summary: HPA metric error
+        summaryCn: HPA对象指标错误
+      enable: true
+      type: alert
+    - name: HPAConvertFailed
+      condition: |
+        type="Warning" and involvedObject.kind="HorizontalPodAutoscaler" and reason="FailedConvertHPA"
+      labels:
+        severity: warning
+      annotations:
+        message: '%message'
+        summary: Failed to convert HPA
+        summaryCn: HPA转换失败
+      enable: true
+      type: alert
+    - name: HPAGetScaleFailed
+      condition: |
+        type="Warning" and involvedObject.kind="HorizontalPodAutoscaler" and reason="FailedGetScale"
+      labels:
+        severity: warning
+      annotations:
+        message: '%message'
+        summary: Failed to get HPA scale
+        summaryCn: HPA规模获取失败
+      enable: true
+      type: alert
+    - name: HPAComputeReplicasFailed
+      condition: |
+        type="Warning" and involvedObject.kind="HorizontalPodAutoscaler" and reason="FailedComputeMetricsReplicas"
+      labels:
+        severity: warning
+      annotations:
+        message: '%message'
+        summary: Failed to compute HPA replicas
+        summaryCn: HPA副本计算失败
+      enable: true
+      type: alert
+    - name: HPARescaleFailed
+      condition: |
+        type="Warning" and involvedObject.kind="HorizontalPodAutoscaler" and reason="FailedRescale"
+      labels:
+        severity: warning
+      annotations:
+        message: '%message'
+        summary: Failed to rescale HPA size
+        summaryCn: HPA规模调整失败
+      enable: true
+      type: alert
+    - name: HPARescaleSuccess
+      condition: |
+        type="Normal" and involvedObject.kind="HorizontalPodAutoscaler" and reason="SuccessfulRescale"
+      enable: true
+      type: notification
+    - name: NodeSystemOOM
+      condition: |
+        type="Warning" and involvedObject.kind="Node" and reason="SystemOOM"
+      labels:
+        severity: warning
+      annotations:
+        message: '%message'
+        summary: Node system OOM encountered
+        summaryCn: 节点内存溢出
+      enable: true
+      type: alert
+    - name: VolumeBindingFailed
+      condition: |
+        type="Warning" and reason="FailedBinding"
+      labels:
+        severity: warning
+      annotations:
+        message: '%message'
+        summary: Volume binding failed
+        summaryCn: 存储卷绑定失败
+      enable: true
+      type: alert
+    - name: VolumeMismatch
+      condition: |
+        type="Warning" and reason="VolumeMismatch"
+      labels:
+        severity: warning
+      annotations:
+        message: '%message'
+        summary: Volume Mismatch
+        summaryCn: 存储卷不匹配
+      enable: true
+      type: alert
+    - name: VolumeRecycleFailed
+      condition: |
+        type="Warning" and reason="VolumeFailedRecycle"
+      labels:
+        severity: warning
+      annotations:
+        message: '%message'
+        summary: Failed to recycle volume
+        summaryCn: 存储卷回收失败
+      enable: true
+      type: alert
+    - name: VolumeRecycled
+      condition: |
+        type="Normal" and reason="VolumeRecycled"
+      enable: true
+      type: notification
+    - name: VolumeRecyclerPodError
+      condition: |
+        type="Warning" and reason="RecyclerPod"
+      labels:
+        severity: warning
+      annotations:
+        message: '%message'
+        summary: Volume Recycler pod error
+        summaryCn: 存储卷回收器错误
+      enable: true
+      type: alert
+    - name: VolumeDeleted
+      condition: |
+        type="Normal" and reason="VolumeDelete"
+      enable: true
+      type: notification
+    - name: VolumeDeleteFailed
+      condition: |
+        type="Warning" and reason="VolumeFailedDelete"
+      labels:
+        severity: warning
+      annotations:
+        message: '%message'
+        summary: Failed to delete volume
+        summaryCn: 存储卷删除失败
+      enable: true
+      type: alert
+    - name: VolumeProvisionFailed
+      condition: |
+        type="Warning" and reason="ProvisioningFailed"
+      labels:
+        severity: warning
+      annotations:
+        message: '%message'
+        summary: Failed to provision volume
+        summaryCn: 存储申请失败
+      enable: true
+      type: alert
+    - name: VolumeProvisioned
+      condition: |
+        type="Normal" and reason="ProvisioningSucceeded"
+      enable: true
+      type: notification
+    - name: VolumeProvisionCleanupFailed
+      condition: |
+        type="Warning" and reason="ProvisioningCleanupFailed"
+      labels:
+        severity: warning
+      annotations:
+        message: '%message'
+        summary: Failed to clean up provision volume
+        summaryCn: 清理存储失败
+      enable: true
+      type: alert
+    - name: VolumeExternalExpandingError
+      condition: |
+        type="Warning" and reason="ExternalExpanding"
+      labels:
+        severity: warning
+      annotations:
+        message: '%message'
+        summary: Error for volume external expanding
+        summaryCn: 存储外部扩展错误
+      enable: true
+      type: alert
+    - name: PodScheduleFailed
+      condition: |
+        type="Warning" and involvedObject.kind="Pod" and reason="FailedScheduling"
+      labels:
+        severity: warning
+      annotations:
+        message: '%message'
+        summary: Failed to schedule pod
+        summaryCn: pod调度失败
+      enable: true
+      type: alert
+    - name: PodSchedulePreempted
+      condition: |
+        type="Normal" and involvedObject.kind="Pod" and reason="Preempted"
+      enable: true
+      type: notification
+    - name: PodScheduled
+      condition: |
+        type="Normal" and involvedObject.kind="Pod" and reason="Scheduled"
+      enable: true
+      type: notification
+    - name: PodCreateFailed
+      condition: |
+        type="Warning" and involvedObject.kind in ("Pod","ReplicaSet","DaemonSet","StatefulSet","Job") and reason="FailedCreate"
+      labels:
+        severity: warning
+      annotations:
+        message: '%message'
+        summary: Failed to create pod
+        summaryCn: pod创建失败
+      enable: true
+      type: alert
+    - name: PodCreated
+      condition: |
+        type="Normal" and involvedObject.kind in ("Pod","ReplicaSet","DaemonSet","StatefulSet","Job") and reason="SuccessfulCreate"
+      enable: true
+      type: notification
+    - name: PodDeleteFailed
+      condition: |
+        type="Warning" and involvedObject.kind in ("Pod","ReplicaSet","DaemonSet","StatefulSet","Job") and reason="FailedDelete"
+      labels:
+        severity: warning
+      annotations:
+        message: '%message'
+        summary: Failed to delete pod
+        summaryCn: pod删除失败
+      enable: true
+      type: alert
+    - name: PodDeleted
+      condition: |
+        type="Normal" and involvedObject.kind in ("Pod","ReplicaSet","DaemonSet","StatefulSet","Job") and reason="SuccessfulDelete"
+      enable: true
+      type: notification
+    - name: ReplicaSetCreateError
+      condition: |
+        type="Warning" and reason="ReplicaSetCreateError"
+      labels:
+        severity: warning
+      annotations:
+        message: '%message'
+        summary: Error to create replica set for deployment
+        summaryCn: 副本集创建错误
+      enable: true
+      type: alert
+    - name: DeploymentRollbackFailed
+      condition: |
+        type="Warning" and reason in("DeploymentRollbackRevisionNotFound","DeploymentRollbackTemplateUnchanged")
+      labels:
+        severity: warning
+      annotations:
+        message: '%message'
+        summary: Failed to rollback deployment
+        summaryCn: 部署回滚失败
+      enable: true
+      type: alert
+    - name: DeploySelectorAll
+      condition: |
+        type="Warning" and involvedObject.kind="Deployment" and reason="SelectingAll"
+      labels:
+        severity: warning
+      annotations:
+        message: '%message'
+        summary: The deploy is selecting all pods
+        summaryCn: deploy选择了所有pod
+      enable: true
+      type: alert
+    - name: DaemonSelectorAll
+      condition: |
+        type="Warning" and involvedObject.kind="DaemonSet" and reason="SelectingAll"
+      labels:
+        severity: warning
+      annotations:
+        message: '%message'
+        summary: The daemon set is selecting all pods
+        summaryCn: daemonset选择了所有pod
+      enable: true
+      type: alert
+    - name: DaemonPodFailed
+      condition: |
+        type="Warning" and involvedObject.kind="DaemonSet" and reason in ("FailedDaemonPod","FailedPlacement")
+      labels:
+        severity: warning
+      annotations:
+        message: '%message'
+        summary: Failed daemon pod
+        summaryCn: daemonset的pod失败
+      enable: true
+      type: alert
+    - name: LoadBalancerSyncFailed
+      condition: |
+        type="Warning" and reason="SyncLoadBalancerFailed"
+      labels:
+        severity: warning
+      annotations:
+        message: '%message'
+        summary: Error syncing load balancer
+        summaryCn: 负载据衡器不可用
+      enable: true
+      type: alert
+    - name: LoadBalancerDeleting
+      condition: |
+        type="Normal" and reason="DeletingLoadBalancer"
+      enable: true
+      type: notification
+    - name: LoadBalancerEnsuring
+      condition: |
+        type="Normal" and reason="EnsuringLoadBalancer"
+      enable: true
+      type: notification
+    - name: LoadBalancerEnsured
+      condition: |
+        type="Normal" and reason="EnsuredLoadBalancer"
+      enable: true
+      type: notification
+    - name: LoadBalancerUnAvailable
+      condition: |
+        type="Warning" and reason="UnAvailableLoadBalancer"
+      labels:
+        severity: warning
+      annotations:
+        message: '%message'
+        summary: Load balancer is not available
+        summaryCn: 负载据衡器不可用
+      enable: true
+      type: alert
+    - name: LoadBalancerUpdated
+      condition: |
+        type="Normal" and reason="UpdatedLoadBalancer"
+      enable: true
+      type: notification
+    - name: LoadBalancerUpdateFailed
+      condition: |
+        type="Warning" and reason="UpdateLoadBalancerFailed"
+      labels:
+        severity: warning
+      annotations:
+        message: '%message'
+        summary: Failed to update load balancer
+        summaryCn: 更新负载据衡器失败
+      enable: true
+      type: alert
+    - name: LoadBalancerDeleting
+      condition: |
+        type="Normal" and reason="DeletingLoadBalancer"
+      enable: true
+      type: notification
+    - name: LoadBalancerDeleted
+      condition: |
+        type="Normal" and reason="DeletedLoadBalancer"
+      enable: true
+      type: notification
+    - name: LoadBalancerDeleteFailed
+      condition: |
+        type="Warning" and reason="DeleteLoadBalancerFailed"
+      labels:
+        severity: warning
+      annotations:
+        message: '%message'
+        summary: Failed to delete load balancer
+        summaryCn: 负载据衡器删除失败
+      enable: true
+      type: alert
+    - name: JobGetFailed
+      condition: |
+        type="Warning" and involvedObject.kind="CronJob" and reason="FailedGet"
+      labels:
+        severity: warning
+      annotations:
+        message: '%message'
+        summary: Failed to get job
+        summaryCn: 任务获取失败
+      enable: true
+      type: alert
+    - name: JobCreated
+      condition: |
+        type="Normal" and involvedObject.kind="CronJob" and reason="SuccessfulCreate"
+      enable: true
+      type: notification
+    - name: JobCreateFailed
+      condition: |
+        type="Warning" and involvedObject.kind="CronJob" and reason="FailedCreate"
+      labels:
+        severity: warning
+      annotations:
+        message: '%message'
+        summary: Failed to create job
+        summaryCn: 任务创建失败
+      enable: true
+      type: alert
+    - name: JobDeleted
+      condition: |
+        type="Normal" and involvedObject.kind="CronJob" and reason="SuccessfulDelete"
+      enable: true
+      type: notification
+    - name: JobDeleteFailed
+      condition: |
+        type="Warning" and involvedObject.kind="CronJob" and reason="FailedDelete"
+      labels:
+        severity: warning
+      annotations:
+        message: '%message'
+        summary: Failed to delete job
+        summaryCn: 任务删除失败
+      enable: true
+      type: alert
+    - name: JobCompleted
+      condition: |
+        type="Normal" and involvedObject.kind="CronJob" and reason="SawCompletedJob"
+      enable: true
+      type: notification
+    - name: JobUnexpected
+      condition: |
+        type="Warning" and involvedObject.kind="CronJob" and reason="UnexpectedJob"
+      labels:
+        severity: warning
+      annotations:
+        message: '%message'
+        summary: CronJob saw unexpected job
+        summaryCn: 任务非预期
+      enable: true
+      type: alert
+    - name: JobMissing
+      condition: |
+        type="Normal" and involvedObject.kind="CronJob" and reason="MissingJob"
+      enable: true
+      type: notification
+    - name: JobScheduleFailed
+      condition: |
+        type="Warning" and involvedObject.kind="CronJob" and reason in ("MissSchedule","FailedNeedsStart")
+      labels:
+        severity: warning
+      annotations:
+        message: '%message'
+        summary: CronJob failed to schedule job
+        summaryCn: 任务调度失败
+      enable: true
+      type: alert
+{{- end }}

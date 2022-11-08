@@ -1,0 +1,43 @@
+apiVersion: jaegertracing.io/v1
+kind: Jaeger
+metadata:
+  name: jaeger
+  namespace: istio-system
+spec:
+  ingress:
+    enabled: false
+  agent:
+    image: {{ jaeger_agent_repo }}:{{ jaeger_agent_tag }}
+  collector:
+    image: {{ jaeger_collector_repo }}:{{ jaeger_collector_tag }}
+    maxReplicas: 5
+    resources:
+      limits:
+        cpu: {{ servicemesh.jaeger.resources.limits.cpu | default("100m") }}
+        memory: {{ servicemesh.jaeger.resources.limits.memory | default("128Mi") }}
+      requests:
+        cpu: {{ servicemesh.jaeger.resources.requests.cpu | default("20m") }}
+        memory: {{ servicemesh.jaeger.resources.requests.memory | default("50Mi") }}
+  query:
+    image: {{ jaeger_query_repo }}:{{ jaeger_query_tag }}
+  storage:
+    dependencies:
+      enabled: false
+    esIndexCleaner:
+      enabled: true
+      image: {{ jaeger_es_cleaner_repo }}:{{ jaeger_es_cleaner_tag }}
+    options:
+      es:
+        index-prefix: {{ common.es.elkPrefix }}
+{% if common.es.externalElasticsearchHost is defined and common.es.externalElasticsearchPort is defined and common.es.externalElasticsearchHost != "" and common.es.externalElasticsearchPort != "" %}
+        server-urls: http://{{ common.es.externalElasticsearchHost }}:{{ common.es.externalElasticsearchPort }}
+{% else %}
+        server-urls: http://elasticsearch-logging-data.kubesphere-logging-system.svc:9200
+{% endif %}
+{% if common.es.basicAuth is defined and common.es.basicAuth.enabled is defined and common.es.basicAuth.enabled is true and common.es.basicAuth.username is defined and common.es.basicAuth.password is defined and common.es.basicAuth.username != "" and common.es.basicAuth.password != "" %}
+    secretName: jaeger-secret
+{% endif %}
+    type: elasticsearch
+  strategy: production
+
+---

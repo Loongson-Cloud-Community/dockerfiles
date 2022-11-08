@@ -1,0 +1,121 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql
+  namespace: kubesphere-system
+  labels:
+    app: kubesphere
+    tier: db
+spec:
+  selector:
+    app: kubesphere
+    tier: db
+  ports:
+  - name: tcp
+    protocol: TCP
+    port: 3306
+    targetPort: 3306
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mysql-pvc
+  namespace: kubesphere-system
+  labels:
+    app: kubesphere
+    tier: db
+spec:
+  accessModes:
+    - ReadWriteOnce
+{% if persistence.storageClass is defined and persistence.storageClass != "" %}
+  storageClassName: {{ persistence.storageClass }}
+{% endif %}
+  resources:
+    requests:
+      storage: {% if mysql_db_pv_size is defined %}{{ mysql_db_pv_size }}{% else %}{{ common.mysqlVolumeSize }}{% endif %}
+
+{% if db_pv_name is defined and db_pv_name != None %}
+  volumeName: {{ db_pv_name }}
+{% endif %}
+
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql
+  namespace: kubesphere-system
+  labels:
+    app: kubesphere
+    tier: db
+spec:
+  selector:
+    matchLabels:
+      app: kubesphere
+      tier: db
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: kubesphere
+        tier: db
+    spec:
+      initContainers:
+      - name: remove-lost-found
+        command:
+        - rm
+        - -fr
+        - /var/lib/mysql/lost+found
+        image: {{ alpine_repo }}:{{ alpine_tag }}
+        imagePullPolicy: IfNotPresent
+        resources:
+          requests:
+            cpu: 10m
+            memory: 10Mi
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /var/lib/mysql
+          name: db-persistent-storage
+      containers:
+      - name: mysql
+        image: {{ mysql_repo }}:{{ mysql_tag }}
+        imagePullPolicy: IfNotPresent
+        lifecycle:
+          postStart:
+            exec:
+              command: ["sh", "-c", "rm -rf /var/lib/mysql/lost+found"]
+        args:
+          - --default-authentication-plugin=mysql_native_password
+          - --expire_logs_days=3
+          - --binlog-expire-logs-seconds=604800
+          - --max-binlog-size=1073741824
+          - --max_allowed_packet=104857600
+{% if is_allinone is not defined %}
+          - --max_connections=2000
+{% endif %}
+        env:
+          # $ kubectl create secret generic mysql-pass --from-file=password.txt
+          # make sure password.txt does not have a trailing newline
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: password.txt
+              name: mysql-pass
+        - name: MYSQL_DATABASE
+          value: kubesphere
+        - name: MYSQL_ROOT_HOST
+          value: "%"
+        ports:
+        - containerPort: 3306
+          name: mysql
+        volumeMounts:
+        - name: db-persistent-storage
+          mountPath: /var/lib/mysql
+      volumes:
+      - name: db-persistent-storage
+        persistentVolumeClaim:
+          claimName: mysql-pvc

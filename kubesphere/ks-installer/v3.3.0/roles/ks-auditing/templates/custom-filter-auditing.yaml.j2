@@ -1,0 +1,28 @@
+apiVersion: logging.kubesphere.io/v1alpha2
+kind: Filter
+metadata:
+  labels:
+    logging.kubesphere.io/enabled: 'true'
+    logging.kubesphere.io/component: "auditing"
+  name: filter-auditing
+  namespace: kubesphere-logging-system
+spec:
+  filters:
+    - parser:
+{% if (logging_container_runtime== 'containerd') or (logging_container_runtime== 'crio') %}
+        keyName: message
+{% else %}
+        keyName: log
+{% endif %}
+        parser: json
+    - modify:
+        conditions:
+          - keyDoesNotExist:
+              AuditID: ''
+        rules:
+          - add:
+              ignore: 'true'
+    - grep:
+        exclude: ignore true
+  match: kube_auditing
+

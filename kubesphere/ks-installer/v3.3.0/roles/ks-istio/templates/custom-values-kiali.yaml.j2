@@ -1,0 +1,13 @@
+nameOverride: "istio-system"
+fullnameOverride: "kiali-operator"
+
+image:
+  repo:  {{ kiali_operator_repo }}
+  tag: {{ kiali_operator_tag }}
+  pullPolicy: IfNotPresent
+  pullSecrets: []
+
+# Defines where the operator will look for Kial CR resources. "" means "all namespaces".
+watchNamespace: "istio-system"
+
+allowAdHocKialiImage: true

@@ -1,0 +1,24 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+    app.kubernetes.io/component: alert-router
+    app.kubernetes.io/instance: main
+    app.kubernetes.io/name: alertmanager
+    app.kubernetes.io/part-of: kube-prometheus
+    app.kubernetes.io/vendor: kubesphere
+    app.kubernetes.io/version: 0.23.0
+  name: alertmanager-main
+  namespace: kubesphere-monitoring-system
+spec:
+  endpoints:
+  - interval: 1m
+    port: web
+  - interval: 1m
+    port: reloader-web
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: alert-router
+      app.kubernetes.io/instance: main
+      app.kubernetes.io/name: alertmanager
+      app.kubernetes.io/part-of: kube-prometheus

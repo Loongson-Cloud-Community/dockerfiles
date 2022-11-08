@@ -1,0 +1,11 @@
+---
+- name: Monitoring | Installing Prometheus
+  shell: "{{ bin_dir }}/kubectl apply -f {{ kubesphere_dir }}/prometheus/{{ item }}"
+  loop:
+    - "prometheus"
+    - "prometheus"
+  register: prom_result
+  failed_when: "prom_result.stderr and 'Warning' not in prom_result.stderr and 'spec.clusterIP' not in prom_result.stderr"
+  until: prom_result is succeeded
+  retries: 5
+  delay: 3

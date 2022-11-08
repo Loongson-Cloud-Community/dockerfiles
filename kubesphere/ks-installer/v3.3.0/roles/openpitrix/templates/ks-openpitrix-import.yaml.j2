@@ -1,0 +1,40 @@
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  labels:
+    app: openpitrix
+    component: openpitrix-import-job
+    version: v3.2.0
+  name: openpitrix-import-job
+  namespace: kubesphere-system
+spec:
+  backoffLimit: 100
+  template:
+    metadata:
+      labels:
+        app: openpitrix
+        component: openpitrix-import-job
+        version: v3.2.0
+    spec:
+      serviceAccountName: kubesphere
+      restartPolicy: OnFailure
+      initContainers:
+        - name: wait-apiserver
+          image: {{ openpitrix_job_repo }}:{{ openpitrix_job_tag }}
+          imagePullPolicy: IfNotPresent
+          command: ['sh', '-c', 'until nc -z ks-apiserver.kubesphere-system.svc 80; do echo "waiting for apiserver"; sleep 2; done;']
+      containers:
+        - name: import
+          command:
+            - import-app
+            - import
+          image: {{ openpitrix_job_repo }}:{{ openpitrix_job_tag }}
+          imagePullPolicy: IfNotPresent
+          volumeMounts:
+            - mountPath: /etc/kubesphere
+              name: kubesphere-config
+      volumes:
+        - name: kubesphere-config
+          configMap:
+            name: kubesphere-config

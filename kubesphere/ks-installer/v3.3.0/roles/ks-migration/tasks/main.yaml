@@ -1,0 +1,99 @@
+---
+- name: KubeSphere | Checking core components (1)
+  shell: >
+    {{ bin_dir }}/kubectl get deploy -n kubesphere-system ks-account
+  register: check_account
+  failed_when: "check_account.stderr and 'NotFound' not in check_account.stderr"
+
+- name: KubeSphere | Checking core components (2)
+  shell: >
+    {{ bin_dir }}/kubectl get deploy -n kubesphere-system ks-apigateway
+  register: check_apigateway
+  failed_when: "check_apigateway.stderr and 'NotFound' not in check_apigateway.stderr"
+
+- name: KubeSphere | Checking core components (3)
+  shell: >
+    {{ bin_dir }}/kubectl get deploy -n kubesphere-system ks-account -o jsonpath='{.spec.replicas}'
+  register: check_account_replicas
+  failed_when: "check_account_replicas.stderr and 'NotFound' not in check_account_replicas.stderr"
+  when:
+    - check_account.rc == 0
+
+- name: KubeSphere | Checking core components (4)
+  shell: >
+    {{ bin_dir }}/kubectl get deploy -n kubesphere-system ks-apigateway -o jsonpath='{.spec.replicas}'
+  register: check_apigateway_replicas
+  failed_when: "check_apigateway_replicas.stderr and 'NotFound' not in check_apigateway_replicas.stderr"
+  when:
+    - check_apigateway.rc == 0
+
+- block:
+  - name: KubeSphere | Creating manifests
+    template:
+      src: "{{ item.file }}.j2"
+      dest: "{{ kubesphere_dir }}/{{ item.file }}"
+    with_items:
+    - { path: migration, file: ks-upgrade.yaml }
+    - { path: migration, file: ks-devops-migration.yaml }
+
+  - name: KubeSphere | Creating migration job
+    shell: >
+      {{ bin_dir }}/kubectl apply -f {{ kubesphere_dir }}/ks-upgrade.yaml
+
+  - name: KubeSphere | Checking devops status
+    shell: >
+      {{ bin_dir }}/kubectl get pod -n kubesphere-devops-system | grep "ks-jenkins" | wc -l
+    register: devops_check
+
+  - name: KubeSphere | Creating devops migration job
+    shell: >
+      {{ bin_dir }}/kubectl apply -f {{ kubesphere_dir }}/ks-devops-migration.yaml
+    when:
+      - devops_check.stdout != "0"
+
+  - name: KubeSphere | Getting migration job status
+    shell: >
+      {{ bin_dir }}/kubectl get pod -n kubesphere-system -l job-name=ks-upgrade --no-headers | awk '{print $3}'
+    register: job_status
+    until: job_status.stdout.find('Completed') != -1
+    retries: 90
+    delay: 20
+
+  - name: KubeSphere | Getting devops migration job status
+    shell: >
+      {{ bin_dir }}/kubectl get pod -n kubesphere-system -l job-name=ks-devops-migration --no-headers | awk '{print $3}'
+    register: job_status
+    until: job_status.stdout.find('Completed') != -1
+    retries: 90
+    delay: 20
+    when:
+      - devops_check.stdout != "0"
+
+  - name: KubeSphere | Stop ks-account
+    shell: >
+      {{ bin_dir }}/kubectl delete deploy -n kubesphere-system ks-account
+
+  - name: KubeSphere | Stop ks-apigateway
+    shell: >
+      {{ bin_dir }}/kubectl delete deploy -n kubesphere-system ks-apigateway
+
+  - name: KubeSphere | Updating ks-core status
+    shell: >
+      {{ bin_dir }}/kubectl patch cc ks-installer
+      --type merge
+      -p '{"status": {"core": {"migration": null}}}'
+      -n kubesphere-system
+    register: cc_result
+    failed_when: "cc_result.stderr and 'Warning' not in cc_result.stderr"
+    until: cc_result is succeeded
+    retries: 5
+    delay: 3
+  when:
+    - check_account.rc == 0
+    - check_apigateway.rc == 0
+    - check_account_replicas.stdout != "0"
+    - check_apigateway_replicas.stdout != "0"
+    - "'NotFound' not in check_account.stderr"
+    - "'NotFound' not in check_apigateway.stderr"
+    - "'NotFound' not in check_account_replicas.stderr"
+    - "'NotFound' not in check_apigateway_replicas.stderr"

@@ -1,0 +1,52 @@
+---
+- name: logsidecar-injector | Getting logsidecar-injector installation files
+  copy:
+    src: "logsidecar-injector"
+    dest: "{{ kubesphere_dir }}/"
+
+- name: logsidecar-injector | Creating manifests
+  template:
+    src: "custom-values-logsidecar-injector.yaml.j2"
+    dest: "{{ kubesphere_dir }}/logsidecar-injector/custom-values-logsidecar-injector.yaml"
+
+# - name: logsidecar-injector | check logsidecar-injector
+#   shell: >
+#     {{ bin_dir }}/helm list -f logsidecar-injector -n kubesphere-logging-system
+#   register: logsidecar_injector_check
+#   ignore_errors: True
+
+- block:
+  - name: logsidecar-injector | Deleting old version logsidecar injector
+    shell: >
+      kubectl -n kubesphere-logging-system delete deploy logsidecar-injector ;
+      kubectl -n kubesphere-logging-system delete service logsidecar-injector ;
+      kubectl -n kubesphere-logging-system delete secret logsidecar-injector-service-certs ;
+      kubectl delete mutatingwebhookconfiguration logsidecar-injector
+    failed_when: false
+
+  - name: logsidecar-injector | Deploying logsidecar-injector
+    shell: >
+      {{ bin_dir }}/helm upgrade --install logsidecar-injector
+      {{ kubesphere_dir }}/logsidecar-injector
+      -f {{ kubesphere_dir }}/logsidecar-injector/custom-values-logsidecar-injector.yaml
+      -n kubesphere-logging-system
+      --force
+    register: deploy_result
+    failed_when: false
+
+  - name: logsidecar-injector | Deleting logsidecar-injector configmap
+    shell: >
+      {{ bin_dir }}/kubectl delete cm -n  kubesphere-logging-system  logsidecar-injector-configmap
+    when:
+      - "deploy_result.stderr and 'missing key' in deploy_result.stderr"
+
+  - name: logsidecar-injector | Deploying logsidecar-injector
+    shell: >
+      {{ bin_dir }}/helm upgrade --install logsidecar-injector
+      {{ kubesphere_dir }}/logsidecar-injector
+      -f {{ kubesphere_dir }}/logsidecar-injector/custom-values-logsidecar-injector.yaml
+      -n kubesphere-logging-system
+      --force
+    when:
+      - "deploy_result.stderr and 'missing key' in deploy_result.stderr"
+
