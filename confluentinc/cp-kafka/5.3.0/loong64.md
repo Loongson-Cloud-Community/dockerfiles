@@ -1,0 +1,1 @@
++ docker build --build-arg KAFKA_VERSION=5.3.0 --build-arg CONFLUENT_PLATFORM_LABEL= --build-arg CONFLUENT_MAJOR_VERSION=5 --build-arg CONFLUENT_MINOR_VERSION=3 --build-arg CONFLUENT_PATCH_VERSION=0 --build-arg COMMIT_ID=5d29f13 --build-arg BUILD_NUMBER=1 -t confluentinc/cp-kafka:latest -f debian/kafka/Dockerfile debian/kafka
