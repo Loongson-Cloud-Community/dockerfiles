@@ -1,0 +1,28 @@
+---
+- name: Monitoring | Checking old installation files
+  stat:
+    path: "{{ kubesphere_dir }}/prometheus/prometheus-prometheus.yaml"
+  failed_when: false
+  register: prometheus_old_check
+
+- name: Monitoring | Deleting old prometheus-operator files
+  file:
+    path: "{{ kubesphere_dir }}/prometheus/00namespace-namespace.yaml"
+    state: absent
+  failed_when: false
+  when: prometheus_old_check.stat.exists
+
+- name: Monitoring | Deleting old prometheus-operator
+  shell: "{{ bin_dir }}/kubectl delete -f {{ kubesphere_dir }}/prometheus/"
+  register: delete_result
+  failed_when: "delete_result.stderr and 'NotFound' not in delete_result.stderr"
+  when: prometheus_old_check.stat.exists
+
+- name: Monitoring | Deleting old prometheus-operator files
+  file:
+    path: "{{ kubesphere_dir }}/{{ item }}"
+    state: absent
+  failed_when: false
+  loop:
+    - "prometheus"
+  when: prometheus_old_check.stat.exists

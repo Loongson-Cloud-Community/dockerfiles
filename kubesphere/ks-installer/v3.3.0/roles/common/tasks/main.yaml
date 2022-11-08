@@ -1,0 +1,191 @@
+---
+
+- import_tasks: init-namespaces.yaml
+
+
+- name: KubeSphere | Getting Kubernetes master num
+  shell: >
+    {{ bin_dir }}/kubectl get node | awk '{if(NR>1){print $3}}' | grep master | wc -l
+  register: masters
+  failed_when: false
+
+
+- name: KubeSphere | Setting master num
+  set_fact:
+    enableHA: >-
+      {% if masters is defined and masters.stdout is defined and masters.stdout != "0" and masters.stdout != "1" %}true{% else %}false{% endif %}
+  when:
+    - enableHA is not defined
+
+- name: KubeSphere | Getting common component installation files
+  copy:
+    src: "{{ item }}"
+    dest: "{{ kubesphere_dir }}/"
+  loop:
+    - "common"
+
+- name: KubeSphere | Checking Kubernetes version
+  shell: >
+    {{ bin_dir }}/kubectl version -o json | jq -r '.serverVersion.gitVersion'
+  register: kubernetes_version
+
+- name: KubeSphere | Deploying snapshot controller
+  block:
+    - name: KubeSphere | Getting common component installation files
+      copy:
+        src: "{{ item }}"
+        dest: "{{ kubesphere_dir }}/"
+      loop:
+        - "snapshot-controller"
+
+    - name: KubeSphere | Creating snapshot controller values
+      template:
+        src: "{{ item.file }}.j2"
+        dest: "{{ kubesphere_dir }}/{{ item.file }}"
+      with_items:
+        - { name: custom-values-snapshot-controller, file: custom-values-snapshot-controller.yaml }
+
+    - name: KubeSphere | Updating snapshot crd
+      command: >
+        {% if kubernetes_version is version('v1.19.0', '>=') %}
+        {{ bin_dir }}/kubectl apply -f {{ kubesphere_dir }}/snapshot-controller/crds/snapshot.storage.k8s.io_volumesnapshot.yaml --force
+        {% else %}
+        {{ bin_dir }}/kubectl apply -f {{ kubesphere_dir }}/snapshot-controller/crds/snapshot.storage.k8s.io_volumesnapshot_before119.yaml --force
+        {% endif %}
+      failed_when: false
+
+    - name: KubeSphere | Deploying snapshot controller
+      shell: >
+        {{ bin_dir }}/helm upgrade --install snapshot-controller
+        {{ kubesphere_dir }}/snapshot-controller
+        -f {{ kubesphere_dir }}/custom-values-snapshot-controller.yaml
+        --namespace kube-system
+      failed_when: false
+
+  when:
+    - kubernetes_version is version('v1.17.0', '>=')
+
+
+- name: KubeSphere | Checking openpitrix common component
+  shell: >
+    {{ bin_dir }}/kubectl get pod -n openpitrix-system
+  register: openpitrix_component_pod
+
+
+- include_tasks: pv-migration.yaml
+  loop:
+    - {op: "openpitrix-db", ks: "mysql-pvc"}
+    - {op: "openpitrix-etcd", ks: "etcd-pvc"}
+#    - {openpitrix: "openpitrix-minio", ks: "minio-pvc"}
+  when:
+    - openpitrix_component_pod.stdout.find("openpitrix-db-deployment") != -1
+
+
+- name: KubeSphere | Getting PersistentVolumeName (mysql/etcd/minio)
+  block:
+
+    - name: Getting PersistentVolumeName (mysql)
+      shell: >
+        kubectl get pv | grep "kubesphere-system/mysql-pvc" | awk '{print $1}'
+      register: pvName
+    - name: Getting PersistentVolumeSize (mysql)
+      shell: >
+        kubectl get pv | grep "kubesphere-system/mysql-pvc" | awk '{print $2}'
+      register: pvSize
+
+    - name: Setting PersistentVolumeName (mysql)
+      set_fact:
+        db_pv_name: "{{ pvName.stdout }}"
+    - name: Setting PersistentVolumeSize (mysql)
+      set_fact:
+        common:
+          mysqlVolumeSize: "{{ pvSize.stdout }}"
+
+
+    - name: Getting PersistentVolumeName (etcd)
+      shell: >
+        kubectl get pv | grep "kubesphere-system/etcd-pvc" | awk '{print $1}'
+      register: pvName
+    - name: Getting PersistentVolumeSize (etcd)
+      shell: >
+        kubectl get pv | grep "kubesphere-system/etcd-pvc" | awk '{print $2}'
+      register: pvSize
+
+    - name: Setting PersistentVolumeName (etcd)
+      set_fact:
+        etcd_pv_name: "{{ pvName.stdout }}"
+    - name: Setting PersistentVolumeSize (etcd)
+      set_fact:
+        common:
+          etcdVolumeSize: "{{ pvSize.stdout}}"
+
+
+  when:
+    - openpitrix_component_pod.stdout.find("openpitrix-db-deployment") != -1
+
+- import_tasks: get_old_config.yaml
+
+- name: KubeSphere | Creating common component manifests
+  template:
+    src: "{{ item.file }}.j2"
+    dest: "{{ kubesphere_dir }}/common/{{ item.file }}"
+  with_items:
+#    - { path: etcd, file: etcd.yaml }
+#    - { name: mysql, file: mysql.yaml }
+    - { path: redis, file: redis.yaml }
+
+
+#- name: KubeSphere | Creating mysql sercet
+#  shell: >
+#    {{ bin_dir }}/kubectl create secret generic mysql-pass
+#    --from-file={{ kubesphere_dir }}/common/password.txt
+#    -n kubesphere-system
+#  register: import
+#  failed_when: "import.stderr and 'already exists' not in import.stderr"
+
+- name: KubeSphere | Deploying common component
+  block:
+    - name: KubeSphere | Deploying etcd and mysql
+      shell: >
+        {{ bin_dir }}/kubectl -n kubesphere-system apply -f {{ kubesphere_dir }}/common/{{ item }}
+      loop:
+        - "etcd.yaml"
+        - "mysql.yaml"
+      register: common_result
+      failed_when:
+        - "common_result.stderr and 'is immutable after creation except resources.requests for bound claims' not in common_result.stderr"
+        - "common_result.stderr and 'is forbidden' not in common_result.stderr"
+
+
+    - import_tasks: minio-install.yaml
+
+
+    - import_tasks: redis-install.yaml
+
+
+    - import_tasks: openldap-install.yaml
+
+  when:
+    - openpitrix_component_pod.stdout.find("openpitrix-db-deployment") != -1
+
+
+- import_tasks: common-install.yaml
+  when:
+    - openpitrix_component_pod.stdout.find("openpitrix-db-deployment") == -1
+
+
+- name: KubeSphere | Setting persistentVolumeReclaimPolicy (mysql/etcd/minio)
+  block:
+
+    - name: Setting persistentVolumeReclaimPolicy (mysql)
+      shell: >
+        kubectl patch pv $(kubectl get pv | grep "mysql-pvc" | awk '{print $1}')
+        -p '{"spec":{"persistentVolumeReclaimPolicy": "Delete"}}'
+
+    - name: Setting persistentVolumeReclaimPolicy (etcd)
+      shell: >
+        kubectl patch pv $(kubectl get pv | grep "etcd-pvc" | awk '{print $1}')
+        -p '{"spec":{"persistentVolumeReclaimPolicy": "Delete"}}'
+
+  when:
+    - openpitrix_component_pod.stdout.find("openpitrix-db-deployment") != -1

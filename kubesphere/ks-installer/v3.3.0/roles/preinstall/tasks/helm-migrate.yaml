@@ -1,0 +1,21 @@
+---
+
+- name: KubeSphere | Getting KubeSphere component version
+  shell: >
+    {{ bin_dir }}/helm 2to3 convert {{ item }}
+  loop:
+    - "ks-openldap"
+    - "ks-redis"
+    - "ks-minio"
+    - "ks-openpitrix"
+    - "elasticsearch-logging"
+    - "elasticsearch-logging-curator"
+    - "istio"
+    - "istio-init"
+    - "jaeger-operator"
+    - "ks-jenkins"
+    - "ks-sonarqube"
+    - "logging-fluentbit-operator"
+    - "uc"
+    - "metrics-server"
+  failed_when: false

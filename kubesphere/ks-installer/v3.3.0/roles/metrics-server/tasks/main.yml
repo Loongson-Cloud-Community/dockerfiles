@@ -1,0 +1,58 @@
+---
+- name: Metrics-Server | Getting metrics-server installation files
+  copy:
+    src: "metrics-server"
+    dest: "{{ kubesphere_dir }}/"
+
+- name: Metrics-Server | Creating manifests
+  template:
+    src: "{{ item.file }}.j2"
+    dest: "{{ kubesphere_dir }}/metrics-server/{{ item.file }}"
+  with_items:
+    - { file: metrics-server.yaml}
+
+- name: Metrics-Server | Checking Metrics-Server
+  shell: >
+    {{ bin_dir }}/helm list -f metrics-server -n kube-system
+  register: metrics_server_check
+  failed_when: false
+
+- block:
+    - name: Metrics-Server | Uninstalling old metrics-server
+      shell: >
+        {{ bin_dir }}/helm del metrics-server -n kube-system
+      register: ms_uninstall
+      until: ms_uninstall.rc == 0
+      retries: 5
+      delay: 1
+  when:
+    - (metrics_server_check.stdout.find("deployed") != -1) or (metrics_server_check.stdout.find("0.3.7") != -1)
+
+- name: Metrics-Server | Installing new metrics-server
+  shell: >
+    {{ bin_dir }}/kubectl apply -f {{ kubesphere_dir }}/metrics-server/metrics-server.yaml
+  register: ms_install
+  until: ms_install.rc == 0
+  retries: 5
+  delay: 1
+
+- name: Metrics-Server | Waitting for metrics.k8s.io ready
+  shell: >
+    {{ bin_dir }}/kubectl get apiservice | grep metrics.k8s.io
+  register: metrics_health
+  until: metrics_health.stdout.find("True") != -1
+  retries: 60
+  delay: 10
+
+
+- name: Metrics-Server | Importing metrics-server status
+  shell: >
+    {{ bin_dir }}/kubectl patch cc ks-installer
+    --type merge
+    -p '{"status": {"metricsServer": {"status": "enabled", "enabledTime": "{{ lookup('pipe','date  +%Y-%m-%dT%H:%M:%S%Z') }}"}}}'
+    -n kubesphere-system
+  register: cc_result
+  failed_when: "cc_result.stderr and 'Warning' not in cc_result.stderr"
+  until: cc_result is succeeded
+  retries: 5
+  delay: 3

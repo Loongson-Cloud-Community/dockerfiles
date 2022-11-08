@@ -1,0 +1,99 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: tower
+    app.kubernetes.io/name: tower
+  name: tower
+  namespace: kubesphere-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tower
+      app.kubernetes.io/name: tower
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: tower
+        app.kubernetes.io/name: tower
+    spec:
+      containers:
+        - command:
+            - /proxy
+            - --ca-cert=/ca.crt
+            - --ca-key=/ca.key
+            - --v=4
+            - --leader-elect=true
+          image: {{ tower_repo }}/{{ tower_image }}:{{ tower_image_tag }}
+          imagePullPolicy: IfNotPresent
+          name: tower
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /health
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 3
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+          resources:
+            requests:
+              memory: 128Mi
+              cpu: 100m
+            limits:
+              memory: 256Mi
+              cpu: 500m
+      serviceAccountName: kubesphere
+{% if multicluster.affinity is defined and multicluster.affinity is not none %}
+      affinity:
+        {{ multicluster.affinity | to_nice_yaml(indent=2) | indent(8) }}
+{% elif affinity is defined and affinity is not none %}
+      affinity:
+        {{ affinity | to_nice_yaml(indent=2) | indent(8) }}
+{% else %}
+      affinity: {}
+{% endif %}
+{% if multicluster.nodeSelector is defined and multicluster.nodeSelector is not none %}
+      nodeSelector:
+        {{ multicluster.nodeSelector | to_nice_yaml(indent=2) | indent(8) }}
+{% elif nodeSelector is defined and nodeSelector is not none %}
+      nodeSelector:
+        {{ nodeSelector | to_nice_yaml(indent=2) | indent(8) }}
+{% else %}
+      nodeSelector: {}
+{% endif %}
+{% if multicluster.tolerations is defined and multicluster.tolerations is not none %}
+      tolerations:
+        {{ multicluster.tolerations | to_nice_yaml(indent=2) | indent(8) }}
+{% elif tolerations is defined and tolerations is not none %}
+      tolerations:
+        {{ tolerations | to_nice_yaml(indent=2) | indent(8) }}
+{% else %}
+      tolerations: []
+{% endif %}
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: tower
+  name: tower
+  namespace: kubesphere-system
+spec:
+  externalTrafficPolicy: Cluster
+  ports:
+    - port: 8080
+      protocol: TCP
+      targetPort: 8080
+  selector:
+    app: tower
+  sessionAffinity: None
+  type: LoadBalancer

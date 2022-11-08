@@ -1,0 +1,23 @@
+
+- name: KubeSphere | Deploying common component
+  shell: >
+    {{ bin_dir }}/kubectl -n kubesphere-system apply -f {{ kubesphere_dir }}/common/{{ item }}
+  loop:
+    - "mysql.yaml"
+  register: mysql_result
+  failed_when:
+    - "mysql_result.stderr and 'is immutable after creation except resources.requests for bound claims' not in mysql_result.stderr"
+    - "mysql_result.stderr and 'is forbidden' not in mysql_result.stderr"
+#  when: devops.enabled or openpitrix.enabled or notification.enabled or alerting.enabled
+
+- name: KubeSphere | Importing mysql status
+  shell: >
+    {{ bin_dir }}/kubectl patch cc ks-installer
+    --type merge
+    -p '{"status": {"mysql": {"status": "enabled", "enabledTime": "{{ lookup('pipe','date  +%Y-%m-%dT%H:%M:%S%Z') }}"}}}'
+    -n kubesphere-system
+  register: cc_result
+  failed_when: "cc_result.stderr and 'Warning' not in cc_result.stderr"
+  until: cc_result is succeeded
+  retries: 5
+  delay: 3

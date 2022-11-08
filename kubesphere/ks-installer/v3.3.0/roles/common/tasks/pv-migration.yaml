@@ -1,0 +1,41 @@
+---
+
+- name: KubeSphere | Disabled openpitrix
+  shell: >
+    {{ bin_dir }}/kubectl scale --replicas=0 -n openpitrix-system deploy
+    $({{ bin_dir }}/kubectl get deploy -n openpitrix-system | awk '{if(NR>1){print $1}}' | grep -v 'openpitrix-minio-deployment')
+
+
+- name: KubeSphere | Checking openpitrix common component
+  shell: >
+    {{ bin_dir }}/kubectl get deploy -n openpitrix-system | grep "{{ item.op }}" | awk '{print($2)}'
+  register: result
+  until: result.stdout.find("0/0") != -1
+  retries: 30
+  delay: 5
+
+
+- name: KubeSphere | Getting PersistentVolume Name
+  shell: >
+    kubectl get pv | grep "{{ item.op }}" | awk '{print $1}'
+  register: persistentVolumeName
+
+
+- name: KubeSphere | Patching PersistentVolume (persistentVolumeReclaimPolicy)
+  shell: >
+    kubectl patch pv $(kubectl get pv | grep "{{ item.op }}" | awk '{print $1}')
+    -p '{"spec":{"persistentVolumeReclaimPolicy": "Retain"}}'
+
+
+- name: KubeSphere | Deleting PersistentVolumeClaim
+  shell: >
+    {{ bin_dir }}/kubectl delete pvc
+    $({{ bin_dir }}/kubectl get pvc -n openpitrix-system | grep "{{ item.op }}" | awk '{print $1}')
+    -n openpitrix-system
+
+
+- name: KubeSphere | Patching PersistentVolume
+  shell: >
+    kubectl patch pv $(kubectl get pv | grep "{{ item.op }}" | awk '{print $1}')
+    -p '{"spec":{"claimRef": {"name": "{{ item.ks }}", "namespace": "kubesphere-system", "resourceVersion": "", "uid": ""}}}'
+

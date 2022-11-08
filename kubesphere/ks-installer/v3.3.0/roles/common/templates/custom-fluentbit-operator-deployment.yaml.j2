@@ -1,0 +1,92 @@
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: fluentbit-operator
+  namespace: kubesphere-logging-system
+  labels:
+    app.kubernetes.io/component: operator
+    app.kubernetes.io/name: fluentbit-operator
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: operator
+      app.kubernetes.io/name: fluentbit-operator
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: operator
+        app.kubernetes.io/name: fluentbit-operator
+    spec:
+      volumes:
+      - name: env
+        emptyDir: {}
+{% if common.containersLogMountedPath is defined and common.containersLogMountedPath != "" %}
+{% elif logging_container_runtime == 'docker' %}
+      - name: dockersock
+        hostPath:
+          path: /var/run/docker.sock
+{% endif %}
+      initContainers:
+      - name: setenv
+        image: {{ docker_repo }}:{{ docker_tag }}
+        command:
+        - /bin/sh
+        - '-c'
+        - set -ex;
+{% if common.containersLogMountedPath is defined and common.containersLogMountedPath != "" %}
+          echo CONTAINER_ROOT_DIR={{ common.containersLogMountedPath }} > /fluentbit-operator/fluent-bit.env
+{% elif (logging_container_runtime== 'containerd') or (logging_container_runtime== 'crio') %}
+          echo CONTAINER_ROOT_DIR=/var/log > /fluentbit-operator/fluent-bit.env
+{% else %}
+          echo CONTAINER_ROOT_DIR=$(docker info -f {{'{{.DockerRootDir}}'}}) > /fluentbit-operator/fluent-bit.env
+{% endif %}
+        volumeMounts:
+        - name: env
+          mountPath: /fluentbit-operator
+{% if common.containersLogMountedPath is defined and common.containersLogMountedPath != "" %}
+{% elif logging_container_runtime == 'docker' %}
+        - name: dockersock
+          readOnly: true
+          mountPath: /var/run/docker.sock
+{% endif %}
+      containers:
+      - name: fluentbit-operator
+        image: {{ fluentbit_operator_repo }}:{{ fluentbit_operator_tag }}
+        resources:
+          limits:
+            cpu: 100m
+            memory: 50Mi
+          requests:
+            cpu: 10m
+            memory: 20Mi
+        volumeMounts:
+        - name: env
+          mountPath: /fluentbit-operator
+      serviceAccountName: fluentbit-operator
+{% if common.fluentbit.affinity is defined and common.fluentbit.affinity is not none %}
+      affinity:
+        {{ common.fluentbit.affinity | to_nice_yaml(indent=2) | indent(8) }}
+{% elif affinity is defined and affinity is not none %}
+      affinity:
+        {{ affinity | to_nice_yaml(indent=2) | indent(8) }}
+{% else %}
+      affinity: {}
+{% endif %}
+{% if common.fluentbit.nodeSelector is defined and common.fluentbit.nodeSelector is not none %}
+      nodeSelector:
+        {{ common.fluentbit.nodeSelector | to_nice_yaml(indent=2) | indent(8) }}
+{% elif nodeSelector is defined and nodeSelector is not none %}
+      nodeSelector:
+        {{ nodeSelector | to_nice_yaml(indent=2) | indent(8) }}
+{% else %}
+      nodeSelector: {}
+{% endif %}
+{% if common.fluentbit.tolerations is defined and common.fluentbit.tolerations is not none %}
+      tolerations:
+        {{ common.fluentbit.tolerations | to_nice_yaml(indent=2) | indent(8) }}
+{% elif tolerations is defined and tolerations is not none %}
+      tolerations:
+        {{ tolerations | to_nice_yaml(indent=2) | indent(8) }}
+{% else %}
+      tolerations: []
+{% endif %}

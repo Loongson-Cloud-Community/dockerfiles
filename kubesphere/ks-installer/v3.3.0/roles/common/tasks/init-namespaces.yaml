@@ -1,0 +1,68 @@
+---
+
+- name: KubeSphere | Checking kube-node-lease namespace
+  shell: >
+    {{ bin_dir }}/kubectl get ns | grep 'kube-node-lease' | wc -l
+  register: kube_node_lease
+  failed_when: false
+
+
+- name: KubeSphere | Getting system namespaces
+  set_fact:
+    systemNamespaces: >-
+      kubesphere-system
+      kubesphere-controls-system
+      kubesphere-monitoring-system
+      kubesphere-monitoring-federated
+      {%- if kube_node_lease is defined and kube_node_lease.stdout != "0" %}
+      kube-node-lease
+      {%- endif %}
+      {%- if (logging.enabled is defined and logging.enabled) or (events.enabled is defined and events.enabled) or (auditing.enabled is defined and auditing.enabled) or (servicemesh.enabled is defined and servicemesh.enabled)%}
+      kubesphere-logging-system
+      {%- endif %}
+      {%- if devops.enabled is defined and devops.enabled %}
+      kubesphere-devops-system
+      {%- endif %}
+      {%- if harbor.enabled is defined and harbor.enabled %}
+      kubesphere-devops-system
+      {%- endif %}
+      {%- if gitlab.enabled is defined and gitlab.enabled %}
+      kubesphere-devops-system
+      {%- endif %}
+      {%- if servicemesh.enabled is defined and servicemesh.enabled %}
+      istio-system
+      {%- endif %}
+      {%- if servicemesh.enabled is defined and servicemesh.enabled %}
+      istio-system
+      {%- endif %}
+      {%- if multicluster is defined and multicluster.clusterRole is defined and multicluster.clusterRole == 'host' %}
+      kube-federation-system
+      {%- endif %}
+
+
+- set_fact:
+    systemNamespacesList: "{{ systemNamespaces.split(' ') }}"
+
+- debug:
+    msg: "{{ systemNamespacesList }}"
+
+- name: KubeSphere | Creating KubeSphere namespace
+  command: >
+    {{ bin_dir }}/kubectl create namespace {{ item }}
+  register: ns_state
+  failed_when: "ns_state.stderr and 'already exists' not in ns_state.stderr"
+  loop: "{{ systemNamespacesList }}"
+
+
+- name: KubeSphere | Labeling system-workspace
+  shell: >
+    {{ bin_dir }}/kubectl label ns {{ item }} kubesphere.io/workspace=system-workspace
+  register: label_state
+  failed_when: "label_state.stderr and 'already' not in label_state.stderr"
+  loop: "{{ ['default', 'kube-public', 'kube-system', systemNamespacesList] | flatten(1) }}"
+
+
+- name: KubeSphere | Labeling namespace for network policy
+  shell: >
+    for ns in `kubectl get ns -o jsonpath="{.items[*].metadata.name}"`; do kubectl label  ns $ns kubesphere.io/namespace=$ns --overwrite; done
+  failed_when: false

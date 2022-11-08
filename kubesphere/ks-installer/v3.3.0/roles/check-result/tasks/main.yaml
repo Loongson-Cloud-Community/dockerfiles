@@ -1,0 +1,45 @@
+---
+
+- name: ks-devops | Getting ks-sonarqube NodeIp
+  shell: "{{ bin_dir }}/kubectl get node -o wide | awk '{if(NR == 2){print $6}}'"
+  register: ks_nodeIP
+
+- name: KubeSphere | Waiting for ks-console
+  shell: "{{ bin_dir }}/kubectl get pod -n kubesphere-system -o wide | grep ks-console | awk '{print $3}'"
+  register: result
+  until: result.stdout.find("Running") != -1
+  retries: 30
+  delay: 30
+
+- name: KubeSphere | Waiting for ks-apiserver
+  shell: "{{ bin_dir }}/kubectl get pod -n kubesphere-system -o wide | grep ks-apiserver | awk '{print $3}'"
+  register: result
+  until: result.stdout.find("Running") != -1
+  retries: 30
+  delay: 30
+
+- name: KubeSphere | Getting ks-console svc port
+  shell: "{{ bin_dir }}/kubectl get svc ks-console -n kubesphere-system -o=jsonpath='{.spec.ports[0].nodePort}'"
+  register: ks_console_svc_port
+
+
+- name: KubeSphere | Importing ks-core status
+  shell: >
+    {{ bin_dir }}/kubectl patch cc ks-installer
+    --type merge
+    -p '{"status": {"core": {"version": "{{ ks_version }}"}}}'
+    -n kubesphere-system
+  register: cc_result
+  failed_when: "cc_result.stderr and 'Warning' not in cc_result.stderr"
+  until: cc_result is succeeded
+  retries: 5
+  delay: 3
+
+
+- name: KubeSphere | Creating info_file
+  template:
+    src: "welcome.j2"
+    dest: "./{{ item.file }}"
+  with_items:
+    - { name: welcome, file: kubesphere_running, type: info }
+  delegate_to: localhost
