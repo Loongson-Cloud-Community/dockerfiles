@@ -18,7 +18,7 @@ zabbix-3.4.15:
 	git clone $(ZBX_SOURCES) --branch $(ZBX_VERSION) --depth=1 --single-branch zabbix
 
 image: zabbix-3.4.15
-       ./build.sh latest build $(REGISTRY)/$(ORGANIZATION)
+	./build.sh latest build $(REGISTRY)/$(ORGANIZATION)
 
 push:
 	docker push $(IMAGE)
