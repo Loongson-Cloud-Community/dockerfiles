@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM cr.loongnix.cn/library/debian:buster-slim
+FROM cr.loongnix.cn/google_containers/nginx-slim:0.14
 
 RUN DEBIAN_FRONTEND=noninteractive apt-get update && apt-get install -y \
   diffutils \
