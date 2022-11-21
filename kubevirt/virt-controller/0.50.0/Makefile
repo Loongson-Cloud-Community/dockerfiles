@@ -12,6 +12,7 @@ default: image
 
 download:
 	wget "https://github.com/Loongson-Cloud-Community/kubevirt/releases/download/v0.50.0/virt-controller"
+	chmod +x virt-controller
 
 image: download
 	docker build \
