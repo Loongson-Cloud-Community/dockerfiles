@@ -4,9 +4,9 @@ LABEL maintainer="wangweijie@loongson.cn"
 
 ENV DEB_CROSSPLATFORMS loongarch64
 
-ENV GO_CROSSPLATFORMS linux/loongarch64
+ENV GO_CROSSPLATFORMS linux/loong64
 
-ENV GCC_CROSSCOMPILERS loongarch64-linux-gnc
+ENV GCC_CROSSCOMPILERS loongarch64-linux-gnu
 
 # Install the build-essential and crossbuild-essential-ARCH packages
 RUN for platform in ${DEB_CROSSPLATFORMS}; do dpkg --add-architecture $platform; done \
