@@ -1,0 +1,11 @@
+---
+- version: v1alpha1
+  group: kiali.io
+  kind: Kiali
+  playbook: /opt/ansible/playbooks/kiali-deploy.yml
+  reconcilePeriod: "0s"
+  watchDependentResources: False
+  watchClusterScopedResources: False
+  finalizer:
+    name: kiali.io/finalizer
+    playbook: /opt/ansible/playbooks/kiali-remove.yml
