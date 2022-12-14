@@ -23,7 +23,7 @@ check:
 		echo "done.")	
 
 image: check
-	docker build \
+	sudo docker build \
 		-t $(IMAGE) \
 		.
 
@@ -31,4 +31,4 @@ push:
 	docker push $(IMAGE)
 
 clean:
-	@rm -rf elasticsearch*
+	@rm -rf elastic*
