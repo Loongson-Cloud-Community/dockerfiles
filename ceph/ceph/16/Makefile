@@ -7,6 +7,8 @@ TAG?=16
 
 IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):$(TAG)
 
+DAEMON_BASE_REPOSITORY=daemon-base
+DAEMON_BASE_IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(DAEMON_BASE_REPOSITORY):$(TAG)
 DAEMON_REPOSITORY=daemon
 DAEMON_IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(DAEMON_REPOSITORY):$(TAG)
 
@@ -15,7 +17,9 @@ default: image
 image:
 	make -C ./daemon-base
 	make -C ./daemon
-	docker tag $(DAEMON_IMAGE) $(IMAGE)
+	docker tag $(DAEMON_BASE_IMAGE) $(IMAGE)
 	
 push:
 	docker push $(IMAGE)
+	docker push $(DAEMON_BASE_IMAGE)
+	docker push $(DAEMON_IMAGE)
