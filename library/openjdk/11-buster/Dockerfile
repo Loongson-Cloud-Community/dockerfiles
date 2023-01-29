@@ -47,7 +47,7 @@ ENV JAVA_VERSION 11.2.0
 # >
 
 RUN set -eux; \
-	downloadUrl='http://ftp.loongnix.cn/Java/openjdk11/loongson11.2.0-jdk11.0.15_10-linux-loongarch64.tar.gz'; \
+	downloadUrl='http://ftp.loongnix.cn/Java/openjdk11/loongson11.3.0-fx-jdk11.0.17_8-linux-loongarch64.tar.gz'; \
 	\
 	wget --progress=dot:giga -O openjdk.tgz "$downloadUrl"; \
 	mkdir -p "$JAVA_HOME"; \
