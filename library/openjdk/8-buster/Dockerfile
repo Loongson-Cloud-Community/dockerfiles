@@ -8,6 +8,11 @@ FROM cr.loongnix.cn/library/buildpack-deps:buster-scm
 
 LABEL maintainer="shanjiantao@loongson.cn"
 
+ARG DOWNLOAD_URL=http://ftp.loongnix.cn/Java/openjdk8/loongson8.1.11-jdk8u332b09-linux-loongarch64.tar.gz
+
+ARG JAVA_VERSION
+ENV JAVA_VERSION ${JAVA_VERSION}
+
 RUN set -eux; \
 	apt-get update; \
 	apt-get install -y --no-install-recommends \
@@ -38,7 +43,6 @@ ENV LANG C.UTF-8
 # >
 # > These binaries are built by Red Hat on their infrastructure on behalf of the OpenJDK jdk8u and jdk11u projects. The binaries are created from the unmodified source code at OpenJDK. Although no formal support agreement is provided, please report any bugs you may find to https://bugs.java.com/.
 # >
-ENV JAVA_VERSION 8u332
 # https://github.com/docker-library/openjdk/issues/320#issuecomment-494050246
 # >
 # > I am the OpenJDK 8 and 11 Updates OpenJDK project lead.
@@ -47,7 +51,7 @@ ENV JAVA_VERSION 8u332
 # >
 
 RUN set -eux; \
-	downloadUrl='http://ftp.loongnix.cn/Java/openjdk8/loongson8.1.11-jdk8u332b09-linux-loongarch64.tar.gz'; \
+	downloadUrl="${DOWNLOAD_URL}"; \
 	\
 	wget --progress=dot:giga -O openjdk.tgz "$downloadUrl"; \
 	\
