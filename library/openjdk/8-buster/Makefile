@@ -24,3 +24,4 @@ image:
 push: 
 	docker tag $(IMAGE) $(RELEASE_IMAGE)
 	docker push $(IMAGE)
+	docker push $(RELEASE_IMAGE)
