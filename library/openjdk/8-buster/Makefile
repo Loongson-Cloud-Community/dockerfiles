@@ -5,15 +5,22 @@ ORGANIZATION?=library
 REPOSITORY?=openjdk
 TAG?=8-buster
 
-IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):$(TAG)
 
+DOWNLOAD_URL?=http://ftp.loongnix.cn/Java/openjdk8/loongson8.1.12-fx-jdk8u352b08-linux-loongarch64.tar.gz
+JAVA_VERSION?=8u352
+
+IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):$(JAVA_VERSION)
+RELEASE_IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):$(TAG)
 
 default: image
 
 image:
 	docker build \
 		-t $(IMAGE) \
+		--build-arg DOWNLOAD_URL=$(DOWNLOAD_URL) \
+		--build-arg JAVA_VERSION=$(JAVA_VERSION) \
 		.
 
-push:
+push: 
+	docker tag $(IMAGE) $(RELEASE_IMAGE)
 	docker push $(IMAGE)
