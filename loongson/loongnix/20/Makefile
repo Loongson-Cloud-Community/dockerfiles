@@ -6,10 +6,9 @@ REPOSITORY?=loongnix
 TAG?=20
 
 IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):$(TAG)
-
-ROOTFS=loongnix-DaoXiangHu-stable.rootfs.tar.gz
-
 ALIAS=cr.loongnix.cn/library/debian:buster
+
+ROOTFS=rootfs.tar.gz
 
 default: image
 
@@ -18,13 +17,14 @@ image: $(ROOTFS)
 		--build-arg ROOTFS=$(ROOTFS) \
 		-t $(IMAGE) \
 		.
+	docker tag $(IMAGE) $(ALIAS)
 
-push: alias
+push: 
 	docker push $(IMAGE)
 	docker push $(ALIAS)
 
-alias:
-	docker tag $(IMAGE) $(ALIAS)
-
 $(ROOTFS):
-	make_rootfs.sh
+	docker run -it --rm \
+		-v `pwd`:/work \
+		cr.loongnix.cn/library/debian:buster \
+		/bin/bash -c "/work/make_rootfs.sh /work"

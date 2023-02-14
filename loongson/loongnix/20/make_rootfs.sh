@@ -1,29 +1,26 @@
 #!/bin/bash
+# Given a path by $1, generate a rootfs under that path.
 
+set -ex
+
+: ${MIRROR_ADDRESS:="http://pkg.loongnix.cn/loongnix"}
+: ${RELEASE:="DaoXiangHu-stable"}
+: ${ROOTFS:="rootfs.tar.gz"}
 DISTRO=loongnix
-RELEASE=DaoXiangHu-stable
-MIRROR_ADDRESS=http://pkg.loongnix.cn/loongnix/
 
-## 检测 debootstrap 命令存在
-if ! $(command -v debootstrap > /dev/null); then
-	echo "command debootstrap not found"
-	exit 1
-fi
+WKDIR=$1
+cd ${WKDIR?}
 
-WKDIR=`mktemp -d`
-mkdir -pv $WKDIR/iso
-pushd $WKDIR
-
+apt install -y debootstrap
+# loongnix do not have $RELEASE file, fix it!
 if [ ! -f /usr/share/debootstrap/scripts/$RELEASE ]; then
 	ln -s /usr/share/debootstrap/scripts/sid /usr/share/debootstrap/scripts/$RELEASE
 fi
 
-debootstrap --no-check-gpg --variant=minbase --components=main,non-free,contrib --arch=loongarch64 --foreign $RELEASE iso $MIRROR_ADDRESS
-
-chroot iso debootstrap/debootstrap --second-stage
-
-tar -zcvf $DISTRO-$RELEASE.rootfs.tar.gz -C iso .
-popd
-
-mv $WKDIR/$DISTRO-$RELEASE.rootfs.tar.gz .
-rm -rf WKDIR
+# create a directory for rootfs
+TMPDIR=`mktemp -d`
+# install packages
+debootstrap --no-check-gpg --variant=minbase --components=main,non-free,contrib --arch=loongarch64 --foreign $RELEASE $TMPDIR $MIRROR_ADDRESS
+chroot $TMPDIR debootstrap/debootstrap --second-stage
+# package rootfs.tar.gz
+tar -zcvf $ROOTFS -C $TMPDIR .
