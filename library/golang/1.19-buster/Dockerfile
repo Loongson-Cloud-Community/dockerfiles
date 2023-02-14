@@ -17,7 +17,7 @@ ENV PATH /usr/local/go/bin:$PATH
 ENV GOLANG_VERSION 1.19.0
 
 RUN set -eux; \
-	url='https://github.com/Loongson-Cloud-Community/go/releases/download/go1.19/go1.19.linux-loong64.tar.gz'; \
+	url='http://ftp.loongnix.cn/toolchain/golang/go-1.19/go1.19.linux-loong64.tar.gz'; \
 	wget -O go.tgz "$url" --progress=dot:giga; \
 	tar -C /usr/local -xzf go.tgz; \
 	rm go.tgz; \
