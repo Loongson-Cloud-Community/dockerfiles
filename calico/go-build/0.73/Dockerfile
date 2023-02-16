@@ -1,0 +1,75 @@
+FROM cr.loongnix.cn/library/golang:1.19
+LABEL maintainer="znley <shanjiantao@loongson.cn>"
+
+# Install su-exec for use in the entrypoint.sh (so processes run as the right user)
+# Install bash for the entry script (and because it's generally useful)
+# Install curl
+# Install git for fetching Go dependencies
+# Install ssh for fetching Go dependencies
+# Install mercurial for fetching go dependencies
+# Install wget since it's useful for fetching
+# Install make for building things
+# Install util-linux for column command (used for output formatting).
+# Install grep, sed, zip, and jq for use in some Makefiles
+# Install shadow for useradd (it allows to use big UID)
+# Install libelf-dev zlib1g-dev for dynamic bpftool
+RUN apt clean && apt update -y && apt upgrade -y && apt install -y curl git ssh mercurial make wget util-linux grep sed jq zip libpcap-dev libelf-dev zlib1g-dev clang-13 iproute2
+
+# Disable ssh host key checking
+RUN echo 'Host *' >> /etc/ssh/ssh_config \
+  && echo '    StrictHostKeyChecking no' >> /etc/ssh/ssh_config
+
+# Disable cgo so that binaries we build will be fully static.
+ENV CGO_ENABLED=0
+ENV GOPROXY=http://goproxy.cn
+
+# Recompile the standard library with cgo disabled.  This prevents the standard library from being
+# marked stale, causing full rebuilds every time.
+RUN go install -v std
+
+# Install ginkgo CLI tool for running tests
+RUN git clone -b v1.16.5 --depth=1 https://github.com/onsi/ginkgo && \
+  cd ginkgo && go get -u golang.org/x/sys golang.org/x/net && \
+  go mod tidy && go mod download && \
+  go install ./ginkgo && \
+  cd .. && rm -rf ginkgo
+  
+
+# Install linting tools
+ENV GO_LINT_VERSION=v1.46.2
+RUN git clone -b ${GO_LINT_VERSION} --depth=1 https://github.com/golangci/golangci-lint && \
+  cd golangci-lint && go get -u golang.org/x/sys golang.org/x/net && \
+  go mod tidy && go mod download && \
+  go install ./cmd/golangci-lint && \
+  cd .. && rm -rf golangci-lint && \
+  golangci-lint --version
+
+# Install license checking tool.
+RUN go install github.com/pmezard/licenses@master
+
+# Install tool to merge coverage reports.
+RUN go install github.com/wadey/gocovmerge@master
+
+# Install CLI tool for working with yaml files
+ENV YQ_VERSION=3.4.1
+RUN git clone -b ${YQ_VERSION} --depth=1 https://github.com/mikefarah/yq && \
+  cd yq && go get -u golang.org/x/sys golang.org/x/net && \
+  go mod tidy && go mod download && \
+  go install ./ && \
+  cd .. && rm -rf yq
+
+# Delete all the Go sources that were downloaded, we only rely on the binaries
+RUN rm -rf /go/src/*
+
+# Install generation tools.
+RUN  go install k8s.io/code-generator/cmd/openapi-gen@master
+RUN  go install k8s.io/code-generator/cmd/deepcopy-gen@master
+
+# Install ginkgo v2 as ginkgo2 and keep ginkgo v1 as ginkgo
+RUN mv /go/bin/ginkgo /go/bin/ginkgo1 && \
+  go install github.com/onsi/ginkgo/v2/ginkgo@v2.1.3 && \
+  mv /go/bin/ginkgo /go/bin/ginkgo2 && \
+  mv /go/bin/ginkgo1 /go/bin/ginkgo
+
+# Ensure that everything under the GOPATH is writable by everyone
+RUN chmod -R 777 $GOPATH
