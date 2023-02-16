@@ -5,17 +5,21 @@ ORGANIZATION?=calico
 REPOSITORY?=go-build
 TAG?=0.73
 
-IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):$(TAG)
+SOURCE=https://github.com/projectcalico/go-build.git
+PATCH=0001-port-to-loongarch64.patch
 
+IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):$(TAG)
 
 default: image
 
-image:
-	docker build \
-		--build-arg http_proxy=$(http_proxy) \
-		--build-arg https_proxy=$(http_proxy) \
-		-t $(IMAGE) \
-		.
+image: src/$(REPOSITORY)
+	$(MAKE) -C src/$(REPOSITORY) image ARCHIMAGE=$(IMAGE)
+
+src/$(REPOSITORY):
+	mkdir -p src
+	git clone -b v$(TAG) --depth=1 $(SOURCE) $@
+	cd src/$(REPOSITORY) && \
+		git apply ../../$(PATCH)
 
 push:
 	docker push $(IMAGE)
