@@ -18,8 +18,11 @@ image: src/$(REPOSITORY)
 src/$(REPOSITORY):
 	mkdir -p src
 	git clone -b v$(TAG) --depth=1 $(SOURCE) $@
-	cd src/$(REPOSITORY) && \
+	cd $@ && \
 		git apply ../../$(PATCH)
 
 push:
 	docker push $(IMAGE)
+
+clean:
+	rm -rf src
