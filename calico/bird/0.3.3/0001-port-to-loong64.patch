@@ -1,0 +1,85 @@
+From 9ab097b880f15a8ced2064740a8b6d63ea4848dc Mon Sep 17 00:00:00 2001
+From: znley <shanjiantao@loongson.cn>
+Date: Fri, 17 Feb 2023 17:05:14 +0800
+Subject: [PATCH] port to loong64
+
+---
+ build.sh                              | 10 ++++++++++
+ builder-images/Dockerfile.loongarch64 |  7 +++++++
+ create_binaries.sh                    |  1 +
+ docker-image/Dockerfile.loongarch64   |  1 +
+ 4 files changed, 19 insertions(+)
+ create mode 100644 builder-images/Dockerfile.loongarch64
+ create mode 120000 docker-image/Dockerfile.loongarch64
+
+diff --git a/build.sh b/build.sh
+index aed14d9c..1bddc7b8 100755
+--- a/build.sh
++++ b/build.sh
+@@ -27,6 +27,9 @@ case $BUILDARCH in
+ 	s390x)
+ 	  	BUILDARCH=s390x
+ 		;;
++	loongarch64)
++	  	BUILDARCH=loongarch64
++		;;
+ 	*)
+ 		echo "Unsupported build architecture $BUILDARCH" >&2
+ 		exit 1
+@@ -50,6 +53,9 @@ case $ARCH in
+ 	s390x)
+ 		TARGETARCH=s390x
+ 		;;
++	loongarch64)
++		TARGETARCH=loongarch64
++		;;
+ 	*)
+ 		echo "Unknown target architecture $ARCH."
+ 		exit 1
+@@ -62,6 +68,10 @@ if [ "$BUILDARCH" != "$TARGETARCH" ]; then
+ 	DOCKERFILE=Dockerfile-cross
+ 	IMAGE=birdbuild-$BUILDARCH-cross
+ fi
++if [ "$BUILDARCH" = "loongarch64" ]; then
++	DOCKERFILE=Dockerfile.loongarch64
++	IMAGE=birdbuild-$BUILDARCH
++fi
+ 
+ 
+ DIST=dist/
+diff --git a/builder-images/Dockerfile.loongarch64 b/builder-images/Dockerfile.loongarch64
+new file mode 100644
+index 00000000..3e1194a5
+--- /dev/null
++++ b/builder-images/Dockerfile.loongarch64
+@@ -0,0 +1,7 @@
++FROM cr.loongnix.cn/library/debian:buster
++LABEl maintainer="znley<shanjiantao@loongson.cn>"
++
++RUN apt update -y && apt upgrade -y
++RUN apt install -y linux-headers-4.19.0 autoconf flex bison ncurses-dev make gcc libreadline7 libreadline-dev
++
++WORKDIR /code
+diff --git a/create_binaries.sh b/create_binaries.sh
+index c20a565e..f65f3517 100755
+--- a/create_binaries.sh
++++ b/create_binaries.sh
+@@ -16,6 +16,7 @@ for i in $TARGETARCH; do
+ 	[ "$dirarch" = "aarch64" ] && dirarch=arm64
+ 	[ "$dirarch" = "ppc64el" ] && dirarch=ppc64le
+ 	[ "$dirarch" = "powerpc64le" ] && dirarch=ppc64le
++	[ "$dirarch" = "loongarch64" ] && dirarch=loongarch64
+ 
+ 	# where we place our output binaries
+ 	distarch=$DIST/$dirarch
+diff --git a/docker-image/Dockerfile.loongarch64 b/docker-image/Dockerfile.loongarch64
+new file mode 120000
+index 00000000..1d1fe94d
+--- /dev/null
++++ b/docker-image/Dockerfile.loongarch64
+@@ -0,0 +1 @@
++Dockerfile
+\ No newline at end of file
+-- 
+2.27.0
+
