@@ -13,7 +13,7 @@ IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):$(TAG)
 # Be sure to fill in the follows!!!
 SOURCE_URL=
 SOURCE=$(shell echo $(SOURCE_URL) | awk -F '/' '{print $$NF}' | awk -F '.' '{print $$1}')
-PATCH=
+PATCH=0001-port-to-loong64.patch
 
 default: image
 
