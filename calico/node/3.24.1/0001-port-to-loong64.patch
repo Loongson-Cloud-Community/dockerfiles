@@ -1,0 +1,175 @@
+From a1513cc5f9584120c700fe39fb37cf784b46fa68 Mon Sep 17 00:00:00 2001
+From: znley <shanjiantao@loongson.cn>
+Date: Mon, 20 Feb 2023 10:21:21 +0800
+Subject: [PATCH] port to loong64
+
+---
+ felix/bpf-apache/Makefile |  5 ++--
+ felix/bpf-gpl/Makefile    |  5 ++--
+ lib.Makefile              |  7 +++--
+ node/Dockerfile.loong64   | 61 +++++++++++++++++++++++++++++++++++++++
+ node/Makefile             |  2 +-
+ 5 files changed, 71 insertions(+), 9 deletions(-)
+ create mode 100644 node/Dockerfile.loong64
+
+diff --git a/felix/bpf-apache/Makefile b/felix/bpf-apache/Makefile
+index 85b357d..796d00d 100644
+--- a/felix/bpf-apache/Makefile
++++ b/felix/bpf-apache/Makefile
+@@ -24,7 +24,6 @@ CFLAGS +=  \
+ 	-Wno-compare-distinct-pointer-types \
+ 	-Wunused \
+ 	-Wall \
+-	-Werror \
+ 	-fno-stack-protector \
+ 	-O2 \
+ 	-target bpf \
+@@ -34,8 +33,8 @@ CFLAGS +=  \
+ TRIPLET := $(shell gcc -dumpmachine)
+ CFLAGS += -I/usr/include/$(TRIPLET)
+ 
+-CC := clang-12
+-LD := llc-12
++CC := clang-13
++LD := llc-13
+ 
+ C_FILES:=filter.c redir.c sockops.c
+ OBJS:=$(addprefix bin/,$(C_FILES:.c=.o))
+diff --git a/felix/bpf-gpl/Makefile b/felix/bpf-gpl/Makefile
+index 20c8d90..32cc68f 100644
+--- a/felix/bpf-gpl/Makefile
++++ b/felix/bpf-gpl/Makefile
+@@ -9,7 +9,6 @@
+ # for BPF programs and makes inline assembly aware of the BPF registers.
+ CFLAGS +=  \
+ 	-Wall \
+-	-Werror \
+ 	-fno-stack-protector \
+ 	-O2 \
+ 	-target bpf \
+@@ -43,8 +42,8 @@ CFLAGS +=  \
+ TRIPLET := $(shell gcc -dumpmachine)
+ CFLAGS += -I/usr/include/$(TRIPLET)
+ 
+-CC := clang-12
+-LD := llc-12
++CC := clang-13
++LD := llc-13
+ 
+ UT_C_FILES:=$(shell find ut -name '*.c')
+ UT_OBJS:=$(UT_C_FILES:.c=.o) $(shell ./list-ut-objs)
+diff --git a/lib.Makefile b/lib.Makefile
+index 9752312..0b90ad3 100644
+--- a/lib.Makefile
++++ b/lib.Makefile
+@@ -51,6 +51,9 @@ endif
+ ifeq ($(BUILDARCH),armv7l)
+         BUILDARCH=armv7
+ endif
++ifeq ($(BUILDARCH),loongarch64)
++        BUILDARCH=loong64
++endif
+ 
+ # unless otherwise set, I am building for my own architecture, i.e. not cross-compiling
+ ARCH ?= $(BUILDARCH)
+@@ -150,7 +153,7 @@ endif
+ # the one for the host should contain all the necessary cross-compilation tools
+ # we do not need to use the arch since go-build:v0.15 now is multi-arch manifest
+ GO_BUILD_IMAGE ?= calico/go-build
+-CALICO_BUILD    = $(GO_BUILD_IMAGE):$(GO_BUILD_VER)
++CALICO_BUILD   ?= $(GO_BUILD_IMAGE):$(GO_BUILD_VER)
+ 
+ # Images used in build / test across multiple directories.
+ PROTOC_CONTAINER=calico/protoc:$(PROTOC_VER)-$(BUILDARCH)
+@@ -237,7 +240,7 @@ TARGET_PLATFORM=--platform=linux/ppc64le
+ endif
+ 
+ # DOCKER_BUILD is the base build command used for building all images.
+-DOCKER_BUILD=docker buildx build --pull \
++DOCKER_BUILD=docker build \
+ 	     --build-arg QEMU_IMAGE=$(CALICO_BUILD) \
+ 	     --build-arg UBI_IMAGE=$(UBI_IMAGE) \
+ 	     --build-arg GIT_VERSION=$(GIT_VERSION) $(TARGET_PLATFORM)
+diff --git a/node/Dockerfile.loong64 b/node/Dockerfile.loong64
+new file mode 100644
+index 0000000..ac99c7c
+--- /dev/null
++++ b/node/Dockerfile.loong64
+@@ -0,0 +1,61 @@
++# Copyright (c) 2015-2016,2021 Tigera, Inc. All rights reserved.
++# Copyright IBM Corp. 2017
++#
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#     http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++ARG QEMU_IMAGE=calico/go-build:v0.73
++ARG BIRD_IMAGE=calico/bird:latest-loongarch64
++
++FROM ${BIRD_IMAGE} as bird
++
++FROM cr.loongnix.cn/calico/bpftool:5.19 as bpftool
++
++FROM cr.loongnix.cn/library/debian:buster
++MAINTAINER znley <shanjiantao@loongson.cn>
++
++ARG ARCH=loong64
++
++# Set the minimum required Docker API version.
++ENV DOCKER_API_VERSION 1.21
++
++# Enable non-native builds of this image on an amd64 hosts.
++# This must be the first RUN command in this file!
++# we only need this for the intermediate "base" image, so we can run all the apk and other commands
++# when running on a kernel >= 4.8, this will become less relevant
++# COPY --from=qemu /usr/bin/qemu-${ARCH}-static /usr/bin/
++
++# Install remaining runtime deps required for felix from the global repository
++RUN apt install -y iptables ipset iputils* iproute2 conntrack runit file ca-certificates libelf1 libbinutils
++
++# Copy our bird binaries in
++COPY --from=bird /bird* /bin/
++
++# Copy in the filesystem - this contains felix, calico-bgp-daemon etc...
++COPY filesystem/ /
++
++# Copy in the calico-node binary
++COPY dist/bin/calico-node-${ARCH} /bin/calico-node
++
++# Copy in the moutnns binary
++COPY dist/bin/mountns-${ARCH} /bin/mountns
++
++# Set the suid bit on mountns
++RUN chmod u+s /bin/mountns
++
++COPY --from=bpftool /bpftool /bin
++
++#RUN rm /usr/bin/qemu-${ARCH}-static
++
++CMD ["start_runit"]
++
++# Tell sv where to find the services.
++ENV SVDIR=/etc/service/enabled
+diff --git a/node/Makefile b/node/Makefile
+index 029eabb..90cd37d 100644
+--- a/node/Makefile
++++ b/node/Makefile
+@@ -266,7 +266,7 @@ sub-image-%:
+ 
+ image $(NODE_IMAGE): register $(NODE_CONTAINER_CREATED)
+ $(NODE_CONTAINER_CREATED): $(REMOTE_DEPS) ./Dockerfile.$(ARCH) $(NODE_CONTAINER_BINARY) $(INCLUDED_SOURCE) $(NODE_CONTAINER_FILES) $(TOOLS_MOUNTNS_BINARY)
+-	$(DOCKER_BUILD) --build-arg BIRD_IMAGE=$(BIRD_IMAGE) -t $(NODE_IMAGE):latest-$(ARCH) -f ./Dockerfile.$(ARCH) . --load
++	$(DOCKER_BUILD) --build-arg BIRD_IMAGE=$(BIRD_IMAGE) -t $(NODE_IMAGE) -f ./Dockerfile.$(ARCH) . 
+ 	$(MAKE) retag-build-images-with-registries VALIDARCHES=$(ARCH) IMAGETAG=latest
+ 	touch $@
+ 
+-- 
+2.27.0
+
