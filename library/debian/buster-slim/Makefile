@@ -21,4 +21,7 @@ push:
 	docker push $(IMAGE)
 
 $(ROOTFS):
-	./make_rootfs.sh
+	docker run -it --rm \
+		-v `pwd`:/wk \
+		cr.loongnix.cn/library/debian:buster \
+		/bin/bash -c "/wk/make_rootfs.sh /wk"
