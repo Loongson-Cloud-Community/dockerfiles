@@ -1,30 +1,24 @@
 #!/bin/bash
 
-DISTRO=loongnix
-RELEASE=DaoXiangHu-stable
-MIRROR_ADDRESS=http://pkg.loongnix.cn/loongnix/
+: ${DISTRO:="loongnix"}
+: ${RELEASE:=DaoXiangHu-stable}
+: ${MIRROR_ADDRESS:=http://pkg.loongnix.cn/loongnix}
+: ${ROOTFS:="rootfs.tar.gz"}
 
-ROOTFS=iso
+WKDIR=$1
+cd ${WKDIR?}
 
-## 检测 debootstrap 命令存在
-if ! $(command -v debootstrap > /dev/null); then
-	echo "command debootstrap not found"
-	exit 1
-fi
-
-WKDIR=`mktemp -d`
-mkdir -pv $WKDIR/$ROOTFS
-cp .slimify-includes $WKDIR/.slimify-includes
-cp .slimify-excludes $WKDIR/.slimify-excludes
-pushd $WKDIR
-
+apt install -y debootstrap
 if [ ! -f /usr/share/debootstrap/scripts/$RELEASE ]; then
 	ln -s /usr/share/debootstrap/scripts/sid /usr/share/debootstrap/scripts/$RELEASE
 fi
 
-debootstrap --no-check-gpg --variant=minbase --components=main,non-free,contrib --arch=loongarch64 --foreign $RELEASE $ROOTFS $MIRROR_ADDRESS
-
-chroot iso debootstrap/debootstrap --second-stage
+TMPDIR=`mktemp -d`
+cp .slimify-includes $TMPDIR/.slimify-includes
+cp .slimify-excludes $TMPDIR/.slimify-excludes
+# install packages
+debootstrap --no-check-gpg --variant=minbase --components=main,non-free,contrib --arch=loongarch64 --foreign $RELEASE $TMPDIR $MIRROR_ADDRESS
+chroot $TMPDIR debootstrap/debootstrap --second-stage
 
 # slimify
 slimIncludes=( $(sed '/^#/d;/^$/d' .slimify-includes | sort -u) )
@@ -41,7 +35,7 @@ findMatchIncludes=( '(' "${findMatchIncludes[@]}" ')' )
 
 for slimExclude in "${slimExcludes[@]}"; do
         {
-                chroot $ROOTFS \
+                chroot $TMPDIR \
                         find "$(dirname "$slimExclude")" \
                         -depth -mindepth 1 \
                         -not \( -type d -o -type l \) \
@@ -51,7 +45,7 @@ for slimExclude in "${slimExcludes[@]}"; do
 done
 
 while [ "$(
-        chroot $ROOTFS \
+        chroot $TMPDIR \
                 find "$(dirname "$slimExclude")" \
                 -depth -mindepth 1 \( -empty -o -xtype l \) \
                 -exec rm -rf '{}' ';' -printf '.' \
@@ -59,8 +53,4 @@ while [ "$(
         )" -gt 0 ]; do true; done
 
 
-tar -zcf rootfs.tar.gz -C $ROOTFS .
-popd
-
-mv $WKDIR/rootfs.tar.gz .
-rm -rf WKDIR
+tar -zcvf $ROOTFS -C $TMPDIR .
