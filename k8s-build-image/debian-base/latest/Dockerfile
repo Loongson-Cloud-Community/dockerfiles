@@ -47,17 +47,17 @@ RUN apt-mark hold apt gnupg adduser passwd libsemanage1 libcap2
 # then running `apt-cache rdepends --installed --no-recommends` to find the "root" packages.
 # The root packages were evaluated based on whether they were needed in the container image.
 # Several utilities (e.g. ping) were kept for usefulness, but may be removed in later versions.
-RUN echo "Yes, do as I say!" | apt-get purge \
-    bash \
-    e2fsprogs \
-    libcap2-bin \
-    libmount1 \
-    libsmartcols1 \
-    libblkid1 \
-    libss2 \
-    ncurses-base \
-    ncurses-bin \
-    tzdata
+# RUN echo "Yes, do as I say!" | apt-get purge \
+#     bash \
+#     e2fsprogs \
+#     libcap2-bin \
+#     libmount1 \
+#     libsmartcols1 \
+#     libblkid1 \
+#     libss2 \
+#     ncurses-base \
+#     ncurses-bin \
+#     tzdata
 
 # No-op stubs replace some unnecessary binaries that may be depended on in the install process (in
 # particular we don't run an init process).
