@@ -7,4 +7,4 @@ ARG BUILD_TIME
 
 ADD ${ROOTFS} /
 
-CMD ["/bin/bash"]
+CMD ["/bin/sh"]
