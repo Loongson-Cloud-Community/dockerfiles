@@ -1,0 +1,61 @@
+From c942bbf84d181ed29fa647a76dc3e995c5981e97 Mon Sep 17 00:00:00 2001
+From: znley <shanjiantao@loongson.cn>
+Date: Fri, 3 Mar 2023 09:30:48 +0800
+Subject: [PATCH] port to loong64
+
+---
+ alpine/Dockerfile | 12 +++++++-----
+ 1 file changed, 7 insertions(+), 5 deletions(-)
+
+diff --git a/alpine/Dockerfile b/alpine/Dockerfile
+index a88d297..e9c3bb2 100644
+--- a/alpine/Dockerfile
++++ b/alpine/Dockerfile
+@@ -1,8 +1,8 @@
+ # Dockerfile - alpine
+ # https://github.com/openresty/docker-openresty
+ 
+-ARG RESTY_IMAGE_BASE="alpine"
+-ARG RESTY_IMAGE_TAG="3.17"
++ARG RESTY_IMAGE_BASE="cr.loongnix.cn/library/alpine"
++ARG RESTY_IMAGE_TAG="3.11"
+ 
+ FROM ${RESTY_IMAGE_BASE}:${RESTY_IMAGE_TAG}
+ 
+@@ -10,13 +10,13 @@ LABEL maintainer="Evan Wies <evan@neomantra.net>"
+ 
+ # Docker Build Arguments
+ ARG RESTY_IMAGE_BASE="alpine"
+-ARG RESTY_IMAGE_TAG="3.17"
++ARG RESTY_IMAGE_TAG="3.11"
+ ARG RESTY_VERSION="1.21.4.1"
+ ARG RESTY_OPENSSL_VERSION="1.1.1t"
+ ARG RESTY_OPENSSL_PATCH_VERSION="1.1.1f"
+ ARG RESTY_OPENSSL_URL_BASE="https://www.openssl.org/source"
+ ARG RESTY_PCRE_VERSION="8.45"
+-ARG RESTY_PCRE_BUILD_OPTIONS="--enable-jit"
++ARG RESTY_PCRE_BUILD_OPTIONS=""
+ ARG RESTY_PCRE_SHA256="4e6ce03e0336e8b4a3d6c2b70b1c5e18590a5673a98186da90d4f33c23defc09"
+ ARG RESTY_J="1"
+ ARG RESTY_CONFIG_OPTIONS="\
+@@ -133,6 +133,8 @@ RUN apk add --no-cache --virtual .build-deps \
+     && echo "${RESTY_PCRE_SHA256}  pcre-${RESTY_PCRE_VERSION}.tar.gz" | shasum -a 256 --check \
+     && tar xzf pcre-${RESTY_PCRE_VERSION}.tar.gz \
+     && cd /tmp/pcre-${RESTY_PCRE_VERSION} \
++    && curl -L -o ./config.sub "git.savannah.gnu.org/gitweb/?p=config.git;a=blob_plain;f=config.sub;hb=HEAD" \
++    && curl -L -o ./config.guess "git.savannah.gnu.org/gitweb/?p=config.git;a=blob_plain;f=config.guess;hb=HEAD" \
+     && ./configure \
+         --prefix=/usr/local/openresty/pcre \
+         --disable-cpp \
+@@ -142,7 +144,7 @@ RUN apk add --no-cache --virtual .build-deps \
+     && make -j${RESTY_J} \
+     && make -j${RESTY_J} install \
+     && cd /tmp \
+-    && curl -fSL https://openresty.org/download/openresty-${RESTY_VERSION}.tar.gz -o openresty-${RESTY_VERSION}.tar.gz \
++    && curl -fSL https://github.com/Loongson-Cloud-Community/openresty/releases/download/v${RESTY_VERSION}/openresty-${RESTY_VERSION}.tar.gz -o openresty-${RESTY_VERSION}.tar.gz \
+     && tar xzf openresty-${RESTY_VERSION}.tar.gz \
+     && cd /tmp/openresty-${RESTY_VERSION} \
+     && if [ -n "${RESTY_EVAL_POST_DOWNLOAD_PRE_CONFIGURE}" ]; then eval $(echo ${RESTY_EVAL_POST_DOWNLOAD_PRE_CONFIGURE}); fi \
+-- 
+2.27.0
+
