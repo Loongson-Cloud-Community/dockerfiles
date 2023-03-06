@@ -1,0 +1,43 @@
+From 2b850b1686e90706dd0d24c1a94df694ba6e638f Mon Sep 17 00:00:00 2001
+From: wangweijie <wangweijie@loongson.cn>
+Date: Mon, 6 Mar 2023 17:48:30 +0800
+Subject: [PATCH] port to loong64
+
+---
+ Makefile        | 2 +-
+ Makefile.common | 6 +++++-
+ 2 files changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/Makefile b/Makefile
+index fafaf48..8ff4c6a 100644
+--- a/Makefile
++++ b/Makefile
+@@ -12,7 +12,7 @@
+ # limitations under the License.
+ 
+ # Needs to be defined before including Makefile.common to auto-generate targets
+-DOCKER_ARCHS ?= amd64 armv7 arm64 ppc64le
++DOCKER_ARCHS ?= amd64 armv7 arm64 ppc64le loong64
+ 
+ include Makefile.common
+ 
+diff --git a/Makefile.common b/Makefile.common
+index 99e8f9f..40862dc 100644
+--- a/Makefile.common
++++ b/Makefile.common
+@@ -79,7 +79,11 @@ endif
+ endif
+ 
+ PROMU_VERSION ?= 0.12.0
+-PROMU_URL     := https://github.com/prometheus/promu/releases/download/v$(PROMU_VERSION)/promu-$(PROMU_VERSION).$(GO_BUILD_PLATFORM).tar.gz
++ifeq ($(GOHOSTARCH),loong64)
++	PROMU_URL := https://github.com/Loongson-Cloud-Community/promu/releases/download/v$(PROMU_VERSION)/promu-$(PROMU_VERSION).$(GO_BUILD_PLATFORM).tar.gz
++else
++	PROMU_URL := https://github.com/prometheus/promu/releases/download/v$(PROMU_VERSION)/promu-$(PROMU_VERSION).$(GO_BUILD_PLATFORM).tar.gz
++endif
+ 
+ GOLANGCI_LINT :=
+ GOLANGCI_LINT_OPTS ?=
+-- 
+2.20.1
+
