@@ -20,7 +20,7 @@ default: image
 
 image: src/$(SOURCE)
 # Commands for building.
-	$(MAKE) -C src/$(SOURCE) docker_core_data PROXY=http://PROXY=10.130.0.16:7890
+	$(MAKE) -C src/$(SOURCE) docker_core_data PROXY=http://10.130.0.16:7890
 
 src/$(SOURCE):
 	git clone -b $(BRANCH) --depth=1 $(SOURCE_URL) $@
