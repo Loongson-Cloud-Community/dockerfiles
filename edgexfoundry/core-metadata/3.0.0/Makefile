@@ -2,7 +2,7 @@
 
 REGISTRY?=cr.loongnix.cn
 ORGANIZATION?=edgexfoundry
-REPOSITORY?=core_metadata
+REPOSITORY?=core-metadata
 TAG?=3.0.0
 BRANCH=v3.0.0-dev.8
 
