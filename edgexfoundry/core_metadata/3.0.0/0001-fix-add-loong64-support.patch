@@ -1,0 +1,460 @@
+From 7c3f81ca9b88b1b062f6fdb60b0880328f032558 Mon Sep 17 00:00:00 2001
+From: qiangxuhui <qiangxuhui@loongson.cn>
+Date: Sat, 7 Jan 2023 02:36:48 +0000
+Subject: [PATCH] fix: add loong64 support
+
+---
+ Makefile                             | 79 +++++++++++++++++-----------
+ cmd/core-command/Dockerfile          |  8 +--
+ cmd/core-data/Dockerfile             | 14 +++--
+ cmd/core-metadata/Dockerfile         |  5 +-
+ cmd/support-notifications/Dockerfile |  7 ++-
+ cmd/support-scheduler/Dockerfile     |  7 ++-
+ cmd/sys-mgmt-agent/Dockerfile        | 11 ++--
+ loong64_docker/Dockerfile            | 50 ++++++++++++++++++
+ version.go                           |  4 +-
+ 9 files changed, 128 insertions(+), 57 deletions(-)
+ create mode 100644 loong64_docker/Dockerfile
+
+diff --git a/Makefile b/Makefile
+index c567fb3e..4463ea11 100644
+--- a/Makefile
++++ b/Makefile
+@@ -12,6 +12,8 @@ INCLUDE_DELAYED_START_BUILD_CORE:="false"
+ # change the following boolean flag to include or exclude the delayed start libs for builds for support services exculsively
+ INCLUDE_DELAYED_START_BUILD_SUPPORT:="true"
+ 
++PROXY?=127.0.0.1:7890
++
+ GO=go
+ 
+ DOCKERS= \
+@@ -48,10 +50,11 @@ MICROSERVICES= \
+ 
+ .PHONY: $(MICROSERVICES)
+ 
+-VERSION=$(shell cat ./VERSION 2>/dev/null || echo 0.0.0)
++#VERSION=$(shell cat ./VERSION 2>/dev/null || echo 0.0.0)
++VERSION:=3.0.0
+ DOCKER_TAG=$(VERSION)-dev
+ 
+-GOFLAGS=-ldflags "-X github.com/edgexfoundry/edgex-go.Version=$(VERSION)" -trimpath -mod=readonly
++GOFLAGS=-ldflags "-X github.com/edgexfoundry/edgex-go.Version=$(VERSION)" -trimpath -mod=readonly -tags musl -ldflags="-extldflags --static"
+ GOTESTFLAGS?=-race
+ 
+ GIT_SHA=$(shell git rev-parse HEAD)
+@@ -167,103 +170,117 @@ docker-nats:
+ clean_docker_base:
+ 	docker rmi -f $(LOCAL_CACHE_IMAGE) $(LOCAL_CACHE_IMAGE_BASE) 
+ 
++#docker_base:
++#	echo "Building local cache image";\
++#	response=$(shell curl --write-out '%{http_code}' --silent --output /dev/null "$(BASE_DOCKERFILE)"); \
++#	if [ "$${response}" = "200" ]; then \
++#		echo "Found base Dockerfile"; \
++#		curl -s "$(BASE_DOCKERFILE)" | docker build -t $(LOCAL_CACHE_IMAGE_BASE) -f - .; \
++#		echo -e "FROM $(LOCAL_CACHE_IMAGE_BASE)\nWORKDIR /edgex-go\nCOPY go.mod .\nRUN go mod download" | docker build -t $(LOCAL_CACHE_IMAGE) -f - .; \
++#	else \
++#		echo "No base Dockerfile found. Using golang:$(GO_VERSION)-alpine"; \
++#		echo "FROM golang:$(GO_VERSION)-alpine\nRUN apk add --update make git\nWORKDIR /edgex-go\nCOPY go.mod .\nRUN go mod download" | docker build -t $(LOCAL_CACHE_IMAGE) -f - .; \
++#	fi
++
++# 将dockerfile添加到本地
+ docker_base:
+ 	echo "Building local cache image";\
+-	response=$(shell curl --write-out '%{http_code}' --silent --output /dev/null "$(BASE_DOCKERFILE)"); \
+-	if [ "$${response}" = "200" ]; then \
+-		echo "Found base Dockerfile"; \
+-		curl -s "$(BASE_DOCKERFILE)" | docker build -t $(LOCAL_CACHE_IMAGE_BASE) -f - .; \
+-		echo "FROM $(LOCAL_CACHE_IMAGE_BASE)\nWORKDIR /edgex-go\nCOPY go.mod .\nRUN go mod download" | docker build -t $(LOCAL_CACHE_IMAGE) -f - .; \
+-	else \
+-		echo "No base Dockerfile found. Using golang:$(GO_VERSION)-alpine"; \
+-		echo "FROM golang:$(GO_VERSION)-alpine\nRUN apk add --update make git\nWORKDIR /edgex-go\nCOPY go.mod .\nRUN go mod download" | docker build -t $(LOCAL_CACHE_IMAGE) -f - .; \
+-	fi
++	cat loong64_docker/Dockerfile | docker build -t $(LOCAL_CACHE_IMAGE_BASE) -f - .; \
++	echo -e "FROM $(LOCAL_CACHE_IMAGE_BASE)\nWORKDIR /edgex-go\nCOPY go.mod .\nRUN go mod download" | docker build -t $(LOCAL_CACHE_IMAGE) -f - .; \
++
+ 
+ dcore: dmetadata ddata dcommand
+ 
+ dmetadata: docker_core_metadata
+-docker_core_metadata: docker_base
++docker_core_metadata:
+ 	docker build \
+ 		--build-arg ADD_BUILD_TAGS=$(ADD_BUILD_TAGS) \
+-		--build-arg http_proxy \
+-		--build-arg https_proxy \
++		--build-arg http_proxy=$(PROXY) \
++		--build-arg https_proxy=$(PROXY) \
+ 		--build-arg BUILDER_BASE=$(LOCAL_CACHE_IMAGE) \
+ 		-f cmd/core-metadata/Dockerfile \
+ 		--label "git_sha=$(GIT_SHA)" \
+ 		-t edgexfoundry/core-metadata:$(GIT_SHA) \
+ 		-t edgexfoundry/core-metadata:$(DOCKER_TAG) \
++		-t cr.loongnix.cn/edgexfoundry/core-metadata:$(VERSION) \
+ 		.
+ 
++# 其实不用docker_base也可以
+ ddata: docker_core_data
+-docker_core_data: docker_base
++docker_core_data:
+ 	docker build \
+ 		--build-arg ADD_BUILD_TAGS=$(ADD_BUILD_TAGS) \
+-		--build-arg http_proxy \
+-		--build-arg https_proxy \
++		--build-arg http_proxy=$(PROXY) \
++		--build-arg https_proxy=$(PROXY) \
+ 		--build-arg BUILDER_BASE=$(LOCAL_CACHE_IMAGE) \
+ 		-f cmd/core-data/Dockerfile \
+ 		--label "git_sha=$(GIT_SHA)" \
+ 		-t edgexfoundry/core-data:$(GIT_SHA) \
+ 		-t edgexfoundry/core-data:$(DOCKER_TAG) \
++		-t cr.loongnix.cn/edgexfoundry/core-data:$(VERSION) \
+ 		.
+ 
+ dcommand: docker_core_command
+-docker_core_command: docker_base
++docker_core_command: 
+ 	docker build \
+ 		--build-arg ADD_BUILD_TAGS=$(ADD_BUILD_TAGS) \
+-		--build-arg http_proxy \
+-		--build-arg https_proxy \
++		--build-arg http_proxy=$(PROXY) \
++		--build-arg https_proxy=$(PROXY) \
+ 		--build-arg BUILDER_BASE=$(LOCAL_CACHE_IMAGE) \
+ 		-f cmd/core-command/Dockerfile \
+ 		--label "git_sha=$(GIT_SHA)" \
+ 		-t edgexfoundry/core-command:$(GIT_SHA) \
+ 		-t edgexfoundry/core-command:$(DOCKER_TAG) \
++		-t cr.loongnix.cn/edgexfoundry/core-command:$(VERSION) \
+ 		.
+ 
+ dsupport: dnotifications dscheduler
+ 
+ dnotifications: docker_support_notifications
+-docker_support_notifications: docker_base
++docker_support_notifications:
+ 	docker build \
+ 		--build-arg ADD_BUILD_TAGS=$(ADD_BUILD_TAGS) \
+-		--build-arg http_proxy \
+-		--build-arg https_proxy \
++		--build-arg http_proxy=$(PROXY) \
++		--build-arg https_proxy=$(PROXY) \
+ 		--build-arg BUILDER_BASE=$(LOCAL_CACHE_IMAGE) \
+ 		-f cmd/support-notifications/Dockerfile \
+ 		--label "git_sha=$(GIT_SHA)" \
+ 		-t edgexfoundry/support-notifications:$(GIT_SHA) \
+ 		-t edgexfoundry/support-notifications:$(DOCKER_TAG) \
++		-t cr.loongnix.cn/edgexfoundry/support-notifications:$(VERSION) \
+ 		.
+ 
+ dscheduler: docker_support_scheduler
+-docker_support_scheduler: docker_base
++docker_support_scheduler: 
+ 	docker build \
+ 		--build-arg ADD_BUILD_TAGS=$(ADD_BUILD_TAGS) \
+-		--build-arg http_proxy \
+-		--build-arg https_proxy \
++		--build-arg http_proxy=$(PROXY) \
++		--build-arg https_proxy=$(PROXY) \
+ 		--build-arg BUILDER_BASE=$(LOCAL_CACHE_IMAGE) \
+ 		-f cmd/support-scheduler/Dockerfile \
+ 		--label "git_sha=$(GIT_SHA)" \
+ 		-t edgexfoundry/support-scheduler:$(GIT_SHA) \
+ 		-t edgexfoundry/support-scheduler:$(DOCKER_TAG) \
++		-t cr.loongnix.cn/edgexfoundry/support-scheduler:$(VERSION) \
+ 		.
+ 
+-docker_sys_mgmt_agent: docker_base
++docker_sys_mgmt_agent:
+ 	docker build \
+-		--build-arg http_proxy \
+-		--build-arg https_proxy \
++		--build-arg http_proxy=$(PROXY) \
++		--build-arg https_proxy=$(PROXY) \
+ 		--build-arg BUILDER_BASE=$(LOCAL_CACHE_IMAGE) \
+ 		-f cmd/sys-mgmt-agent/Dockerfile \
+ 		--label "git_sha=$(GIT_SHA)" \
+ 		-t edgexfoundry/sys-mgmt-agent:$(GIT_SHA) \
+ 		-t edgexfoundry/sys-mgmt-agent:$(DOCKER_TAG) \
++		-t cr.loongnix.cn/edgexfoundry/sys-mgmt-agent:$(VERSION) \
+ 		.
+ 
+ dproxy: docker_security_proxy_setup
+ docker_security_proxy_setup: docker_base
+ 	docker build \
+-		--build-arg http_proxy \
+-		--build-arg https_proxy \
++		--build-arg http_proxy=$(PROXY) \
++		--build-arg https_proxy=$(PROXY) \
+ 		--build-arg BUILDER_BASE=$(LOCAL_CACHE_IMAGE) \
+ 		-f cmd/security-proxy-setup/Dockerfile \
+ 		--label "git_sha=$(GIT_SHA)" \
+diff --git a/cmd/core-command/Dockerfile b/cmd/core-command/Dockerfile
+index 63ebd6c1..98808fe5 100644
+--- a/cmd/core-command/Dockerfile
++++ b/cmd/core-command/Dockerfile
+@@ -16,22 +16,22 @@
+ # 
+ #  ----------------------------------------------------------------------------------
+ 
+-ARG BUILDER_BASE=golang:1.18-alpine3.16
++ARG BUILDER_BASE=golang:cr.loongnix.cn/library/golang:1.19-alpine
+ FROM ${BUILDER_BASE} AS builder
+ 
+ ARG ADD_BUILD_TAGS=""
+ 
+ WORKDIR /edgex-go
+ 
+-RUN apk add --update --no-cache make git
++RUN apk add --update --no-cache make git gcc musl-dev
+ 
+ COPY go.mod vendor* ./
+-RUN [ ! -d "vendor" ] && go mod download all || echo "skipping..."
++#RUN [ ! -d "vendor" ] && go mod download all || echo "skipping..."
+ 
+ COPY . .
+ RUN make -e ADD_BUILD_TAGS=$ADD_BUILD_TAGS  cmd/core-command/core-command
+ 
+-FROM alpine:3.16
++FROM cr.loongnix.cn/library/alpine:3.11
+ 
+ RUN apk add --update --no-cache dumb-init
+ 
+diff --git a/cmd/core-data/Dockerfile b/cmd/core-data/Dockerfile
+index 7fb594db..e3feffbd 100644
+--- a/cmd/core-data/Dockerfile
++++ b/cmd/core-data/Dockerfile
+@@ -17,23 +17,29 @@
+ #  ----------------------------------------------------------------------------------
+ 
+ # Docker image for Golang Core Data micro service
+-ARG BUILDER_BASE=golang:1.18-alpine3.16
++ARG BUILDER_BASE=cr.loongnix.cn/library/golang:1.19-alpine
+ FROM ${BUILDER_BASE} AS builder
+ 
+ ARG ADD_BUILD_TAGS=""
+ 
+ WORKDIR /edgex-go
+ 
+-RUN apk add --update --no-cache make git
++RUN apk add --update --no-cache make git gcc musl-dev
++
++ENV http_proxy=http://10.130.0.16:7890
++ENV https_proxy=http://10.130.0.16:7890
++
+ 
+ COPY go.mod vendor* ./
+-RUN [ ! -d "vendor" ] && go mod download all || echo "skipping..."
++RUN go mod download all
++# COPY go.mod vendor* ./
++# RUN [ ! -d "vendor" ] && go mod download all || echo "skipping..."
+ 
+ COPY . .
+ RUN make -e ADD_BUILD_TAGS=$ADD_BUILD_TAGS cmd/core-data/core-data
+ 
+ #Next image - Copy built Go binary into new workspace
+-FROM alpine:3.16
++FROM cr.loongnix.cn/library/alpine:3.11
+ 
+ LABEL license='SPDX-License-Identifier: Apache-2.0' \
+       copyright='Copyright (c) 2018: Dell, Cavium'
+diff --git a/cmd/core-metadata/Dockerfile b/cmd/core-metadata/Dockerfile
+index 1957d3d4..f040dee8 100644
+--- a/cmd/core-metadata/Dockerfile
++++ b/cmd/core-metadata/Dockerfile
+@@ -16,7 +16,7 @@
+ # 
+ #  ----------------------------------------------------------------------------------
+ 
+-ARG BUILDER_BASE=golang:1.18-alpine3.16
++ARG BUILDER_BASE=cr.loongnix.cn/library/golang:1.19-alpine
+ FROM ${BUILDER_BASE} AS builder
+ 
+ ARG ADD_BUILD_TAGS=""
+@@ -26,13 +26,12 @@ WORKDIR /edgex-go
+ RUN apk add --update --no-cache make git
+ 
+ COPY go.mod vendor* ./
+-RUN [ ! -d "vendor" ] && go mod download all || echo "skipping..."
+ 
+ COPY . .
+ RUN make -e ADD_BUILD_TAGS=$ADD_BUILD_TAGS cmd/core-metadata/core-metadata
+ 
+ #Next image - Copy built Go binary into new workspace
+-FROM alpine:3.16
++FROM cr.loongnix.cn/library/alpine:3.11
+ 
+ RUN apk add --update --no-cache dumb-init
+ 
+diff --git a/cmd/support-notifications/Dockerfile b/cmd/support-notifications/Dockerfile
+index 36062257..6afadb92 100644
+--- a/cmd/support-notifications/Dockerfile
++++ b/cmd/support-notifications/Dockerfile
+@@ -15,22 +15,21 @@
+ # 
+ #  ----------------------------------------------------------------------------------
+ 
+-ARG BUILDER_BASE=golang:1.18-alpine3.16
++ARG BUILDER_BASE=cr.loongnix.cn/library/golang:1.19-alpine
+ FROM ${BUILDER_BASE} AS builder
+ 
+ ARG ADD_BUILD_TAGS=""
+ 
+ WORKDIR /edgex-go
+ 
+-RUN apk add --update --no-cache make bash git ca-certificates
++RUN apk add --update --no-cache make bash git ca-certificates gcc musl-dev
+ 
+ COPY go.mod vendor* ./
+-RUN [ ! -d "vendor" ] && go mod download all || echo "skipping..."
+ 
+ COPY . .
+ RUN make cmd/support-notifications/support-notifications
+ 
+-FROM alpine:3.16
++FROM cr.loongnix.cn/library/alpine:3.11
+ 
+ RUN apk add --update --no-cache ca-certificates dumb-init
+ 
+diff --git a/cmd/support-scheduler/Dockerfile b/cmd/support-scheduler/Dockerfile
+index ce0d7030..ed1307fb 100644
+--- a/cmd/support-scheduler/Dockerfile
++++ b/cmd/support-scheduler/Dockerfile
+@@ -16,22 +16,21 @@
+ # 
+ #  ----------------------------------------------------------------------------------
+ 
+-ARG BUILDER_BASE=golang:1.18-alpine3.16
++ARG BUILDER_BASE=cr.loongnix.cn/library/golang:1.19-alpine
+ FROM ${BUILDER_BASE} AS builder
+ 
+ ARG ADD_BUILD_TAGS=""
+ 
+ WORKDIR /edgex-go
+ 
+-RUN apk add --update --no-cache make git
++RUN apk add --update --no-cache make git gcc musl-dev
+ 
+ COPY go.mod vendor* ./
+-RUN [ ! -d "vendor" ] && go mod download all || echo "skipping..."
+ 
+ COPY . .
+ RUN make cmd/support-scheduler/support-scheduler
+ 
+-FROM alpine:3.16
++FROM cr.loongnix.cn/library/alpine:3.11
+ 
+ RUN apk add --update --no-cache dumb-init
+ 
+diff --git a/cmd/sys-mgmt-agent/Dockerfile b/cmd/sys-mgmt-agent/Dockerfile
+index 1560aff0..60187e4e 100644
+--- a/cmd/sys-mgmt-agent/Dockerfile
++++ b/cmd/sys-mgmt-agent/Dockerfile
+@@ -5,15 +5,14 @@
+ # SPDX-License-Identifier: Apache-2.0
+ #
+ 
+-ARG BUILDER_BASE=golang:1.18-alpine3.16
++ARG BUILDER_BASE=cr.loongnix.cn/library/golang:1.19-alpine
+ FROM ${BUILDER_BASE} AS builder
+ 
+ WORKDIR /edgex-go
+ 
+-RUN apk add --update --no-cache make bash git
++RUN apk add --update --no-cache make bash git gcc musl-dev
+ 
+ COPY go.mod vendor* ./
+-RUN [ ! -d "vendor" ] && go mod download all || echo "skipping..."
+ 
+ COPY . .
+ # Build the SMA executable.
+@@ -23,14 +22,14 @@ RUN make cmd/sys-mgmt-agent/sys-mgmt-agent
+ RUN make cmd/sys-mgmt-executor/sys-mgmt-executor
+ 
+ # Get the Docker-in-Docker image layered-in now.
+-FROM alpine:3.16
++FROM cr.loongnix.cn/library/alpine:3.11
+ 
+ LABEL license='SPDX-License-Identifier: Apache-2.0' \
+       copyright='Copyright (c) 2017-2019: Mainflux, Cavium, Dell, Copyright (c) 2021: Intel Corporation'
+ 
+ # consul token needs to be security-bootstrappable and for security-bootstrappable, dumb-init is required
+-RUN apk add --update --no-cache bash dumb-init py3-pip curl docker-cli && \
+-      pip install --no-cache-dir docker-compose==1.23.2
++RUN apk add --update --no-cache bash dumb-init py3-pip curl docker-ce-cli && \
++      pip3 install --no-cache-dir docker-compose==1.23.2 -i http://pypi.douban.com/simple/ --trusted-host pypi.douban.com
+ 
+ ENV APP_PORT=58890
+ #expose system mgmt agent port
+diff --git a/loong64_docker/Dockerfile b/loong64_docker/Dockerfile
+new file mode 100644
+index 00000000..51fcd55c
+--- /dev/null
++++ b/loong64_docker/Dockerfile
+@@ -0,0 +1,50 @@
++#
++# Copyright (c) 2020-2022
++# Intel Corporation
++#
++# SPDX-License-Identifier: Apache-2.0
++#
++
++FROM cr.loongnix.cn/library/golang:1.19-alpine as spire-base
++
++RUN apk add --update --no-cache make git curl build-base linux-headers musl-dev
++
++ARG SPIRE_RELEASE=1.3.1
++
++# build spire from the source in order to be compatible with arch arm64 as well
++WORKDIR /edgex-go/spire-build
++
++ENV https_proxy=http://10.130.0.16:7890
++ENV http_proxy=http://10.130.0.16:7890
++
++RUN wget -q "https://github.com/Loongson-Cloud-Community/spire/archive/refs/tags/la64-v1.3.1.tar.gz"
++RUN tar xv --strip-components=1 -f "la64-v1.3.1.tar.gz"
++
++RUN echo "building spire from source..." && \
++    make bin/spire-server bin/spire-agent && \
++    cp bin/spire* /usr/local/bin/
++
++FROM cr.loongnix.cn/library/golang:1.19-alpine
++LABEL maintainer="qiangxuhui@loongson.cn"
++ENV https_proxy=http://10.130.0.16:7890
++ENV http_proxy=http://10.130.0.16:7890
++
++LABEL license='SPDX-License-Identifier: Apache-2.0' \
++      copyright='Copyright (c) 2020-2022: Intel Corporation'
++
++ENV HADOLINT_VERSION=2.10.0 \
++    GOLANGCI_VERSION=1.46.2
++
++COPY ./.golangci.yml /etc/.golangci.yml
++
++RUN if [ $(uname -m) == "x86_64" ]; then wget -O /usr/local/bin/hadolint https://github.com/hadolint/hadolint/releases/download/v${HADOLINT_VERSION}/hadolint-Linux-x86_64 ; chmod +x /usr/local/bin/hadolint; fi
++
++RUN apk add --update --no-cache make git curl bash zeromq-dev libsodium-dev pkgconfig build-base linux-headers musl-dev \
++    && apk upgrade \
++    && ln -s /bin/touch /usr/bin/touch \
++    &&curl https://github.com/Loongson-Cloud-Community/golangci-lint/releases/download/loong64-v1.46.2/golangci-lint -o /usr/bin/golangci-lint \
++    && chmod +x /usr/bin/golangci-lint \
++    && cp /usr/bin/golangci-lint /usr/local/bin/golangci-lint
++#    && wget -O- -nv https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s v${GOLANGCI_VERSION}
++
++COPY --from=spire-base /usr/local/bin/spire* /usr/local/bin/
+diff --git a/version.go b/version.go
+index dc18de74..c61a3486 100644
+--- a/version.go
++++ b/version.go
+@@ -10,4 +10,6 @@
+ package edgex
+ 
+ // Global version for edgex-go
+-var Version string = "to be replaced by makefile"
++// var Version string = "to be replaced by makefile"
++
++var Version string = "3.0.0"
+-- 
+2.27.0
+
