@@ -52,5 +52,5 @@ while [ "$(
                 | wc -c
         )" -gt 0 ]; do true; done
 
-
+chroot $TMPDIR rm -rf /tmp/* /var/cache/apt/* /var/lib/apt/lists/*
 tar -zcvf $ROOTFS -C $TMPDIR .
