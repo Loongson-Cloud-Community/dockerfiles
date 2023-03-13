@@ -22,5 +22,6 @@ TMPDIR=`mktemp -d`
 # install packages
 debootstrap --no-check-gpg --variant=minbase --components=main,non-free,contrib --arch=loongarch64 --foreign $RELEASE $TMPDIR $MIRROR_ADDRESS
 chroot $TMPDIR debootstrap/debootstrap --second-stage
+chroot $TMPDIR rm -rf /tmp/* /var/cache/apt/* /var/lib/apt/lists/*
 # package rootfs.tar.gz
 tar -zcvf $ROOTFS -C $TMPDIR .
