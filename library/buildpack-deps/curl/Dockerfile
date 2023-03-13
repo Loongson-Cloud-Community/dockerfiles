@@ -12,7 +12,7 @@ RUN set -eux; \
 		netbase \
 		wget \
 	; \
-	rm -rf /var/lib/apt/lists/*
+	rm -rf /tmp/* /var/cache/apt/* /var/lib/apt/lists/*
 
 RUN set -ex; \
 	if ! command -v gpg > /dev/null; then \
@@ -21,5 +21,5 @@ RUN set -ex; \
 			gnupg \
 			dirmngr \
 		; \
-		rm -rf /var/lib/apt/lists/*; \
+		rm -rf /tmp/* /var/cache/apt/* /var/lib/apt/lists/*; \
 	fi
