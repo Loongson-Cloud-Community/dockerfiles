@@ -1,0 +1,86 @@
+From 69cd75736c8290067f824e5e69ae4ab053ccff9c Mon Sep 17 00:00:00 2001
+From: wangweijie <wangweijie@loongson.cn>
+Date: Wed, 15 Mar 2023 10:23:54 +0800
+Subject: [PATCH] port to loong64
+
+---
+ Dockerfile      | 10 +++++-----
+ Makefile        |  2 +-
+ Makefile.common | 10 +++++-----
+ 3 files changed, 11 insertions(+), 11 deletions(-)
+
+diff --git a/Dockerfile b/Dockerfile
+index 4ba28f9..5e2983d 100644
+--- a/Dockerfile
++++ b/Dockerfile
+@@ -1,11 +1,11 @@
+-ARG ARCH="amd64"
++ARG ARCH="loong64"
+ ARG OS="linux"
+-FROM quay.io/prometheus/busybox-${OS}-${ARCH}:latest
+-LABEL maintainer="The Prometheus Authors <prometheus-developers@googlegroups.com>"
++FROM cr.loongnix.cn/prometheus/busybox:glibc
++LABEL maintainer="wangweijie@loongson.cn"
+ 
+-ARG ARCH="amd64"
++ARG ARCH="loong64"
+ ARG OS="linux"
+-COPY .build/${OS}-${ARCH}/node_exporter /bin/node_exporter
++COPY ./node_exporter /bin/node_exporter
+ 
+ EXPOSE      9100
+ USER        nobody
+diff --git a/Makefile b/Makefile
+index 0edd9a1..f9082c5 100644
+--- a/Makefile
++++ b/Makefile
+@@ -15,7 +15,7 @@
+ all::
+ 
+ # Needs to be defined before including Makefile.common to auto-generate targets
+-DOCKER_ARCHS ?= amd64 armv7 arm64 ppc64le s390x
++DOCKER_ARCHS ?= amd64 armv7 arm64 ppc64le s390x loong64
+ 
+ include Makefile.common
+ 
+diff --git a/Makefile.common b/Makefile.common
+index 7642c44..6731c55 100644
+--- a/Makefile.common
++++ b/Makefile.common
+@@ -56,7 +56,7 @@ endif
+ endif
+ 
+ PROMU_VERSION ?= 0.13.0
+-PROMU_URL     := https://github.com/prometheus/promu/releases/download/v$(PROMU_VERSION)/promu-$(PROMU_VERSION).$(GO_BUILD_PLATFORM).tar.gz
++PROMU_URL     := https://github.com/Loongson-Cloud-Community/promu/releases/download/v$(PROMU_VERSION)/promu-$(PROMU_VERSION).$(GO_BUILD_PLATFORM).tar.gz
+ 
+ SKIP_GOLANGCI_LINT :=
+ GOLANGCI_LINT :=
+@@ -80,12 +80,12 @@ endif
+ 
+ PREFIX                  ?= $(shell pwd)
+ BIN_DIR                 ?= $(shell pwd)
+-DOCKER_IMAGE_TAG        ?= $(subst /,-,$(shell git rev-parse --abbrev-ref HEAD))
++DOCKER_IMAGE_TAG        ?= 1.5.0
+ DOCKERFILE_PATH         ?= ./Dockerfile
+ DOCKERBUILD_CONTEXT     ?= ./
+-DOCKER_REPO             ?= prom
++DOCKER_REPO             ?= cr.loongnix.cn/prometheus
+ 
+-DOCKER_ARCHS            ?= amd64
++DOCKER_ARCHS            ?= loong64
+ 
+ BUILD_DOCKER_ARCHS = $(addprefix common-docker-,$(DOCKER_ARCHS))
+ PUBLISH_DOCKER_ARCHS = $(addprefix common-docker-publish-,$(DOCKER_ARCHS))
+@@ -205,7 +205,7 @@ common-tarball: promu
+ .PHONY: common-docker $(BUILD_DOCKER_ARCHS)
+ common-docker: $(BUILD_DOCKER_ARCHS)
+ $(BUILD_DOCKER_ARCHS): common-docker-%:
+-	docker build -t "$(DOCKER_REPO)/$(DOCKER_IMAGE_NAME)-linux-$*:$(DOCKER_IMAGE_TAG)" \
++	docker build -t "$(DOCKER_REPO)/$(DOCKER_IMAGE_NAME):$(DOCKER_IMAGE_TAG)" \
+ 		-f $(DOCKERFILE_PATH) \
+ 		--build-arg ARCH="$*" \
+ 		--build-arg OS="linux" \
+-- 
+2.20.1
+
