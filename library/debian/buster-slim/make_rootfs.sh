@@ -8,6 +8,7 @@
 WKDIR=$1
 cd ${WKDIR?}
 
+apt update -y
 apt install -y debootstrap
 if [ ! -f /usr/share/debootstrap/scripts/$RELEASE ]; then
 	ln -s /usr/share/debootstrap/scripts/sid /usr/share/debootstrap/scripts/$RELEASE
