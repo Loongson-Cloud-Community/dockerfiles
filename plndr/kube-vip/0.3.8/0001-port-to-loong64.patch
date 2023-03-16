@@ -1,0 +1,56 @@
+From 6ea930c108a63774d510480149de0f6e05fafbb0 Mon Sep 17 00:00:00 2001
+From: wangweijie <wangweijie@loongson.cn>
+Date: Thu, 16 Mar 2023 09:47:38 +0800
+Subject: [PATCH] port to loong64
+
+---
+ Dockerfile | 4 ++--
+ Makefile   | 6 +++---
+ 2 files changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/Dockerfile b/Dockerfile
+index e0bd413..b54549a 100644
+--- a/Dockerfile
++++ b/Dockerfile
+@@ -1,6 +1,6 @@
+ # syntax=docker/dockerfile:experimental
+ 
+-FROM golang:1.16.5-alpine3.13 as dev
++FROM cr.loongnix.cn/library/golang:1.19-alpine as dev
+ RUN apk add --no-cache git ca-certificates make
+ RUN adduser -D appuser
+ COPY . /src/
+@@ -16,4 +16,4 @@ FROM scratch
+ COPY --from=dev /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+ # Add kube-vip binary
+ COPY --from=dev /src/kube-vip /
+-ENTRYPOINT ["/kube-vip"]
+\ No newline at end of file
++ENTRYPOINT ["/kube-vip"]
+diff --git a/Makefile b/Makefile
+index c187047..d9cf6a0 100644
+--- a/Makefile
++++ b/Makefile
+@@ -13,8 +13,8 @@ TARGETOS=linux
+ 
+ # Use linker flags to provide version/build settings to the target
+ LDFLAGS=-ldflags "-s -w -X=main.Version=$(VERSION) -X=main.Build=$(BUILD) -extldflags -static"
+-DOCKERTAG ?= $(VERSION)
+-REPOSITORY = plndr
++DOCKERTAG ?= 0.3.8
++REPOSITORY = cr.loongnix.cn/plndr
+ 
+ .PHONY: all build clean install uninstall fmt simplify check run e2e-tests
+ 
+@@ -71,7 +71,7 @@ dockerx86Action:
+ 
+ dockerLocal:
+ 	@-rm ./kube-vip
+-	@docker buildx build  --platform linux/amd64,linux/arm64,linux/arm/v7,linux/ppc64le --load -t $(REPOSITORY)/$(TARGET):$(DOCKERTAG) .
++	@docker build -t $(REPOSITORY)/$(TARGET):$(DOCKERTAG) .
+ 	@echo New Multi Architecture Docker image created
+ 
+ simplify:
+-- 
+2.20.1
+
