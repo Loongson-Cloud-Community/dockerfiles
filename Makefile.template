@@ -4,9 +4,10 @@ REGISTRY?=T_REGISTRY
 ORGANIZATION?=T_ORGANIZATION
 REPOSITORY?=T_REPOSITORY
 TAG?=T_TAG
+LATEST?=true
 
 IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):$(TAG)
-
+IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):latest
 
 default: image
 
@@ -19,3 +20,9 @@ image:
 
 push:
 	docker push $(IMAGE)
+	#latest image
+	@if [ $(LATEST) == "true" ]; \
+		then \
+		docker tag $(IMAGE) $(LATEST_IMAGE); \
+		docker push $(LATEST_IMAGE); \
+	fi
