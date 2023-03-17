@@ -6,6 +6,7 @@ REPOSITORY?=openresty
 TAG?=1.21.4.1
 
 IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):$(TAG)
+IMAGE_BASE=$(IMAGE)-base
 
 # SOURCE_URL is a url to download source, such as https://github.com/merore/merore.git.
 # SOURCE is project sources, its located at src/$(SORUCE).
@@ -19,8 +20,19 @@ default: image
 
 image: src/$(SOURCE)
 # Commands for building.
-	docker build -t $(IMAGE) -f src/$(SOURCE)/alpine/Dockerfile src/$(SOURCE)
-
+	docker build  \
+		--build-arg RESTY_IMAGE_BASE="cr.loongnix.cn/library/alpine" \
+		--build-arg RESTY_IMAGE_TAG=3.11 \
+		--build-arg RESTY_PCRE_BUILD_OPTIONS="" \
+		-f src/$(SOURCE)/alpine/Dockerfile \
+		-t $(IMAGE_BASE) \
+		src/$(SOURCE)
+	docker build \
+		--build-arg RESTY_FAT_IMAGE_BASE="$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY)" \
+		--build-arg RESTY_FAT_IMAGE_TAG="$(TAG)-base" \
+		-f src/$(SOURCE)/alpine/Dockerfile.fat \
+		-t $(IMAGE) \
+		src/$(SOURCE)
 src/$(SOURCE):
 	git clone -b $(TAG)-6 --depth=1 $(SOURCE_URL) $@
 	cd $@ && \
