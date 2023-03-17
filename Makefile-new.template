@@ -4,8 +4,10 @@ REGISTRY?=T_REGISTRY
 ORGANIZATION?=T_ORGANIZATION
 REPOSITORY?=T_REPOSITORY
 TAG?=T_TAG
+LATEST?=true
 
 IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):$(TAG)
+LATEST_IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):latest
 
 # SOURCE_URL is a url to download source, such as https://github.com/merore/merore.git.
 # SOURCE is project sources, its located at src/$(SORUCE).
@@ -28,6 +30,11 @@ src/$(SOURCE):
 
 push:
 	docker push $(IMAGE)
+	@if [ $(LATEST) == "true" ]; \
+		then\
+		docker tag $(IMAGE) $(LATEST_IMAGE); \
+		docker push $(LATEST_IMAGE); \
+	fi
 
 clean:
 	rm -rf src
