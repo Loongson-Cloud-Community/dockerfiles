@@ -1,0 +1,101 @@
+From 81aff613475f15cd10c4db422ebd9a0cb44293b1 Mon Sep 17 00:00:00 2001
+From: qiangxuhui <qiangxuhui@loongson.cn>
+Date: Tue, 10 Jan 2023 02:50:51 +0000
+Subject: [PATCH] loong64 support for device-rest
+
+---
+ Dockerfile | 12 ++++++++----
+ Makefile   | 11 ++++++-----
+ version.go |  2 +-
+ 3 files changed, 15 insertions(+), 10 deletions(-)
+
+diff --git a/Dockerfile b/Dockerfile
+index 14e39a0..d631bd4 100644
+--- a/Dockerfile
++++ b/Dockerfile
+@@ -15,7 +15,7 @@
+ # limitations under the License.
+ #
+ 
+-ARG BASE=golang:1.18-alpine3.16
++ARG BASE=cr.loongnix.cn/library/golang:1.19-alpine
+ FROM ${BASE} AS builder
+ 
+ ARG ADD_BUILD_TAGS=""
+@@ -27,13 +27,17 @@ RUN apk add --update --no-cache ${ALPINE_PKG_BASE} ${ALPINE_PKG_EXTRA}
+ 
+ WORKDIR /device-rest-go
+ 
++ENV GO111MODULE=auto GOPROXY=https://goproxy.cn,direct
++
+ COPY go.mod vendor* ./
+-RUN [ ! -d "vendor" ] && go mod download all || echo "skipping..."
+ 
+ COPY . .
++
++RUN go mod tidy
++
+ RUN $MAKE
+ 
+-FROM alpine:3.16
++FROM cr.loongnix.cn/library/alpine:3.11
+ 
+ LABEL license='SPDX-License-Identifier: Apache-2.0' \
+   copyright='Copyright (c) 2022: Intel'
+@@ -50,4 +54,4 @@ COPY --from=builder /device-rest-go/Attribution.txt /
+ EXPOSE 59986
+ 
+ ENTRYPOINT ["/device-rest"]
+-CMD ["--cp=consul://edgex-core-consul:8500", "--registry"]
+\ No newline at end of file
++CMD ["--cp=consul://edgex-core-consul:8500", "--registry"]
+diff --git a/Makefile b/Makefile
+index 5741414..a2355b4 100644
+--- a/Makefile
++++ b/Makefile
+@@ -1,7 +1,7 @@
+ .PHONY: build test unittest lint clean prepare update docker
+ 
+-GO=CGO_ENABLED=0 GO111MODULE=on go
+-GOCGO=CGO_ENABLED=1 GO111MODULE=on go
++GO=CGO_ENABLED=0 GO111MODULE=auto go
++GOCGO=CGO_ENABLED=1 GO111MODULE=auto go
+ 
+ # see https://shibumi.dev/posts/hardening-executables
+ CGO_CPPFLAGS="-D_FORTIFY_SOURCE=2"
+@@ -18,11 +18,11 @@ ARCH=$(shell uname -m)
+ DOCKERS=docker_device_rest_go
+ .PHONY: $(DOCKERS)
+ 
+-VERSION=$(shell cat ./VERSION 2>/dev/null || echo 0.0.0)
++VERSION=3.0.0
+ 
+ GIT_SHA=$(shell git rev-parse HEAD)
+-GOFLAGS=-ldflags "-X github.com/edgexfoundry/device-rest-go.Version=$(VERSION)" -trimpath -mod=readonly
+-CGOFLAGS=-ldflags "-linkmode=external -X github.com/edgexfoundry/device-rest-go.Version=$(VERSION)" -trimpath -mod=readonly -buildmode=pie
++GOFLAGS=-ldflags "-X github.com/edgexfoundry/device-rest-go.Version=$(VERSION)" -trimpath -mod=mod
++CGOFLAGS=-ldflags "-linkmode=external -X github.com/edgexfoundry/device-rest-go.Version=$(VERSION)" -trimpath -mod=mod
+ 
+ build: $(MICROSERVICES)
+ 
+@@ -64,6 +64,7 @@ docker_device_rest_go:
+ 		--label "git_sha=$(GIT_SHA)" \
+ 		-t edgexfoundry/device-rest:$(GIT_SHA) \
+ 		-t edgexfoundry/device-rest:$(VERSION)-dev \
++		-t cr.loongnix.cn/edgexfoundry/device-rest:$(VERSION) \
+ 		.
+ 
+ docker-nats:
+diff --git a/version.go b/version.go
+index cdc7f37..3f09249 100644
+--- a/version.go
++++ b/version.go
+@@ -17,4 +17,4 @@
+ package device_rest
+ 
+ // Global version for device-sdk-go
+-var Version string = "to be replaced by makefile"
++var Version string = "3.0.0"
+-- 
+2.27.0
+
