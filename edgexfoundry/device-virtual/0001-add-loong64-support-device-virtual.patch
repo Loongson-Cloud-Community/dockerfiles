@@ -1,0 +1,80 @@
+From 790841a79fd00f64c8364324944a0732f0e1d53b Mon Sep 17 00:00:00 2001
+From: qiangxuhui <qiangxuhui@loongson.cn>
+Date: Wed, 11 Jan 2023 03:07:26 +0000
+Subject: [PATCH] add loong64 support device-virtual
+
+---
+ Dockerfile | 7 +++++--
+ Makefile   | 3 ++-
+ version.go | 2 +-
+ 3 files changed, 8 insertions(+), 4 deletions(-)
+
+diff --git a/Dockerfile b/Dockerfile
+index f5e5afc..774f091 100644
+--- a/Dockerfile
++++ b/Dockerfile
+@@ -14,7 +14,7 @@
+ # limitations under the License.
+ #
+ 
+-ARG BASE=golang:1.18-alpine3.16
++ARG BASE=cr.loongnix.cn/library/golang:1.19-alpine
+ FROM ${BASE} AS builder
+ 
+ ARG ALPINE_PKG_BASE="make git openssh-client"
+@@ -27,17 +27,20 @@ WORKDIR /device-virtual-go
+ # Install our build time packages.
+ RUN apk add --update --no-cache ${ALPINE_PKG_BASE} ${ALPINE_PKG_EXTRA}
+ 
++ENV GO111MODULE=auto GOPROXY=https://goproxy.cn,direct
++
+ COPY go.mod vendor* ./
+ RUN [ ! -d "vendor" ] && go mod download all || echo "skipping..."
+ 
+ COPY . .
++RUN go mod tidy
+ # To run tests in the build container:
+ #   docker build --build-arg 'MAKE=build test' .
+ # This is handy of you do your Docker business on a Mac
+ ARG MAKE="make -e ADD_BUILD_TAGS=$ADD_BUILD_TAGS build"
+ RUN $MAKE
+ 
+-FROM alpine:3.16
++FROM cr.loongnix.cn/library/alpine:3.11
+ 
+ LABEL license='SPDX-License-Identifier: Apache-2.0' \
+   copyright='Copyright (c) 2019-2021: IOTech'
+diff --git a/Makefile b/Makefile
+index c73c949..9fa501c 100644
+--- a/Makefile
++++ b/Makefile
+@@ -9,7 +9,7 @@ ARCH=$(shell uname -m)
+ DOCKERS=docker_device_virtual_go
+ .PHONY: $(DOCKERS)
+ 
+-VERSION=$(shell cat ./VERSION 2>/dev/null || echo 0.0.0)
++VERSION=3.0.0
+ GIT_SHA=$(shell git rev-parse HEAD)
+ 
+ GOFLAGS=-ldflags "-X github.com/edgexfoundry/device-virtual-go.Version=$(VERSION)" -trimpath -mod=readonly
+@@ -50,6 +50,7 @@ docker_device_virtual_go:
+ 		--label "git_sha=$(GIT_SHA)" \
+ 		-t edgexfoundry/device-virtual:$(GIT_SHA) \
+ 		-t edgexfoundry/device-virtual:$(VERSION)-dev \
++		-t cr.loongnix.cn/edgexfoundry/device-virtual:$(VERSION) \
+ 		.
+ 
+ docker-nats:
+diff --git a/version.go b/version.go
+index 2908fd5..e8fb453 100644
+--- a/version.go
++++ b/version.go
+@@ -7,4 +7,4 @@
+ package device_virtual
+ 
+ // Global version for device-sdk-go
+-var Version string = "to be replaced by makefile"
++var Version string = "3.0.0"
+-- 
+2.27.0
+
