@@ -1,0 +1,36 @@
+From 230e6b940bc77587039aab5beff78f6173274693 Mon Sep 17 00:00:00 2001
+From: wangweijie <wangweijie@loongson.cn>
+Date: Wed, 22 Mar 2023 14:39:45 +0800
+Subject: [PATCH] port to loong64
+
+---
+ Dockerfile | 11 +++++------
+ 1 file changed, 5 insertions(+), 6 deletions(-)
+
+diff --git a/Dockerfile b/Dockerfile
+index a57b90c4..73b199cd 100644
+--- a/Dockerfile
++++ b/Dockerfile
+@@ -1,14 +1,13 @@
+-# This Dockerfile is used to build the image available on DockerHub
+-FROM centos:centos7
++# This Dockerfile is used to build the image available on cr.loongnix.cn
++FROM cr.loongnix.cn/loongson/loongnix-server:8.4.0
+ 
+ # Add everything
+ ADD . /usr/src/multus-cni
+ 
+-ENV INSTALL_PKGS "git golang"
+-RUN rpm --import https://mirror.go-repo.io/centos/RPM-GPG-KEY-GO-REPO && \
+-    curl -s https://mirror.go-repo.io/centos/go-repo.repo | tee /etc/yum.repos.d/go-repo.repo && \
+-    yum install -y $INSTALL_PKGS && \
++ENV INSTALL_PKGS "git golang-1.19"
++RUN yum install -y $INSTALL_PKGS && \
+     rpm -V $INSTALL_PKGS && \
++    go env -w GO111MODULE=off && \
+     cd /usr/src/multus-cni && \
+     ./build && \
+     yum autoremove -y $INSTALL_PKGS && \
+-- 
+2.20.1
+
