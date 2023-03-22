@@ -1,0 +1,54 @@
+From 39357b908e46cbcb7d0ab2afe34089f74a409e46 Mon Sep 17 00:00:00 2001
+From: wangweijie <wangweijie@loongson.cn>
+Date: Wed, 22 Mar 2023 17:06:08 +0800
+Subject: [PATCH] port to loong64
+
+---
+ Dockerfile      | 6 +++---
+ Makefile.common | 4 ++--
+ 2 files changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/Dockerfile b/Dockerfile
+index 7feb2d8..ac35742 100644
+--- a/Dockerfile
++++ b/Dockerfile
+@@ -1,11 +1,11 @@
+ ARG ARCH="amd64"
+ ARG OS="linux"
+-FROM quay.io/prometheus/busybox-${OS}-${ARCH}:latest
+-LABEL maintainer="The Prometheus Authors <prometheus-developers@googlegroups.com>"
++FROM cr.loongnix.cn/prometheus/busybox:glibc
++LABEL maintainer="wangweijie@loongson.cn"
+ 
+ ARG ARCH="amd64"
+ ARG OS="linux"
+-COPY .build/${OS}-${ARCH}/ipmi_exporter /bin/ipmi_exporter
++COPY ipmi_exporter /bin/ipmi_exporter
+ 
+ EXPOSE      9290
+ USER        nobody
+diff --git a/Makefile.common b/Makefile.common
+index bf7304e..9439d7d 100644
+--- a/Makefile.common
++++ b/Makefile.common
+@@ -79,7 +79,7 @@ endif
+ endif
+ 
+ PROMU_VERSION ?= 0.13.0
+-PROMU_URL     := https://github.com/prometheus/promu/releases/download/v$(PROMU_VERSION)/promu-$(PROMU_VERSION).$(GO_BUILD_PLATFORM).tar.gz
++PROMU_URL     := https://github.com/Loongson-Cloud-Community/promu/releases/download/v$(PROMU_VERSION)/promu-$(PROMU_VERSION).$(GO_BUILD_PLATFORM).tar.gz
+ 
+ GOLANGCI_LINT :=
+ GOLANGCI_LINT_OPTS ?=
+@@ -249,7 +249,7 @@ common-tarball: promu
+ .PHONY: common-docker $(BUILD_DOCKER_ARCHS)
+ common-docker: $(BUILD_DOCKER_ARCHS)
+ $(BUILD_DOCKER_ARCHS): common-docker-%:
+-	docker build -t "$(DOCKER_REPO)/$(DOCKER_IMAGE_NAME)-linux-$*:$(DOCKER_IMAGE_TAG)" \
++	docker build -t "$(DOCKER_REPO)/$(DOCKER_IMAGE_NAME):$(DOCKER_IMAGE_TAG)" \
+ 		-f $(DOCKERFILE_PATH) \
+ 		--build-arg ARCH="$*" \
+ 		--build-arg OS="linux" \
+-- 
+2.20.1
+
