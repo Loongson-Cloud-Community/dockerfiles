@@ -30,7 +30,7 @@ src/$(SOURCE):
 
 push:
 	docker push $(IMAGE)
-	@if [ $(LATEST) == "true" ]; \
+	@if [ $(LATEST) = "true" ]; \
 		then\
 		docker tag $(IMAGE) $(LATEST_IMAGE); \
 		docker push $(LATEST_IMAGE); \
