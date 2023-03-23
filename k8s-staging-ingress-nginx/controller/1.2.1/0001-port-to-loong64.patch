@@ -1,0 +1,141 @@
+From f013443148d2e7c509f1d46ce8c77ea9449cf66b Mon Sep 17 00:00:00 2001
+From: wangweijie <wangweijie@loongson.cn>
+Date: Thu, 23 Mar 2023 10:36:21 +0800
+Subject: [PATCH] port to loong64
+
+---
+ Makefile                                         |  1 -
+ images/nginx/Makefile                            | 16 +++++-----------
+ images/nginx/rootfs/Dockerfile                   |  5 +++--
+ images/nginx/rootfs/build.sh                     |  8 ++++++++
+ .../rootfs/luajit2-install-add-loongarch64.patch | 13 +++++++++++++
+ 5 files changed, 29 insertions(+), 14 deletions(-)
+ create mode 100644 images/nginx/rootfs/luajit2-install-add-loongarch64.patch
+
+diff --git a/Makefile b/Makefile
+index e8d0761aa..19ad7cff7 100644
+--- a/Makefile
++++ b/Makefile
+@@ -101,7 +101,6 @@ clean-chroot-image: ## Removes local image
+ 
+ .PHONY: build
+ build:  ## Build ingress controller, debug tool and pre-stop hook.
+-	@build/run-in-docker.sh \
+ 		PKG=$(PKG) \
+ 		ARCH=$(ARCH) \
+ 		COMMIT_SHA=$(COMMIT_SHA) \
+diff --git a/images/nginx/Makefile b/images/nginx/Makefile
+index 438d0cfe1..7fc658d3a 100644
+--- a/images/nginx/Makefile
++++ b/images/nginx/Makefile
+@@ -25,19 +25,13 @@ TAG ?= 0.0
+ REGISTRY ?= gcr.io/k8s-staging-ingress-nginx
+ 
+ IMAGE = $(REGISTRY)/nginx
+-
+-# required to enable buildx
+-export DOCKER_CLI_EXPERIMENTAL=enabled
+-
+-# build with buildx
+-PLATFORMS?=linux/amd64,linux/arm,linux/arm64,linux/s390x
+ OUTPUT=
+-PROGRESS=plain
+-build: ensure-buildx
+-	docker buildx build \
+-		--platform=${PLATFORMS} $(OUTPUT) \
+-		--progress=$(PROGRESS) \
++
++build:
++	docker build \
+ 		--pull \
++		--build-arg http_proxy=$(http_proxy) \
++		--build-arg https_proxy=$(https_proxy) \
+ 		--tag $(IMAGE):$(TAG) rootfs
+ 
+ # push the cross built image
+diff --git a/images/nginx/rootfs/Dockerfile b/images/nginx/rootfs/Dockerfile
+index 75c63cff1..902fd9d5f 100644
+--- a/images/nginx/rootfs/Dockerfile
++++ b/images/nginx/rootfs/Dockerfile
+@@ -11,7 +11,7 @@
+ # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ # See the License for the specific language governing permissions and
+ # limitations under the License.
+-FROM alpine:3.14.6 as builder
++FROM cr.loongnix.cn/library/alpine:3.11.11 as builder
+ 
+ COPY . /
+ 
+@@ -21,7 +21,7 @@ RUN apk update \
+   && /build.sh
+ 
+ # Use a multi-stage build
+-FROM alpine:3.14.6
++FROM cr.loongnix.cn/library/alpine:3.11.11
+ 
+ ENV PATH=$PATH:/usr/local/luajit/bin:/usr/local/nginx/sbin:/usr/local/nginx/bin
+ 
+@@ -54,6 +54,7 @@ RUN chmod +x /usr/local/entrypoint.sh \
+   nano \
+   tzdata \
+   && ln -s /usr/local/nginx/sbin/nginx /sbin/nginx \
++  && addgroup www-data \
+   && adduser -S -D -H -u 101 -h /usr/local/nginx \
+   -s /sbin/nologin -G www-data -g www-data www-data \
+   && bash -eu -c ' \
+diff --git a/images/nginx/rootfs/build.sh b/images/nginx/rootfs/build.sh
+index 2ee308d68..3843eeba3 100755
+--- a/images/nginx/rootfs/build.sh
++++ b/images/nginx/rootfs/build.sh
+@@ -256,6 +256,8 @@ get_src a92c9ee6682567605ece55d4eed5d1d54446ba6fba748cff0a2482aea5713d5f \
+ if [[ ${ARCH} == "s390x" ]]; then
+ get_src 266ed1abb70a9806d97cb958537a44b67db6afb33d3b32292a2d68a2acedea75 \
+         "https://github.com/openresty/luajit2/archive/$LUAJIT_VERSION.tar.gz"
++elif [[ ${ARCH} == "loongarch64" ]]; then
++git clone -b v2.1-agentzh-loongarch64 --depth=1 https://github.com/loongson/luajit2.git
+ else
+ get_src 1ee6dad809a5bb22efb45e6dac767f7ce544ad652d353a93d7f26b605f69fe3f \
+         "https://github.com/openresty/luajit2/archive/v$LUAJIT_VERSION.tar.gz"
+@@ -333,7 +335,12 @@ export LUAJIT_LIB=/usr/local/lib
+ export LUA_LIB_DIR="$LUAJIT_LIB/lua"
+ export LUAJIT_INC=/usr/local/include/luajit-2.1
+ 
++if [[ ${ARCH} == "loongarch64" ]]; then
++cd "$BUILD_PATH/luajit2"
++git apply /luajit2-install-add-loongarch64.patch
++else
+ cd "$BUILD_PATH/luajit2-$LUAJIT_VERSION"
++fi
+ make CCDEBUG=-g
+ make install
+ 
+@@ -737,6 +744,7 @@ writeDirs=( \
+   /var/log/nginx \
+ );
+ 
++addgroup www-data
+ adduser -S -D -H -u 101 -h /usr/local/nginx -s /sbin/nologin -G www-data -g www-data www-data
+ 
+ for dir in "${writeDirs[@]}"; do
+diff --git a/images/nginx/rootfs/luajit2-install-add-loongarch64.patch b/images/nginx/rootfs/luajit2-install-add-loongarch64.patch
+new file mode 100644
+index 000000000..604bbfe57
+--- /dev/null
++++ b/images/nginx/rootfs/luajit2-install-add-loongarch64.patch
+@@ -0,0 +1,13 @@
++diff --git a/Makefile b/Makefile
++index e3e368ea..7941fe73 100644
++--- a/Makefile
+++++ b/Makefile
++@@ -92,7 +92,7 @@ FILES_INC= lua.h lualib.h lauxlib.h luaconf.h lua.hpp luajit.h
++ FILES_JITLIB= bc.lua bcsave.lua dump.lua p.lua v.lua zone.lua \
++ 	      dis_x86.lua dis_x64.lua dis_arm.lua dis_arm64.lua \
++ 	      dis_arm64be.lua dis_ppc.lua dis_mips.lua dis_mipsel.lua \
++-	      dis_mips64.lua dis_mips64el.lua vmdef.lua
+++	      dis_mips64.lua dis_mips64el.lua dis_loongarch64.lua vmdef.lua
++ 
++ ifeq (,$(findstring Windows,$(OS)))
++   HOST_SYS:= $(shell uname -s)
+-- 
+2.20.1
+
