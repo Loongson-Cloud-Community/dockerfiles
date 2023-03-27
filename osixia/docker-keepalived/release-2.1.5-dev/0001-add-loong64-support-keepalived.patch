@@ -1,0 +1,46 @@
+From cfcb84e57769672529b3af5e78ad16779d46849e Mon Sep 17 00:00:00 2001
+From: qiangxuhui <qiangxuhui@loongson.cn>
+Date: Mon, 27 Mar 2023 02:50:36 +0000
+Subject: [PATCH] add loong64 support keepalived
+
+---
+ Makefile         | 6 +++---
+ image/Dockerfile | 2 +-
+ 2 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/Makefile b/Makefile
+index 93f1da6..368d8d0 100644
+--- a/Makefile
++++ b/Makefile
+@@ -1,13 +1,13 @@
+ NAME = osixia/keepalived
+-VERSION = 2.1.5
++VERSION = release-2.1.5-dev
+ 
+ .PHONY: build build-nocache test tag-latest push push-latest release git-tag-version
+ 
+ build:
+-	docker build -t $(NAME):$(VERSION) --rm image
++	docker build -t cr.loongnix.cn/$(NAME):$(VERSION) --rm image
+ 
+ build-nocache:
+-	docker build -t $(NAME):$(VERSION) --no-cache --rm image
++	docker build -t cr.loongnix.cn/$(NAME):$(VERSION) --no-cache --rm image
+ 
+ test:
+ 	env NAME=$(NAME) VERSION=$(VERSION) bats test/test.bats
+diff --git a/image/Dockerfile b/image/Dockerfile
+index 094be35..5429a6e 100644
+--- a/image/Dockerfile
++++ b/image/Dockerfile
+@@ -1,6 +1,6 @@
+ # Use osixia/light-baseimage
+ # sources: https://github.com/osixia/docker-light-baseimage
+-FROM osixia/light-baseimage:alpine-0.1.6
++FROM cr.loongnix.cn/osixia/light-baseimage:alpine-0.1.6
+ 
+ # Keepalived version
+ ARG KEEPALIVED_VERSION=2.1.5
+-- 
+2.27.0
+
