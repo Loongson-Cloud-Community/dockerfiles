@@ -1,0 +1,389 @@
+From 00ec5f5eaf46839667e60e773ed8203defe5b854 Mon Sep 17 00:00:00 2001
+From: qiangxuhui <qiangxuhui@loongson.cn>
+Date: Mon, 27 Mar 2023 12:06:51 +0000
+Subject: [PATCH] add loong64 support
+
+---
+ go.mod              |  16 +++----
+ go.sum              | 107 +++++++++++++++++++++++++++++++++++++++++---
+ make/base_images.mk |   2 +
+ make/containers.mk  |  20 ++++++---
+ make/server.mk      |   9 ++++
+ 5 files changed, 132 insertions(+), 22 deletions(-)
+
+diff --git a/go.mod b/go.mod
+index 82d524a72..32164a64e 100644
+--- a/go.mod
++++ b/go.mod
+@@ -33,9 +33,9 @@ require (
+ 	github.com/spf13/pflag v1.0.5
+ 	github.com/stretchr/testify v1.7.0
+ 	golang.org/x/crypto v0.0.0-20211117183948-ae814b36b871
+-	golang.org/x/net v0.0.0-20220107192237-5cfca573fb4d
++	golang.org/x/net v0.8.1-0.20230320201749-6960703597ad
+ 	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8
+-	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
++	golang.org/x/sync v0.1.0
+ 	gomodules.xyz/jsonpatch/v2 v2.2.0
+ 	google.golang.org/api v0.62.0
+ 	helm.sh/helm/v3 v3.8.1
+@@ -207,13 +207,12 @@ require (
+ 	go.uber.org/atomic v1.7.0 // indirect
+ 	go.uber.org/multierr v1.6.0 // indirect
+ 	go.uber.org/zap v1.19.1 // indirect
+-	golang.org/x/mod v0.5.0 // indirect
+-	golang.org/x/sys v0.0.0-20211216021012-1d35b9e2eb4e // indirect
+-	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211 // indirect
+-	golang.org/x/text v0.3.7 // indirect
++	golang.org/x/mod v0.8.0 // indirect
++	golang.org/x/sys v0.6.1-0.20230317000753-00d8004a1448 // indirect
++	golang.org/x/term v0.6.0 // indirect
++	golang.org/x/text v0.8.0 // indirect
+ 	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac // indirect
+-	golang.org/x/tools v0.1.6-0.20210820212750-d4cc65f0b2ff // indirect
+-	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
++	golang.org/x/tools v0.6.0 // indirect
+ 	google.golang.org/appengine v1.6.7 // indirect
+ 	google.golang.org/genproto v0.0.0-20220118154757-00ab72f36ad5 // indirect
+ 	google.golang.org/grpc v1.43.0 // indirect
+@@ -236,7 +235,6 @@ require (
+ 
+ replace (
+ 	github.com/miekg/dns v1.1.41 => github.com/miekg/dns v1.1.34
+-	golang.org/x/net => golang.org/x/net v0.0.0-20210224082022-3d97a244fca7
+ 
+ 	// Update gengo to ensure we have the --trim-path-prefix feature in code-generator tools.
+ 	k8s.io/gengo => k8s.io/gengo v0.0.0-20211115164449-b448ea381d54
+diff --git a/go.sum b/go.sum
+index b79a70411..58cb0feaf 100644
+--- a/go.sum
++++ b/go.sum
+@@ -1283,6 +1283,7 @@ github.com/yuin/goldmark v1.1.32/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9de
+ github.com/yuin/goldmark v1.2.1/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
+ github.com/yuin/goldmark v1.3.5/go.mod h1:mwnBkeHKe2W/ZEtQ+71ViKU8L12m81fl3OWwC1Zlc8k=
+ github.com/yuin/goldmark v1.4.0/go.mod h1:mwnBkeHKe2W/ZEtQ+71ViKU8L12m81fl3OWwC1Zlc8k=
++github.com/yuin/goldmark v1.4.13/go.mod h1:6yULJ656Px+3vBD8DxQVa3kxgyrAnzto9xy5taEt/CY=
+ github.com/yvasiyarov/go-metrics v0.0.0-20140926110328-57bccd1ccd43 h1:+lm10QQTNSBd8DVTNGHx7o/IKu9HYDvLMffDhbyLccI=
+ github.com/yvasiyarov/go-metrics v0.0.0-20140926110328-57bccd1ccd43/go.mod h1:aX5oPXxHm3bOH+xeAttToC8pqch2ScQN/JoXYupl6xs=
+ github.com/yvasiyarov/gorelic v0.0.0-20141212073537-a9bba5b9ab50 h1:hlE8//ciYMztlGpl/VA+Zm1AcTPHYkHJPbHqE6WJUXE=
+@@ -1401,6 +1402,7 @@ golang.org/x/crypto v0.0.0-20201002170205-7f63de1d35b0/go.mod h1:LzIPMQfyMNhhGPh
+ golang.org/x/crypto v0.0.0-20210220033148-5ea612d1eb83/go.mod h1:jdWPYTVW3xRLrWPugEBEK3UY2ZEsg3UU495nc5E+M+I=
+ golang.org/x/crypto v0.0.0-20210322153248-0c34fe9e7dc2/go.mod h1:T9bdIzuCu7OtxOm1hfPfRQxPLYneinmdGuTeoZ9dtd4=
+ golang.org/x/crypto v0.0.0-20210817164053-32db794688a5/go.mod h1:GvvjBRRGRdwPK5ydBHafDWAxML/pGHZbMvKqRZ5+Abc=
++golang.org/x/crypto v0.0.0-20210921155107-089bfa567519/go.mod h1:GvvjBRRGRdwPK5ydBHafDWAxML/pGHZbMvKqRZ5+Abc=
+ golang.org/x/crypto v0.0.0-20211117183948-ae814b36b871 h1:/pEO3GD/ABYAjuakUS6xSEmmlyVS4kxBNkeA9tLJiTI=
+ golang.org/x/crypto v0.0.0-20211117183948-ae814b36b871/go.mod h1:IxCIyHEi3zRg3s0A5j5BB6A9Jmi73HwBIUl50j+osU4=
+ golang.org/x/exp v0.0.0-20190121172915-509febef88a4/go.mod h1:CJ0aWSM057203Lf6IL+f9T1iT9GByDxfZKAQTCR3kQA=
+@@ -1439,10 +1441,84 @@ golang.org/x/mod v0.3.1-0.20200828183125-ce943fd02449/go.mod h1:s0Qsj1ACt9ePp/hM
+ golang.org/x/mod v0.4.0/go.mod h1:s0Qsj1ACt9ePp/hMypM3fl4fZqREWJwdYDEqhRiZZUA=
+ golang.org/x/mod v0.4.1/go.mod h1:s0Qsj1ACt9ePp/hMypM3fl4fZqREWJwdYDEqhRiZZUA=
+ golang.org/x/mod v0.4.2/go.mod h1:s0Qsj1ACt9ePp/hMypM3fl4fZqREWJwdYDEqhRiZZUA=
+-golang.org/x/mod v0.5.0 h1:UG21uOlmZabA4fW5i7ZX6bjw1xELEGg/ZLgZq9auk/Q=
+ golang.org/x/mod v0.5.0/go.mod h1:5OXOZSfqPIIbmVBIIKWRFfZjPR0E5r58TLhUjH0a2Ro=
+-golang.org/x/net v0.0.0-20210224082022-3d97a244fca7 h1:OgUuv8lsRpBibGNbSizVwKWlysjaNzmC9gYMhPVfqFM=
++golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4/go.mod h1:jJ57K6gSWd91VN4djpZkiMVwK6gcyfeH4XE8wZrZaV4=
++golang.org/x/mod v0.8.0 h1:LUYupSeNrTNCGzR/hVBk2NHZO4hXcVaW1k4Qx7rjPx8=
++golang.org/x/mod v0.8.0/go.mod h1:iBbtSCu2XBx23ZKBPSOrRkjjQPZFPuis4dIYUhu/chs=
++golang.org/x/net v0.0.0-20170114055629-f2499483f923/go.mod h1:mL1N/T3taQHkDXs73rZJwtUhF3w3ftmwwsq0BUmARs4=
++golang.org/x/net v0.0.0-20180724234803-3673e40ba225/go.mod h1:mL1N/T3taQHkDXs73rZJwtUhF3w3ftmwwsq0BUmARs4=
++golang.org/x/net v0.0.0-20180826012351-8a410e7b638d/go.mod h1:mL1N/T3taQHkDXs73rZJwtUhF3w3ftmwwsq0BUmARs4=
++golang.org/x/net v0.0.0-20180906233101-161cd47e91fd/go.mod h1:mL1N/T3taQHkDXs73rZJwtUhF3w3ftmwwsq0BUmARs4=
++golang.org/x/net v0.0.0-20181005035420-146acd28ed58/go.mod h1:mL1N/T3taQHkDXs73rZJwtUhF3w3ftmwwsq0BUmARs4=
++golang.org/x/net v0.0.0-20181011144130-49bb7cea24b1/go.mod h1:mL1N/T3taQHkDXs73rZJwtUhF3w3ftmwwsq0BUmARs4=
++golang.org/x/net v0.0.0-20181023162649-9b4f9f5ad519/go.mod h1:mL1N/T3taQHkDXs73rZJwtUhF3w3ftmwwsq0BUmARs4=
++golang.org/x/net v0.0.0-20181114220301-adae6a3d119a/go.mod h1:mL1N/T3taQHkDXs73rZJwtUhF3w3ftmwwsq0BUmARs4=
++golang.org/x/net v0.0.0-20181201002055-351d144fa1fc/go.mod h1:mL1N/T3taQHkDXs73rZJwtUhF3w3ftmwwsq0BUmARs4=
++golang.org/x/net v0.0.0-20181220203305-927f97764cc3/go.mod h1:mL1N/T3taQHkDXs73rZJwtUhF3w3ftmwwsq0BUmARs4=
++golang.org/x/net v0.0.0-20190108225652-1e06a53dbb7e/go.mod h1:mL1N/T3taQHkDXs73rZJwtUhF3w3ftmwwsq0BUmARs4=
++golang.org/x/net v0.0.0-20190213061140-3a22650c66bd/go.mod h1:mL1N/T3taQHkDXs73rZJwtUhF3w3ftmwwsq0BUmARs4=
++golang.org/x/net v0.0.0-20190311183353-d8887717615a/go.mod h1:t9HGtf8HONx5eT2rtn7q6eTqICYqUVnKs3thJo3Qplg=
++golang.org/x/net v0.0.0-20190320064053-1272bf9dcd53/go.mod h1:t9HGtf8HONx5eT2rtn7q6eTqICYqUVnKs3thJo3Qplg=
++golang.org/x/net v0.0.0-20190404232315-eb5bcb51f2a3/go.mod h1:t9HGtf8HONx5eT2rtn7q6eTqICYqUVnKs3thJo3Qplg=
++golang.org/x/net v0.0.0-20190501004415-9ce7a6920f09/go.mod h1:t9HGtf8HONx5eT2rtn7q6eTqICYqUVnKs3thJo3Qplg=
++golang.org/x/net v0.0.0-20190503192946-f4e77d36d62c/go.mod h1:t9HGtf8HONx5eT2rtn7q6eTqICYqUVnKs3thJo3Qplg=
++golang.org/x/net v0.0.0-20190522155817-f3200d17e092/go.mod h1:HSz+uSET+XFnRR8LxR5pz3Of3rY3CfYBVs4xY44aLks=
++golang.org/x/net v0.0.0-20190603091049-60506f45cf65/go.mod h1:HSz+uSET+XFnRR8LxR5pz3Of3rY3CfYBVs4xY44aLks=
++golang.org/x/net v0.0.0-20190613194153-d28f0bde5980/go.mod h1:z5CRVTTTmAJ677TzLLGU+0bjPO0LkuOLi4/5GtJWs/s=
++golang.org/x/net v0.0.0-20190619014844-b5b0513f8c1b/go.mod h1:z5CRVTTTmAJ677TzLLGU+0bjPO0LkuOLi4/5GtJWs/s=
++golang.org/x/net v0.0.0-20190620200207-3b0461eec859/go.mod h1:z5CRVTTTmAJ677TzLLGU+0bjPO0LkuOLi4/5GtJWs/s=
++golang.org/x/net v0.0.0-20190628185345-da137c7871d7/go.mod h1:z5CRVTTTmAJ677TzLLGU+0bjPO0LkuOLi4/5GtJWs/s=
++golang.org/x/net v0.0.0-20190724013045-ca1201d0de80/go.mod h1:z5CRVTTTmAJ677TzLLGU+0bjPO0LkuOLi4/5GtJWs/s=
++golang.org/x/net v0.0.0-20190813141303-74dc4d7220e7/go.mod h1:z5CRVTTTmAJ677TzLLGU+0bjPO0LkuOLi4/5GtJWs/s=
++golang.org/x/net v0.0.0-20190827160401-ba9fcec4b297/go.mod h1:z5CRVTTTmAJ677TzLLGU+0bjPO0LkuOLi4/5GtJWs/s=
++golang.org/x/net v0.0.0-20190923162816-aa69164e4478/go.mod h1:z5CRVTTTmAJ677TzLLGU+0bjPO0LkuOLi4/5GtJWs/s=
++golang.org/x/net v0.0.0-20191004110552-13f9640d40b9/go.mod h1:z5CRVTTTmAJ677TzLLGU+0bjPO0LkuOLi4/5GtJWs/s=
++golang.org/x/net v0.0.0-20191209160850-c0dbc17a3553/go.mod h1:z5CRVTTTmAJ677TzLLGU+0bjPO0LkuOLi4/5GtJWs/s=
++golang.org/x/net v0.0.0-20200114155413-6afb5195e5aa/go.mod h1:z5CRVTTTmAJ677TzLLGU+0bjPO0LkuOLi4/5GtJWs/s=
++golang.org/x/net v0.0.0-20200202094626-16171245cfb2/go.mod h1:z5CRVTTTmAJ677TzLLGU+0bjPO0LkuOLi4/5GtJWs/s=
++golang.org/x/net v0.0.0-20200222125558-5a598a2470a0/go.mod h1:z5CRVTTTmAJ677TzLLGU+0bjPO0LkuOLi4/5GtJWs/s=
++golang.org/x/net v0.0.0-20200226121028-0de0cce0169b/go.mod h1:z5CRVTTTmAJ677TzLLGU+0bjPO0LkuOLi4/5GtJWs/s=
++golang.org/x/net v0.0.0-20200301022130-244492dfa37a/go.mod h1:z5CRVTTTmAJ677TzLLGU+0bjPO0LkuOLi4/5GtJWs/s=
++golang.org/x/net v0.0.0-20200324143707-d3edc9973b7e/go.mod h1:qpuaurCH72eLCgpAm/N6yyVIVM9cpaDIP3A8BGJEC5A=
++golang.org/x/net v0.0.0-20200501053045-e0ff5e5a1de5/go.mod h1:qpuaurCH72eLCgpAm/N6yyVIVM9cpaDIP3A8BGJEC5A=
++golang.org/x/net v0.0.0-20200506145744-7e3656a0809f/go.mod h1:qpuaurCH72eLCgpAm/N6yyVIVM9cpaDIP3A8BGJEC5A=
++golang.org/x/net v0.0.0-20200513185701-a91f0712d120/go.mod h1:qpuaurCH72eLCgpAm/N6yyVIVM9cpaDIP3A8BGJEC5A=
++golang.org/x/net v0.0.0-20200520004742-59133d7f0dd7/go.mod h1:qpuaurCH72eLCgpAm/N6yyVIVM9cpaDIP3A8BGJEC5A=
++golang.org/x/net v0.0.0-20200520182314-0ba52f642ac2/go.mod h1:qpuaurCH72eLCgpAm/N6yyVIVM9cpaDIP3A8BGJEC5A=
++golang.org/x/net v0.0.0-20200602114024-627f9648deb9/go.mod h1:qpuaurCH72eLCgpAm/N6yyVIVM9cpaDIP3A8BGJEC5A=
++golang.org/x/net v0.0.0-20200625001655-4c5254603344/go.mod h1:/O7V0waA8r7cgGh81Ro3o1hOxt32SMVPicZroKQ2sZA=
++golang.org/x/net v0.0.0-20200707034311-ab3426394381/go.mod h1:/O7V0waA8r7cgGh81Ro3o1hOxt32SMVPicZroKQ2sZA=
++golang.org/x/net v0.0.0-20200822124328-c89045814202/go.mod h1:/O7V0waA8r7cgGh81Ro3o1hOxt32SMVPicZroKQ2sZA=
++golang.org/x/net v0.0.0-20201006153459-a7d1128ccaa0/go.mod h1:sp8m0HH+o8qH0wwXwYZr8TS3Oi6o0r6Gce1SSxlDquU=
++golang.org/x/net v0.0.0-20201021035429-f5854403a974/go.mod h1:sp8m0HH+o8qH0wwXwYZr8TS3Oi6o0r6Gce1SSxlDquU=
++golang.org/x/net v0.0.0-20201031054903-ff519b6c9102/go.mod h1:sp8m0HH+o8qH0wwXwYZr8TS3Oi6o0r6Gce1SSxlDquU=
++golang.org/x/net v0.0.0-20201110031124-69a78807bb2b/go.mod h1:sp8m0HH+o8qH0wwXwYZr8TS3Oi6o0r6Gce1SSxlDquU=
++golang.org/x/net v0.0.0-20201202161906-c7110b5ffcbb/go.mod h1:sp8m0HH+o8qH0wwXwYZr8TS3Oi6o0r6Gce1SSxlDquU=
++golang.org/x/net v0.0.0-20201209123823-ac852fbbde11/go.mod h1:m0MpNAwzfU5UDzcl9v0D8zg8gWTRqZa9RBIspLL5mdg=
++golang.org/x/net v0.0.0-20201224014010-6772e930b67b/go.mod h1:m0MpNAwzfU5UDzcl9v0D8zg8gWTRqZa9RBIspLL5mdg=
++golang.org/x/net v0.0.0-20210119194325-5f4716e94777/go.mod h1:m0MpNAwzfU5UDzcl9v0D8zg8gWTRqZa9RBIspLL5mdg=
+ golang.org/x/net v0.0.0-20210224082022-3d97a244fca7/go.mod h1:m0MpNAwzfU5UDzcl9v0D8zg8gWTRqZa9RBIspLL5mdg=
++golang.org/x/net v0.0.0-20210226172049-e18ecbb05110/go.mod h1:m0MpNAwzfU5UDzcl9v0D8zg8gWTRqZa9RBIspLL5mdg=
++golang.org/x/net v0.0.0-20210316092652-d523dce5a7f4/go.mod h1:RBQZq4jEuRlivfhVLdyRGr576XBO4/greRjx4P4O3yc=
++golang.org/x/net v0.0.0-20210405180319-a5a99cb37ef4/go.mod h1:p54w0d4576C0XHj96bSt6lcn1PtDYWL6XObtHCRCNQM=
++golang.org/x/net v0.0.0-20210410081132-afb366fc7cd1/go.mod h1:9tjilg8BloeKEkVJvy7fQ90B1CfIiPueXVOjqfkSzI8=
++golang.org/x/net v0.0.0-20210428140749-89ef3d95e781/go.mod h1:OJAsFXCWl8Ukc7SiCT/9KSuxbyM7479/AVlXFRxuMCk=
++golang.org/x/net v0.0.0-20210503060351-7fd8e65b6420/go.mod h1:9nx3DQGgdP8bBQD5qxJ1jj9UTztislL4KSBs9R2vV5Y=
++golang.org/x/net v0.0.0-20210510120150-4163338589ed/go.mod h1:9nx3DQGgdP8bBQD5qxJ1jj9UTztislL4KSBs9R2vV5Y=
++golang.org/x/net v0.0.0-20210520170846-37e1c6afe023/go.mod h1:9nx3DQGgdP8bBQD5qxJ1jj9UTztislL4KSBs9R2vV5Y=
++golang.org/x/net v0.0.0-20210525063256-abc453219eb5/go.mod h1:9nx3DQGgdP8bBQD5qxJ1jj9UTztislL4KSBs9R2vV5Y=
++golang.org/x/net v0.0.0-20210614182718-04defd469f4e/go.mod h1:9nx3DQGgdP8bBQD5qxJ1jj9UTztislL4KSBs9R2vV5Y=
++golang.org/x/net v0.0.0-20210726213435-c6fcb2dbf985/go.mod h1:9nx3DQGgdP8bBQD5qxJ1jj9UTztislL4KSBs9R2vV5Y=
++golang.org/x/net v0.0.0-20210805182204-aaa1db679c0d/go.mod h1:9nx3DQGgdP8bBQD5qxJ1jj9UTztislL4KSBs9R2vV5Y=
++golang.org/x/net v0.0.0-20210813160813-60bc85c4be6d/go.mod h1:9nx3DQGgdP8bBQD5qxJ1jj9UTztislL4KSBs9R2vV5Y=
++golang.org/x/net v0.0.0-20210825183410-e898025ed96a/go.mod h1:9nx3DQGgdP8bBQD5qxJ1jj9UTztislL4KSBs9R2vV5Y=
++golang.org/x/net v0.0.0-20211112202133-69e39bad7dc2/go.mod h1:9nx3DQGgdP8bBQD5qxJ1jj9UTztislL4KSBs9R2vV5Y=
++golang.org/x/net v0.0.0-20211209124913-491a49abca63/go.mod h1:9nx3DQGgdP8bBQD5qxJ1jj9UTztislL4KSBs9R2vV5Y=
++golang.org/x/net v0.0.0-20220107192237-5cfca573fb4d/go.mod h1:9nx3DQGgdP8bBQD5qxJ1jj9UTztislL4KSBs9R2vV5Y=
++golang.org/x/net v0.0.0-20220722155237-a158d28d115b/go.mod h1:XRhObCWvk6IyKnWLug+ECip1KBveYUHfp+8e9klMJ9c=
++golang.org/x/net v0.6.0/go.mod h1:2Tu9+aMcznHK/AK1HMvgo6xiTLG5rD5rZLDS+rp2Bjs=
++golang.org/x/net v0.8.1-0.20230320201749-6960703597ad h1:tJI/5+ERg53EUVC2iB/CHKPTPHyrqEIsEmj3x88zAyw=
++golang.org/x/net v0.8.1-0.20230320201749-6960703597ad/go.mod h1:QVkue5JL9kW//ek3r6jTKnTFis1tRmNAW2P1shuFdJc=
+ golang.org/x/oauth2 v0.0.0-20180821212333-d2e6202438be/go.mod h1:N/0e6XlmueqKjAGxoOufVs8QHGRruUQn6yWY3a++T0U=
+ golang.org/x/oauth2 v0.0.0-20190226205417-e64efc72b421/go.mod h1:gOpvHmFTYa4IltrdGE7lF6nIHvwfUNPOp7c8zoXwtLw=
+ golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45/go.mod h1:gOpvHmFTYa4IltrdGE7lF6nIHvwfUNPOp7c8zoXwtLw=
+@@ -1472,8 +1548,10 @@ golang.org/x/sync v0.0.0-20200317015054-43a5402ce75a/go.mod h1:RxMgew5VJxzue5/jJ
+ golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
+ golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
+ golang.org/x/sync v0.0.0-20201207232520-09787c993a3a/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
+-golang.org/x/sync v0.0.0-20210220032951-036812b2e83c h1:5KslGYwFpkhGh+Q16bwMP3cOontH8FOep7tGV86Y7SQ=
+ golang.org/x/sync v0.0.0-20210220032951-036812b2e83c/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
++golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
++golang.org/x/sync v0.1.0 h1:wsuoTGHzEhffawBOhz5CYhcrV4IdKZbEyZjBMuTp12o=
++golang.org/x/sync v0.1.0/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
+ golang.org/x/sys v0.0.0-20170830134202-bb24a47a89ea/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
+ golang.org/x/sys v0.0.0-20180823144017-11551d06cbcc/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
+ golang.org/x/sys v0.0.0-20180830151530-49385e6e1522/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
+@@ -1552,6 +1630,7 @@ golang.org/x/sys v0.0.0-20200909081042-eff7692f9009/go.mod h1:h1NjWce9XRLGQEsW7w
+ golang.org/x/sys v0.0.0-20200916030750-2334cc1a136f/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
+ golang.org/x/sys v0.0.0-20200922070232-aee5d888a860/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
+ golang.org/x/sys v0.0.0-20200923182605-d9f96fdee20d/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
++golang.org/x/sys v0.0.0-20200930185726-fdedc70b468f/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
+ golang.org/x/sys v0.0.0-20201112073958-5cba982894dd/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
+ golang.org/x/sys v0.0.0-20201117170446-d9b008d0a637/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
+ golang.org/x/sys v0.0.0-20201119102817-f84b799fce68/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
+@@ -1563,9 +1642,12 @@ golang.org/x/sys v0.0.0-20210119212857-b64e53b001e4/go.mod h1:h1NjWce9XRLGQEsW7w
+ golang.org/x/sys v0.0.0-20210124154548-22da62e12c0c/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
+ golang.org/x/sys v0.0.0-20210220050731-9a76102bfb43/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
+ golang.org/x/sys v0.0.0-20210305230114-8fe3ee5dd75b/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
++golang.org/x/sys v0.0.0-20210315160823-c6e025ad8005/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
+ golang.org/x/sys v0.0.0-20210320140829-1e4c9ba3b0c4/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
+ golang.org/x/sys v0.0.0-20210324051608-47abb6519492/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
++golang.org/x/sys v0.0.0-20210330210617-4fbd30eecc44/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
+ golang.org/x/sys v0.0.0-20210403161142-5e06dd20ab57/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
++golang.org/x/sys v0.0.0-20210423082822-04245dca01da/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
+ golang.org/x/sys v0.0.0-20210426230700-d19ff857e887/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
+ golang.org/x/sys v0.0.0-20210510120138-977fb7262007/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
+ golang.org/x/sys v0.0.0-20210514084401-e8d321eab015/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
+@@ -1587,14 +1669,21 @@ golang.org/x/sys v0.0.0-20211029165221-6e7872819dc8/go.mod h1:oPkhp1MJrh7nUepCBc
+ golang.org/x/sys v0.0.0-20211110154304-99a53858aa08/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
+ golang.org/x/sys v0.0.0-20211124211545-fe61309f8881/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
+ golang.org/x/sys v0.0.0-20211205182925-97ca703d548d/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
+-golang.org/x/sys v0.0.0-20211216021012-1d35b9e2eb4e h1:fLOSk5Q00efkSvAm+4xcoXD+RRmLmmulPn5I3Y9F2EM=
+ golang.org/x/sys v0.0.0-20211216021012-1d35b9e2eb4e/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
++golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
++golang.org/x/sys v0.0.0-20220722155257-8c9f86f7a55f/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
++golang.org/x/sys v0.5.0/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
++golang.org/x/sys v0.6.0/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
++golang.org/x/sys v0.6.1-0.20230317000753-00d8004a1448 h1:AJ9ZHEnbR2O0EjosvsnlyuA+oDjIXu17B108SqDJs3k=
++golang.org/x/sys v0.6.1-0.20230317000753-00d8004a1448/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
+ golang.org/x/term v0.0.0-20201117132131-f5c789dd3221/go.mod h1:Nr5EML6q2oocZ2LXRh80K7BxOlk5/8JxuGnuhpl+muw=
+ golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1/go.mod h1:bj7SfCRtBDWHUb9snDiAeCFNEtKQo2Wmx5Cou7ajbmo=
+ golang.org/x/term v0.0.0-20210220032956-6a3ed077a48d/go.mod h1:bj7SfCRtBDWHUb9snDiAeCFNEtKQo2Wmx5Cou7ajbmo=
+ golang.org/x/term v0.0.0-20210615171337-6886f2dfbf5b/go.mod h1:jbD1KX2456YbFQfuXm/mYQcufACuNUgVhRMnK/tPxf8=
+-golang.org/x/term v0.0.0-20210927222741-03fcf44c2211 h1:JGgROgKl9N8DuW20oFS5gxc+lE67/N3FcwmBPMe7ArY=
+ golang.org/x/term v0.0.0-20210927222741-03fcf44c2211/go.mod h1:jbD1KX2456YbFQfuXm/mYQcufACuNUgVhRMnK/tPxf8=
++golang.org/x/term v0.5.0/go.mod h1:jMB1sMXY+tzblOD4FWmEbocvup2/aLOaQEp7JmGp78k=
++golang.org/x/term v0.6.0 h1:clScbb1cHjoCkyRbWwBEUZ5H/tIFu5TAXIqaZD0Gcjw=
++golang.org/x/term v0.6.0/go.mod h1:m6U89DPEgQRMq3DNkDClhWw02AUbt2daBVO4cn4Hv9U=
+ golang.org/x/text v0.0.0-20160726164857-2910a502d2bf/go.mod h1:NqM8EUOU14njkJ3fqMW+pc6Ldnwhi/IjpwHt7yyuwOQ=
+ golang.org/x/text v0.0.0-20170915032832-14c0d48ead0c/go.mod h1:NqM8EUOU14njkJ3fqMW+pc6Ldnwhi/IjpwHt7yyuwOQ=
+ golang.org/x/text v0.3.0/go.mod h1:NqM8EUOU14njkJ3fqMW+pc6Ldnwhi/IjpwHt7yyuwOQ=
+@@ -1604,8 +1693,10 @@ golang.org/x/text v0.3.3/go.mod h1:5Zoc/QRtKVWzQhOtBMvqHzDpF6irO9z98xDceosuGiQ=
+ golang.org/x/text v0.3.4/go.mod h1:5Zoc/QRtKVWzQhOtBMvqHzDpF6irO9z98xDceosuGiQ=
+ golang.org/x/text v0.3.5/go.mod h1:5Zoc/QRtKVWzQhOtBMvqHzDpF6irO9z98xDceosuGiQ=
+ golang.org/x/text v0.3.6/go.mod h1:5Zoc/QRtKVWzQhOtBMvqHzDpF6irO9z98xDceosuGiQ=
+-golang.org/x/text v0.3.7 h1:olpwvP2KacW1ZWvsR7uQhoyTYvKAupfQrRGBFM352Gk=
+ golang.org/x/text v0.3.7/go.mod h1:u+2+/6zg+i71rQMx5EYifcz6MCKuco9NR6JIITiCfzQ=
++golang.org/x/text v0.7.0/go.mod h1:mrYo+phRRbMaCq/xk9113O4dZlRixOauAjOtrjsXDZ8=
++golang.org/x/text v0.8.0 h1:57P1ETyNKtuIjB4SRd15iJxuhj8Gc416Y78H3qgMh68=
++golang.org/x/text v0.8.0/go.mod h1:e1OnstbJyHTd6l/uOt8jFFHp6TRDWZR/bV3emEE/zU8=
+ golang.org/x/time v0.0.0-20180412165947-fbb02b2291d2/go.mod h1:tRJNPiyCQ0inRvYxbN9jk5I+vvW/OXSQhTDSoE431IQ=
+ golang.org/x/time v0.0.0-20181108054448-85acf8d2951c/go.mod h1:tRJNPiyCQ0inRvYxbN9jk5I+vvW/OXSQhTDSoE431IQ=
+ golang.org/x/time v0.0.0-20190308202827-9d24e82272b4/go.mod h1:tRJNPiyCQ0inRvYxbN9jk5I+vvW/OXSQhTDSoE431IQ=
+@@ -1690,8 +1781,10 @@ golang.org/x/tools v0.1.3/go.mod h1:o0xws9oXOQQZyjljx8fwUC0k7L1pTE6eaCbjGeHmOkk=
+ golang.org/x/tools v0.1.4/go.mod h1:o0xws9oXOQQZyjljx8fwUC0k7L1pTE6eaCbjGeHmOkk=
+ golang.org/x/tools v0.1.5/go.mod h1:o0xws9oXOQQZyjljx8fwUC0k7L1pTE6eaCbjGeHmOkk=
+ golang.org/x/tools v0.1.6-0.20210726203631-07bc1bf47fb2/go.mod h1:o0xws9oXOQQZyjljx8fwUC0k7L1pTE6eaCbjGeHmOkk=
+-golang.org/x/tools v0.1.6-0.20210820212750-d4cc65f0b2ff h1:VX/uD7MK0AHXGiScH3fsieUQUcpmRERPDYtqZdJnA+Q=
+ golang.org/x/tools v0.1.6-0.20210820212750-d4cc65f0b2ff/go.mod h1:YD9qOF0M9xpSpdWTBbzEl5e/RnCefISl8E5Noe10jFM=
++golang.org/x/tools v0.1.12/go.mod h1:hNGJHUnrk76NpqgfD5Aqm5Crs+Hm0VOH/i9J2+nxYbc=
++golang.org/x/tools v0.6.0 h1:BOw41kyTf3PuCW1pVQf8+Cyg8pMlkYB1oo9iJ6D/lKM=
++golang.org/x/tools v0.6.0/go.mod h1:Xwgl3UAJ/d3gWutnCtw505GrjyAbvKui8lOU390QaIU=
+ golang.org/x/xerrors v0.0.0-20190717185122-a985d3407aa7/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
+ golang.org/x/xerrors v0.0.0-20191011141410-1b5146add898/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
+ golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
+diff --git a/make/base_images.mk b/make/base_images.mk
+index 504364b22..83fd1efa0 100644
+--- a/make/base_images.mk
++++ b/make/base_images.mk
+@@ -4,8 +4,10 @@ STATIC_BASE_IMAGE_arm64 := gcr.io/distroless/static@sha256:1a6d571a1247b4ef4dced
+ STATIC_BASE_IMAGE_s390x := gcr.io/distroless/static@sha256:5fe5cdd2b9a36e05b7b44a6a17350d30e897db5017ac3afd2a2c6e2db6e3847d
+ STATIC_BASE_IMAGE_arm   := gcr.io/distroless/static@sha256:777e5dc82484bcd76c1c93dc55d553eb43462c1c44522068497e5a3df9182ae3
+ STATIC_BASE_IMAGE_ppc64le := gcr.io/distroless/static@sha256:c6ca87f1431f85f3f89fc0c91b456d4023a2570156574083329bd07cd3b7d6a3
++STATIC_BASE_IMAGE_loong64 := cr.loongnix.cn/distroless/static:latest
+ DYNAMIC_BASE_IMAGE_amd64 := gcr.io/distroless/base@sha256:26bbe93b4e3bbc4846aab153fde35885d22dc3ff22f1166eb7935717d86c5c7e
+ DYNAMIC_BASE_IMAGE_arm64 := gcr.io/distroless/base@sha256:1e2ee30c6e3e1e97687ac8f9ae1b8dc6580e455a028eab9a9d042962c30e4094
+ DYNAMIC_BASE_IMAGE_s390x := gcr.io/distroless/base@sha256:8807ad8b3d5bf3353fafd90aa2f02dc6c731ea254f0f1fa67832da05c022291d
+ DYNAMIC_BASE_IMAGE_arm   := gcr.io/distroless/base@sha256:9c9f3a67e3d409ee3f825685f1df0ccb827fe08995a06e0f0931cfdea8cd4459
+ DYNAMIC_BASE_IMAGE_ppc64le := gcr.io/distroless/base@sha256:9dd4bf57faedcb0dfd1054766ec71cd2e2f84518825b49d2bf8fee79591049db
++DYNAMIC_BASE_IMAGE_loong64 := cr.loongnix.cn/distroless/static:latest
+diff --git a/make/containers.mk b/make/containers.mk
+index aff18e415..6cce6930b 100644
+--- a/make/containers.mk
++++ b/make/containers.mk
+@@ -1,7 +1,7 @@
+ # set to "DYNAMIC" to use a dynamic base image
+ BASE_IMAGE_TYPE:=STATIC
+ 
+-ARCHS = amd64 arm64 s390x ppc64le arm
++ARCHS = amd64 arm64 s390x ppc64le arm loong64
+ BINS = controller acmesolver cainjector webhook ctl
+ 
+ BASE_IMAGE_controller-linux-amd64:=$($(BASE_IMAGE_TYPE)_BASE_IMAGE_amd64)
+@@ -9,30 +9,35 @@ BASE_IMAGE_controller-linux-arm64:=$($(BASE_IMAGE_TYPE)_BASE_IMAGE_arm64)
+ BASE_IMAGE_controller-linux-s390x:=$($(BASE_IMAGE_TYPE)_BASE_IMAGE_s390x)
+ BASE_IMAGE_controller-linux-ppc64le:=$($(BASE_IMAGE_TYPE)_BASE_IMAGE_ppc64le)
+ BASE_IMAGE_controller-linux-arm:=$($(BASE_IMAGE_TYPE)_BASE_IMAGE_arm)
++BASE_IMAGE_controller-linux-loong64:=$($(BASE_IMAGE_TYPE)_BASE_IMAGE_loong64)
+ 
+ BASE_IMAGE_webhook-linux-amd64:=$($(BASE_IMAGE_TYPE)_BASE_IMAGE_amd64)
+ BASE_IMAGE_webhook-linux-arm64:=$($(BASE_IMAGE_TYPE)_BASE_IMAGE_arm64)
+ BASE_IMAGE_webhook-linux-s390x:=$($(BASE_IMAGE_TYPE)_BASE_IMAGE_s390x)
+ BASE_IMAGE_webhook-linux-ppc64le:=$($(BASE_IMAGE_TYPE)_BASE_IMAGE_ppc64le)
+ BASE_IMAGE_webhook-linux-arm:=$($(BASE_IMAGE_TYPE)_BASE_IMAGE_arm)
++BASE_IMAGE_webhook-linux-loong64:=$($(BASE_IMAGE_TYPE)_BASE_IMAGE_loong64)
+ 
+ BASE_IMAGE_acmesolver-linux-amd64:=$($(BASE_IMAGE_TYPE)_BASE_IMAGE_amd64)
+ BASE_IMAGE_acmesolver-linux-arm64:=$($(BASE_IMAGE_TYPE)_BASE_IMAGE_arm64)
+ BASE_IMAGE_acmesolver-linux-s390x:=$($(BASE_IMAGE_TYPE)_BASE_IMAGE_s390x)
+ BASE_IMAGE_acmesolver-linux-ppc64le:=$($(BASE_IMAGE_TYPE)_BASE_IMAGE_ppc64le)
+ BASE_IMAGE_acmesolver-linux-arm:=$($(BASE_IMAGE_TYPE)_BASE_IMAGE_arm)
++BASE_IMAGE_acmesolver-linux-loong64:=$($(BASE_IMAGE_TYPE)_BASE_IMAGE_loong64)
+ 
+ BASE_IMAGE_cainjector-linux-amd64:=$($(BASE_IMAGE_TYPE)_BASE_IMAGE_amd64)
+ BASE_IMAGE_cainjector-linux-arm64:=$($(BASE_IMAGE_TYPE)_BASE_IMAGE_arm64)
+ BASE_IMAGE_cainjector-linux-s390x:=$($(BASE_IMAGE_TYPE)_BASE_IMAGE_s390x)
+ BASE_IMAGE_cainjector-linux-ppc64le:=$($(BASE_IMAGE_TYPE)_BASE_IMAGE_ppc64le)
+ BASE_IMAGE_cainjector-linux-arm:=$($(BASE_IMAGE_TYPE)_BASE_IMAGE_arm)
++BASE_IMAGE_cainjector-linux-loong64:=$($(BASE_IMAGE_TYPE)_BASE_IMAGE_loong64)
+ 
+ BASE_IMAGE_cmctl-linux-amd64:=$($(BASE_IMAGE_TYPE)_BASE_IMAGE_amd64)
+ BASE_IMAGE_cmctl-linux-arm64:=$($(BASE_IMAGE_TYPE)_BASE_IMAGE_arm64)
+ BASE_IMAGE_cmctl-linux-s390x:=$($(BASE_IMAGE_TYPE)_BASE_IMAGE_s390x)
+ BASE_IMAGE_cmctl-linux-ppc64le:=$($(BASE_IMAGE_TYPE)_BASE_IMAGE_ppc64le)
+ BASE_IMAGE_cmctl-linux-arm:=$($(BASE_IMAGE_TYPE)_BASE_IMAGE_arm)
++BASE_IMAGE_cmctl-linux-loong64:=$($(BASE_IMAGE_TYPE)_BASE_IMAGE_loong64)
+ 
+ .PHONY: all-containers
+ all-containers: cert-manager-controller-linux cert-manager-webhook-linux cert-manager-acmesolver-linux cert-manager-cainjector-linux cert-manager-ctl-linux
+@@ -40,12 +45,13 @@ all-containers: cert-manager-controller-linux cert-manager-webhook-linux cert-ma
+ .PHONY: cert-manager-controller-linux
+ cert-manager-controller-linux: bin/containers/cert-manager-controller-linux-amd64.tar.gz bin/containers/cert-manager-controller-linux-arm64.tar.gz bin/containers/cert-manager-controller-linux-s390x.tar.gz bin/containers/cert-manager-controller-linux-ppc64le.tar.gz bin/containers/cert-manager-controller-linux-arm.tar.gz
+ 
+-bin/containers/cert-manager-controller-linux-amd64.tar bin/containers/cert-manager-controller-linux-arm64.tar bin/containers/cert-manager-controller-linux-s390x.tar bin/containers/cert-manager-controller-linux-ppc64le.tar bin/containers/cert-manager-controller-linux-arm.tar: bin/containers/cert-manager-controller-linux-%.tar: bin/scratch/build-context/cert-manager-controller-linux-%/controller hack/containers/Containerfile.controller bin/scratch/build-context/cert-manager-controller-linux-%/cert-manager.license bin/scratch/build-context/cert-manager-controller-linux-%/cert-manager.licenses_notice bin/release-version | bin/containers
++bin/containers/cert-manager-controller-linux-loong64.tar bin/containers/cert-manager-controller-linux-amd64.tar bin/containers/cert-manager-controller-linux-arm64.tar bin/containers/cert-manager-controller-linux-s390x.tar bin/containers/cert-manager-controller-linux-ppc64le.tar bin/containers/cert-manager-controller-linux-arm.tar: bin/containers/cert-manager-controller-linux-%.tar: bin/scratch/build-context/cert-manager-controller-linux-%/controller hack/containers/Containerfile.controller bin/scratch/build-context/cert-manager-controller-linux-%/cert-manager.license bin/scratch/build-context/cert-manager-controller-linux-%/cert-manager.licenses_notice bin/release-version | bin/containers
+ 	@$(eval TAG := cert-manager-controller-$*:$(RELEASE_VERSION))
+ 	@$(eval BASE := BASE_IMAGE_controller-linux-$*)
+ 	$(CTR) build --quiet \
+ 		-f hack/containers/Containerfile.controller \
+ 		--build-arg BASE_IMAGE=$($(BASE)) \
++		-t cr.loongnix.cn/jetstack/cert-manager-controller:v1.8.0 \
+ 		-t $(TAG) \
+ 		$(dir $<) >/dev/null
+ 	$(CTR) save $(TAG) -o $@ >/dev/null
+@@ -53,25 +59,27 @@ bin/containers/cert-manager-controller-linux-amd64.tar bin/containers/cert-manag
+ .PHONY: cert-manager-webhook-linux
+ cert-manager-webhook-linux: bin/containers/cert-manager-webhook-linux-amd64.tar.gz bin/containers/cert-manager-webhook-linux-arm64.tar.gz bin/containers/cert-manager-webhook-linux-s390x.tar.gz bin/containers/cert-manager-webhook-linux-ppc64le.tar.gz bin/containers/cert-manager-webhook-linux-arm.tar.gz
+ 
+-bin/containers/cert-manager-webhook-linux-amd64.tar bin/containers/cert-manager-webhook-linux-arm64.tar bin/containers/cert-manager-webhook-linux-s390x.tar bin/containers/cert-manager-webhook-linux-ppc64le.tar bin/containers/cert-manager-webhook-linux-arm.tar: bin/containers/cert-manager-webhook-linux-%.tar: bin/scratch/build-context/cert-manager-webhook-linux-%/webhook hack/containers/Containerfile.webhook bin/scratch/build-context/cert-manager-webhook-linux-%/cert-manager.license bin/scratch/build-context/cert-manager-webhook-linux-%/cert-manager.licenses_notice bin/release-version | bin/containers
+-	@$(eval TAG := cert-manager-webhook-$*:$(RELEASE_VERSION))
+-	@$(eval BASE := BASE_IMAGE_webhook-linux-$*)
++bin/containers/cert-manager-webhook-linux-loong64.tar bin/containers/cert-manager-webhook-linux-amd64.tar bin/containers/cert-manager-webhook-linux-arm64.tar bin/containers/cert-manager-webhook-linux-s390x.tar bin/containers/cert-manager-webhook-linux-ppc64le.tar bin/containers/cert-manager-webhook-linux-arm.tar: bin/containers/cert-manager-webhook-linux-%.tar: bin/scratch/build-context/cert-manager-webhook-linux-%/webhook hack/containers/Containerfile.webhook bin/scratch/build-context/cert-manager-webhook-linux-%/cert-manager.license bin/scratch/build-context/cert-manager-webhook-linux-%/cert-manager.licenses_notice bin/release-version | bin/containers
++	$(eval TAG := cert-manager-webhook-$*:$(RELEASE_VERSION))
++	$(eval BASE := BASE_IMAGE_webhook-linux-$*)
+ 	$(CTR) build --quiet \
+ 		-f hack/containers/Containerfile.webhook \
+ 		--build-arg BASE_IMAGE=$($(BASE)) \
+ 		-t $(TAG) \
++		-t cr.loongnix.cn/jetstack/cert-manager-webhook:v1.8.0 \
+ 		$(dir $<) >/dev/null
+ 	$(CTR) save $(TAG) -o $@ >/dev/null
+ 
+ .PHONY: cert-manager-cainjector-linux
+ cert-manager-cainjector-linux: bin/containers/cert-manager-cainjector-linux-amd64.tar.gz bin/containers/cert-manager-cainjector-linux-arm64.tar.gz bin/containers/cert-manager-cainjector-linux-s390x.tar.gz bin/containers/cert-manager-cainjector-linux-ppc64le.tar.gz bin/containers/cert-manager-cainjector-linux-arm.tar.gz
+ 
+-bin/containers/cert-manager-cainjector-linux-amd64.tar bin/containers/cert-manager-cainjector-linux-arm64.tar bin/containers/cert-manager-cainjector-linux-s390x.tar bin/containers/cert-manager-cainjector-linux-ppc64le.tar bin/containers/cert-manager-cainjector-linux-arm.tar: bin/containers/cert-manager-cainjector-linux-%.tar: bin/scratch/build-context/cert-manager-cainjector-linux-%/cainjector hack/containers/Containerfile.cainjector bin/scratch/build-context/cert-manager-cainjector-linux-%/cert-manager.license bin/scratch/build-context/cert-manager-cainjector-linux-%/cert-manager.licenses_notice bin/release-version | bin/containers
++bin/containers/cert-manager-cainjector-linux-loong64.tar bin/containers/cert-manager-cainjector-linux-amd64.tar bin/containers/cert-manager-cainjector-linux-arm64.tar bin/containers/cert-manager-cainjector-linux-s390x.tar bin/containers/cert-manager-cainjector-linux-ppc64le.tar bin/containers/cert-manager-cainjector-linux-arm.tar: bin/containers/cert-manager-cainjector-linux-%.tar: bin/scratch/build-context/cert-manager-cainjector-linux-%/cainjector hack/containers/Containerfile.cainjector bin/scratch/build-context/cert-manager-cainjector-linux-%/cert-manager.license bin/scratch/build-context/cert-manager-cainjector-linux-%/cert-manager.licenses_notice bin/release-version | bin/containers
+ 	@$(eval TAG := cert-manager-cainjector-$*:$(RELEASE_VERSION))
+ 	@$(eval BASE := BASE_IMAGE_cainjector-linux-$*)
+ 	$(CTR) build --quiet \
+ 		-f hack/containers/Containerfile.cainjector \
+ 		--build-arg BASE_IMAGE=$($(BASE)) \
++		-t cr.loongnix.cn/jetstack/cert-manager-cainjector:v1.8.0 \
+ 		-t $(TAG) \
+ 		$(dir $<) >/dev/null
+ 	$(CTR) save $(TAG) -o $@ >/dev/null
+diff --git a/make/server.mk b/make/server.mk
+index 59400d50d..c7c52c24c 100644
+--- a/make/server.mk
++++ b/make/server.mk
+@@ -22,6 +22,9 @@ bin/server/controller-linux-ppc64le: $(SOURCES) $(DEPENDS_ON_GO) | bin/server
+ bin/server/controller-linux-arm: $(SOURCES) $(DEPENDS_ON_GO) | bin/server
+ 	GOOS=linux GOARCH=arm GOARM=7 $(GOBUILD) -o $@ $(GOFLAGS) cmd/controller/main.go
+ 
++bin/server/controller-linux-loong64: $(SOURCES) | bin/server
++	GOOS=linux GOARCH=loong64 $(GOBUILD) -o $@ $(GOFLAGS) cmd/controller/main.go
++
+ .PHONY: acmesolver
+ acmesolver: bin/server/acmesolver-linux-amd64 bin/server/acmesolver-linux-arm64 bin/server/acmesolver-linux-s390x bin/server/acmesolver-linux-ppc64le bin/server/acmesolver-linux-arm $(DEPENDS_ON_GO) | bin/server
+ 
+@@ -58,6 +61,9 @@ bin/server/webhook-linux-ppc64le: $(SOURCES) $(DEPENDS_ON_GO) | bin/server
+ bin/server/webhook-linux-arm: $(SOURCES) $(DEPENDS_ON_GO) | bin/server
+ 	GOOS=linux GOARCH=arm GOARM=7 $(GOBUILD) -o $@ $(GOFLAGS) cmd/webhook/main.go
+ 
++bin/server/webhook-linux-loong64: $(SOURCES) | bin/server
++	GOOS=linux GOARCH=loong64 $(GOBUILD) -o $@ $(GOFLAGS) cmd/webhook/main.go
++
+ .PHONY: cainjector
+ cainjector: bin/server/cainjector-linux-amd64 bin/server/cainjector-linux-arm64 bin/server/cainjector-linux-s390x bin/server/cainjector-linux-ppc64le bin/server/cainjector-linux-arm $(DEPENDS_ON_GO) | bin/server
+ 
+@@ -75,3 +81,6 @@ bin/server/cainjector-linux-ppc64le: $(SOURCES) $(DEPENDS_ON_GO) | bin/server
+ 
+ bin/server/cainjector-linux-arm: $(SOURCES) $(DEPENDS_ON_GO) | bin/server
+ 	GOOS=linux GOARCH=arm GOARM=7 $(GOBUILD) -o $@ $(GOFLAGS) cmd/cainjector/main.go
++
++bin/server/cainjector-linux-loong64: $(SOURCES) | bin/server
++	GOOS=linux GOARCH=loong64 $(GOBUILD) -o $@ $(GOFLAGS) cmd/cainjector/main.go
+-- 
+2.27.0
+
