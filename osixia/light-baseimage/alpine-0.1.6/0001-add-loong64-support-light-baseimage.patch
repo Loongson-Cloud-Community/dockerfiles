@@ -1,0 +1,22 @@
+From d5185fb5b1cf85eb2b4578a8468e9344d43685db Mon Sep 17 00:00:00 2001
+From: qiangxuhui <qiangxuhui@loongson.cn>
+Date: Mon, 27 Mar 2023 02:26:06 +0000
+Subject: [PATCH] add loong64 support light-baseimage
+
+---
+ image/Dockerfile | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/image/Dockerfile b/image/Dockerfile
+index 1e542c3..4e64633 100644
+--- a/image/Dockerfile
++++ b/image/Dockerfile
+@@ -1,4 +1,4 @@
+-FROM alpine:3.12
++FROM cr.loongnix.cn/library/alpine:3.11
+ 
+ COPY . /container
+ RUN /container/build.sh
+-- 
+2.27.0
+
