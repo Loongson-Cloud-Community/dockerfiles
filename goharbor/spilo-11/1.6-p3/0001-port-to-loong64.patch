@@ -1,0 +1,246 @@
+From 4f99d3c411e2ddd91dda6ba158d45a2203612889 Mon Sep 17 00:00:00 2001
+From: wangweijie <wangweijie@loongson.cn>
+Date: Wed, 29 Mar 2023 14:42:42 +0800
+Subject: [PATCH] port to loong64
+
+---
+ postgres-appliance/Dockerfile                 | 68 ++++++++-----------
+ postgres-appliance/scripts/configure_spilo.py | 10 +--
+ 2 files changed, 32 insertions(+), 46 deletions(-)
+
+diff --git a/postgres-appliance/Dockerfile b/postgres-appliance/Dockerfile
+index aa1119c..fedaa9c 100644
+--- a/postgres-appliance/Dockerfile
++++ b/postgres-appliance/Dockerfile
+@@ -1,12 +1,13 @@
+-ARG PGVERSION=12
++ARG PGVERSION=11
+ ARG TIMESCALEDB=1.7.0
+ ARG TIMESCALEDB_LEGACY=1.6.1
+ ARG DEMO=false
+ ARG COMPRESS=false
+ 
+-FROM ubuntu:18.04 as builder-false
++FROM cr.loongnix.cn/library/debian:buster as builder-false
+ 
+ RUN export DEBIAN_FRONTEND=noninteractive \
++    && set -x \
+     && echo 'APT::Install-Recommends "0";\nAPT::Install-Suggests "0";' > /etc/apt/apt.conf.d/01norecommend \
+     && apt-get update \
+     && apt-get install -y curl ca-certificates less locales jq vim-tiny gnupg1 cron runit dumb-init libcap2-bin \
+@@ -21,7 +22,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
+         apt-get install -y pv lzop \
+         # install etcdctl
+         && ETCDVERSION=2.3.8 \
+-        && curl -L https://github.com/coreos/etcd/releases/download/v${ETCDVERSION}/etcd-v${ETCDVERSION}-linux-amd64.tar.gz \
++        && curl -L https://github.com/Loongson-Cloud-Community/etcd/releases/download/v${ETCDVERSION}-loong64/etcd-v${ETCDVERSION}-linux-loong64.tar.gz \
+                 | tar xz -C /bin --strip=1 --wildcards --no-anchored etcdctl etcd; \
+     fi \
+ \
+@@ -34,11 +35,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
+     && localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8 \
+ \
+     # Add PGDG repositories
+-    && DISTRIB_CODENAME=$(sed -n 's/DISTRIB_CODENAME=//p' /etc/lsb-release) \
+-    && for t in deb deb-src; do \
+-        echo "$t http://apt.postgresql.org/pub/repos/apt/ ${DISTRIB_CODENAME}-pgdg main" >> /etc/apt/sources.list.d/pgdg.list; \
+-    done \
+-    && curl -s -o - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - \
+ \
+     # Clean up
+     && apt-get purge -y libcap2-bin \
+@@ -60,10 +56,10 @@ ARG TIMESCALEDB_LEGACY
+ ARG TIMESCALEDB_APACHE_ONLY=true
+ ARG DEMO
+ ARG COMPRESS
+-ARG PGOLDVERSIONS="9.5 9.6 10 11"
++ARG PGOLDVERSIONS="11"
+ ARG WITH_PERL=false
+ 
+-ARG DEB_PG_SUPPORTED_VERSIONS="$PGOLDVERSIONS $PGVERSION"
++ARG DEB_PG_SUPPORTED_VERSIONS="$PGVERSION"
+ 
+ # Install PostgreSQL, extensions and contribs
+ ENV POSTGIS_VERSION=3.0 \
+@@ -90,12 +86,14 @@ RUN export DEBIAN_FRONTEND=noninteractive \
+         && rm -f *.deb \
+         && apt-get install -y $BUILD_PACKAGES; \
+     else \
+-        BUILD_PACKAGES="$BUILD_PACKAGES pgxnclient zlib1g-dev libprotobuf-c-dev libpam0g-dev libcurl4-openssl-dev libicu-dev python libc-ares-dev pandoc pkg-config" \
++        BUILD_PACKAGES="$BUILD_PACKAGES pgxnclient zlib1g-dev libprotobuf-c-dev libpam0g-dev libcurl4-openssl-dev libicu-dev python libc-ares-dev pkg-config" \
+ # debezium-decoderbufs: libprotobuf-c-dev
+ # pgbouncer: libc-ares-dev pandoc pkg-config
+         && apt-get install -y $BUILD_PACKAGES libprotobuf-c1 libcurl4 \
+ \
+         # install pam_oauth2.so
++        && git config --global url.https://github.com/.insteadOf git://github.com/ \
++        && git config --global url."https://".insteadOf git:// \
+         && git clone -b $PAM_OAUTH2 --recurse-submodules https://github.com/CyberDem0n/pam-oauth2.git \
+         && make -C pam-oauth2 install \
+ \
+@@ -126,16 +124,17 @@ RUN export DEBIAN_FRONTEND=noninteractive \
+     && git clone -b $SET_USER https://github.com/pgaudit/set_user.git \
+     && git clone -b $TIMESCALEDB_LEGACY https://github.com/timescale/timescaledb.git \
+ \
+-    && apt-get install -y postgresql-common libevent-2.1 libevent-pthreads-2.1 python3.6 python3-psycopg2 \
+-\
++    && apt-get install -y postgresql-common libevent-2.1 libevent-pthreads-2.1 python3 python3-psycopg2 
++
++RUN export DEBIAN_FRONTEND=noninteractive \
++    && set -ex \
++    && cd /builddeps \
+     # forbid creation of a main cluster when package is installed
+     && sed -ri 's/#(create_main_cluster) .*$/\1 = false/' /etc/postgresql-common/createcluster.conf \
+ \
+     && for version in $DEB_PG_SUPPORTED_VERSIONS; do \
+-            sed -i "s/ main.*$/ main $version/g" /etc/apt/sources.list.d/pgdg.list \
+-            && apt-get update \
+ \
+-            && if [ "$DEMO" != "true" ]; then \
++                if [ "$DEMO" != "true" ]; then \
+                 EXTRAS="postgresql-pltcl-${version} \
+                         postgresql-${version}-cron \
+                         postgresql-${version}-hypopg \
+@@ -147,8 +146,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
+                         postgresql-${version}-pldebugger \
+                         postgresql-${version}-pllua \
+                         postgresql-${version}-plproxy \
+-                        postgresql-${version}-postgis-${POSTGIS_VERSION%.0} \
+-                        postgresql-${version}-postgis-${POSTGIS_VERSION%.0}-scripts \
+                         postgresql-${version}-repack \
+                         postgresql-${version}-wal2json" \
+                 && if [ "$WITH_PERL" = "true" ]; then \
+@@ -204,9 +201,9 @@ RUN export DEBIAN_FRONTEND=noninteractive \
+ \
+     && apt-get install -y skytools3-ticker pspg \
+ \
+-    && sed -i "s/ main.*$/ main/g" /etc/apt/sources.list.d/pgdg.list \
++    && echo "deb-src http://pkg.loongnix.cn/loongnix DaoXiangHu-stable main contrib non-free" >> /etc/apt/sources.list \
+     && apt-get update \
+-    && apt-get install -y postgresql postgresql-server-dev-all libpq-dev \
++    && apt-get install -y postgresql postgresql-server-dev-all libpq-dev python3-docutils \
+     && for version in $DEB_PG_SUPPORTED_VERSIONS; do \
+         apt-get install -y postgresql-server-dev-${version}; \
+     done \
+@@ -268,15 +265,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
+         done \
+ \
+         && PGVERSION=11 \
+-        && cd /usr/share/postgresql/$PGVERSION/contrib/postgis-$POSTGIS_VERSION \
+-        && for f in *.sql *.pl; do \
+-            for v in /usr/share/postgresql/*; do \
+-                if [ "$v" != "/usr/share/postgresql/$PGVERSION" ] && diff $v/contrib/postgis-$POSTGIS_VERSION/$f $f > /dev/null; then \
+-                    rm $v/contrib/postgis-$POSTGIS_VERSION/$f \
+-                    && ln -s ../../../$PGVERSION/contrib/postgis-$POSTGIS_VERSION/$f $v/contrib/postgis-$POSTGIS_VERSION/$f; \
+-                fi; \
+-            done; \
+-        done \
+ \
+         && if [ -d /usr/share/postgresql/9.5/contrib/postgis-$POSTGIS_VERSION ]; then \
+             cd /usr/share/postgresql/9.5/contrib/postgis-$POSTGIS_VERSION \
+@@ -389,29 +377,26 @@ RUN export DEBIAN_FRONTEND=noninteractive \
+     && apt-cache depends patroni \
+             | sed -n -e 's/.* Depends: \(python3-.\+\)$/\1/p' \
+             | grep -Ev '^python3-(sphinx|etcd|consul|kazoo|kubernetes)' \
+-            | xargs apt-get install -y ${BUILD_PACKAGES} python3-pystache \
++            | xargs apt-get install -y ${BUILD_PACKAGES} python3-pystache python3-babel \
+ \
+     && pip3 install setuptools \
+ \
+     && if [ "$DEMO" != "true" ]; then \
+         EXTRAS=",etcd,consul,zookeeper,aws" \
+-        && curl -sL https://github.com/wal-g/wal-g/releases/download/$WALG_VERSION/wal-g.linux-amd64.tar.gz \
++        && curl -sL https://github.com/Loongson-Cloud-Community/wal-g/releases/download/$WALG_VERSION/wal-g.linux-loong64.tar.gz \
+                 | tar -C /usr/local/bin -xz \
+         && strip /usr/local/bin/wal-g \
+-        && apt-get install -y python3-etcd python3-consul python3-kazoo python3-meld3 \
++        && apt-get install -y python3-etcd python3-consul python3-meld3 \
+                         python3-boto python3-gevent python3-greenlet python3-protobuf \
+-                        python3-cachetools python3-rsa python3-pyasn1-modules python3-swiftclient \
++                        python3-cachetools python3-rsa python3-pyasn1-modules \
++        && pip3 install kazoo python-swiftclient \
+ \
+         && find /usr/share/python-babel-localedata/locale-data -type f ! -name 'en_US*.dat' -delete \
+ \
+         && pip3 install filechunkio wal-e[aws,google,swift]==$WALE_VERSION \
+                 'git+https://github.com/zalando/pg_view.git@master#egg=pg-view' \
+ \
+-        && cd /usr/local/lib/python3.6/dist-packages \
+-\
+-        # pg_view installs useless pytest
+-        && sed -i '/^pytest/d' pg_view-*/requires.txt \
+-        && pip3 uninstall -y attrs more_itertools pluggy pytest py \
++        && cd /usr/local/lib/python3.7/dist-packages \
+ \
+         # https://github.com/wal-e/wal-e/issues/318
+         && sed -i 's/^\(    for i in range(0,\) num_retries):.*/\1 100):/g' /usr/lib/python3/dist-packages/boto/utils.py \
+@@ -422,9 +407,9 @@ RUN export DEBIAN_FRONTEND=noninteractive \
+         # https://github.com/wal-e/wal-e/pull/392
+         && curl -sL https://github.com/wal-e/wal-e/pull/392.diff | patch -p1; \
+     fi \
+-    && pip3 install "git+https://github.com/zalando/patroni.git@feature/no-kubernetes#egg=patroni[kubernetes$EXTRAS]" \
++    && pip3 install patroni[kubernetes$EXTRAS] \
+ \
+-    && for d in /usr/local/lib/python3.6 /usr/lib/python3; do \
++    && for d in /usr/local/lib/python3.7 /usr/lib/python3; do \
+         cd $d/dist-packages \
+         && find . -type d -name tests | xargs rm -fr \
+         && find . -type f -name 'test_*.py*' -delete; \
+@@ -455,7 +440,7 @@ RUN set -ex \
+         && rm -rf /var/lib/apt/lists/* /var/cache/debconf/* /usr/share/doc /usr/share/man /etc/rc?.d /etc/systemd \
+         && ln -snf busybox /bin/sh \
+         && files="/bin/sh" \
+-        && libs="$(ldd $files | awk '{print $3;}' | grep '^/' | sort -u) /lib/x86_64-linux-gnu/ld-linux-x86-64.so.* /lib/x86_64-linux-gnu/libnsl.so.* /lib/x86_64-linux-gnu/libnss_compat.so.*" \
++        && libs="$(ldd $files | awk '{print $3;}' | grep '^/' | sort -u) /lib/loongarch64-linux-gnu/ld.so.* /lib/loongarch64-linux-gnu/libnsl.so.* /lib/loongarch64-linux-gnu/libnss_compat.so.*" \
+         && (echo /var/run /var/spool $files $libs | tr ' ' '\n' && realpath $files $libs) | sort -u | sed 's/^\///' > /exclude \
+         && find /etc/alternatives -xtype l -delete \
+         && save_dirs="usr lib var bin sbin etc/ssl etc/init.d etc/alternatives etc/apt" \
+@@ -505,6 +490,7 @@ COPY pgq_ticker.ini $PGHOME/
+ RUN sed -i "s|/var/lib/postgresql.*|$PGHOME:/bin/bash|" /etc/passwd \
+         && chown -R postgres:postgres $PGHOME $RW_DIR \
+         && rm -fr /var/spool/cron /var/tmp \
++        && rm -fr /etcd-v2.3.8-linux-loong64.tar.gz \
+         && mkdir -p /var/spool \
+         && ln -s $RW_DIR/cron /var/spool/cron \
+         && ln -s $RW_DIR/tmp /var/tmp \
+diff --git a/postgres-appliance/scripts/configure_spilo.py b/postgres-appliance/scripts/configure_spilo.py
+index 3d80bca..67fd88c 100755
+--- a/postgres-appliance/scripts/configure_spilo.py
++++ b/postgres-appliance/scripts/configure_spilo.py
+@@ -620,9 +620,9 @@ def get_dcs_config(config, placeholders):
+             config['kubernetes'].update({'use_endpoints': True, 'pod_ip': placeholders['instance_data']['ip'],
+                                          'ports': [{'port': 5432, 'name': 'postgresql'}]})
+     elif 'ZOOKEEPER_HOSTS' in placeholders:
+-        config = {'zookeeper': {'hosts': yaml.load(placeholders['ZOOKEEPER_HOSTS'])}}
++        config = {'zookeeper': {'hosts': yaml.safe_load(placeholders['ZOOKEEPER_HOSTS'])}}
+     elif 'EXHIBITOR_HOSTS' in placeholders and 'EXHIBITOR_PORT' in placeholders:
+-        config = {'exhibitor': {'hosts': yaml.load(placeholders['EXHIBITOR_HOSTS']),
++        config = {'exhibitor': {'hosts': yaml.safe_load(placeholders['EXHIBITOR_HOSTS']),
+                                 'port': placeholders['EXHIBITOR_PORT']}}
+     elif 'ETCD_HOST' in placeholders:
+         config = {'etcd': {'host': placeholders['ETCD_HOST']}}
+@@ -829,7 +829,7 @@ def write_crontab(placeholders, overwrite):
+         lines += [('{LOG_SHIP_SCHEDULE} nice -n 5 envdir "{LOG_ENV_DIR}"' +
+                    ' /scripts/upload_pg_log_to_s3.py').format(**placeholders)]
+ 
+-    lines += yaml.load(placeholders['CRONTAB'])
++    lines += yaml.safe_load(placeholders['CRONTAB'])
+ 
+     if len(lines) > 1:
+         setup_runit_cron(placeholders)
+@@ -902,10 +902,10 @@ def main():
+             'ETCD_DISCOVERY_DOMAIN' not in placeholders):
+         write_etcd_configuration(placeholders)
+ 
+-    config = yaml.load(pystache_render(TEMPLATE, placeholders))
++    config = yaml.safe_load(pystache_render(TEMPLATE, placeholders))
+     config.update(get_dcs_config(config, placeholders))
+ 
+-    user_config = yaml.load(os.environ.get('SPILO_CONFIGURATION', os.environ.get('PATRONI_CONFIGURATION', ''))) or {}
++    user_config = yaml.safe_load(os.environ.get('SPILO_CONFIGURATION', os.environ.get('PATRONI_CONFIGURATION', ''))) or {}
+     if not isinstance(user_config, dict):
+         config_var_name = 'SPILO_CONFIGURATION' if 'SPILO_CONFIGURATION' in os.environ else 'PATRONI_CONFIGURATION'
+         raise ValueError('{0} should contain a dict, yet it is a {1}'.format(config_var_name, type(user_config)))
+-- 
+2.20.1
+
