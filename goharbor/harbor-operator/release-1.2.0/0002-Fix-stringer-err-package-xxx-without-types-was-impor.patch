@@ -1,0 +1,25 @@
+From 180fbde0fc3305d2d56e3fdbfee65c55ec065df4 Mon Sep 17 00:00:00 2001
+From: zhaixiaojuan <zhaixiaojuan@loongson.cn>
+Date: Mon, 27 Mar 2023 20:01:41 +0800
+Subject: [PATCH 2/5] Fix stringer err:package xxx without types was imported
+
+---
+ Makefile | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/Makefile b/Makefile
+index 38d58000..35a25f16 100644
+--- a/Makefile
++++ b/Makefile
+@@ -636,7 +636,7 @@ $(GORELEASER):
+ 
+ # find or download stringer
+ # download stringer if necessary
+-STRINGER_VERSION := v0.1.2
++STRINGER_VERSION := v0.7.0
+ STRINGER := $(BIN)/stringer
+ 
+ .PHONY: stringer
+-- 
+2.20.1
+

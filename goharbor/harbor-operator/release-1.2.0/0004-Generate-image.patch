@@ -1,0 +1,67 @@
+From e084cc52f13c16efa69026c346520a95c123dbc3 Mon Sep 17 00:00:00 2001
+From: zhaixiaojuan <zhaixiaojuan@loongson.cn>
+Date: Mon, 27 Mar 2023 20:09:50 +0800
+Subject: [PATCH 4/5] Generate image
+
+---
+ .dockerignore | 1 -
+ Dockerfile    | 4 ++--
+ Makefile      | 8 +++-----
+ 3 files changed, 5 insertions(+), 8 deletions(-)
+
+diff --git a/.dockerignore b/.dockerignore
+index 3f0c04ef..d847a43e 100644
+--- a/.dockerignore
++++ b/.dockerignore
+@@ -7,7 +7,6 @@
+ *.dll
+ *.so
+ *.dylib
+-bin
+ node_modules
+ 
+ # Test binary, build with `go test -c`
+diff --git a/Dockerfile b/Dockerfile
+index 558e3026..10f3a1dc 100644
+--- a/Dockerfile
++++ b/Dockerfile
+@@ -1,8 +1,8 @@
+ # Use distroless as minimal base image to package the manager binary
+ # Refer to https://github.com/GoogleContainerTools/distroless for more details
+-FROM gcr.io/distroless/static:nonroot
++FROM cr.loongnix.cn/library/debian:buster-slim
+ WORKDIR /
+-COPY manager .
++COPY bin/manager .
+-USER nonroot:nonroot
++#USER nonroot:nonroot
+ 
+ ENTRYPOINT ["/manager"]
+diff --git a/Makefile b/Makefile
+index 35a25f16..e52d53e3 100644
+--- a/Makefile
++++ b/Makefile
+@@ -1,6 +1,6 @@
+ 
+ # Image URL to use all building/pushing image targets
+-IMG ?= goharbor/harbor-operator:dev
++IMG ?= cr.loongnix.cn/goharbor/harbor-operator:release-1.2.0
+ RELEASE_VERSION ?= 0.0.0-dev
+ GIT_COMMIT ?= none
+ 
+@@ -186,10 +186,8 @@ go.sum: go.mod $(GONOGENERATED_SOURCES)
+ 
+ # Build the docker image
+ .PHONY: docker-build
+-docker-build: dist/harbor-operator_linux_amd64/manager
+-	docker build dist/harbor-operator_linux_amd64 \
+-		-f Dockerfile \
+-		-t "$(IMG)"
++docker-build:
++	docker build -f Dockerfile -t "$(IMG)" .
+ 
+ # Push the docker image
+ .PHONY: docker-push
+-- 
+2.20.1
+

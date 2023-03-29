@@ -1,0 +1,39 @@
+From 6de66c0442d124af92b887cc585b2eb61337c018 Mon Sep 17 00:00:00 2001
+From: zhaixiaojuan <zhaixiaojuan@loongson.cn>
+Date: Mon, 27 Mar 2023 20:03:30 +0800
+Subject: [PATCH 3/5] Update sys to support loong64
+
+---
+ go.mod | 2 +-
+ go.sum | 2 ++
+ 2 files changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/go.mod b/go.mod
+index 978b5bd7..41ffdb64 100644
+--- a/go.mod
++++ b/go.mod
+@@ -128,7 +128,7 @@ require (
+ 	go.uber.org/multierr v1.6.0 // indirect
+ 	golang.org/x/net v0.0.0-20211006190231-62292e806868 // indirect
+ 	golang.org/x/oauth2 v0.0.0-20211005180243-6b3c2da341f1 // indirect
+-	golang.org/x/sys v0.0.0-20211029165221-6e7872819dc8 // indirect
++	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a // indirect
+ 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211 // indirect
+ 	golang.org/x/text v0.3.7 // indirect
+ 	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac // indirect
+diff --git a/go.sum b/go.sum
+index 5fa3cac3..57dbbf1e 100644
+--- a/go.sum
++++ b/go.sum
+@@ -1887,6 +1887,8 @@ golang.org/x/sys v0.0.0-20210910150752-751e447fb3d0/go.mod h1:oPkhp1MJrh7nUepCBc
+ golang.org/x/sys v0.0.0-20211006225509-1a26e0398eed/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
+ golang.org/x/sys v0.0.0-20211029165221-6e7872819dc8 h1:M69LAlWZCshgp0QSzyDcSsSIejIEeuaCVpmwcKwyLMk=
+ golang.org/x/sys v0.0.0-20211029165221-6e7872819dc8/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
++golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a h1:dGzPydgVsqGcTRVwiLJ1jVbufYwmzD3LfVPLKsKg+0k=
++golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
+ golang.org/x/term v0.0.0-20201117132131-f5c789dd3221/go.mod h1:Nr5EML6q2oocZ2LXRh80K7BxOlk5/8JxuGnuhpl+muw=
+ golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1/go.mod h1:bj7SfCRtBDWHUb9snDiAeCFNEtKQo2Wmx5Cou7ajbmo=
+ golang.org/x/term v0.0.0-20210220032956-6a3ed077a48d/go.mod h1:bj7SfCRtBDWHUb9snDiAeCFNEtKQo2Wmx5Cou7ajbmo=
+-- 
+2.20.1
+

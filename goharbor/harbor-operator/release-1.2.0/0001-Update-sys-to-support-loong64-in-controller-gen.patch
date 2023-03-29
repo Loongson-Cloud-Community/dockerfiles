@@ -1,0 +1,24 @@
+From f0e4a529f9e4567e98f1048e003347114f40b1e6 Mon Sep 17 00:00:00 2001
+From: zhaixiaojuan <zhaixiaojuan@loongson.cn>
+Date: Mon, 27 Mar 2023 19:57:52 +0800
+Subject: [PATCH 1/5] Update sys to support loong64 in controller-gen
+
+---
+ Makefile | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/Makefile b/Makefile
+index 173556de..38d58000 100644
+--- a/Makefile
++++ b/Makefile
+@@ -529,6 +529,7 @@ $(CONTROLLER_GEN):
+ 	cd $$CONTROLLER_GEN_TMP_DIR ;\
+ 	go mod init tmp ;\
+ 	go get sigs.k8s.io/controller-tools/cmd/controller-gen@v$(CONTROLLER_GEN_VERSION) ;\
++	go get  -d golang.org/x/sys@bc2c85ada10aa9b6aa9607e9ac9ad0761b95cf1d ;\
+ 	go build -mod=readonly -o $(CONTROLLER_GEN) sigs.k8s.io/controller-tools/cmd/controller-gen ;\
+ 	rm -rf $$CONTROLLER_GEN_TMP_DIR ;\
+ 	}
+-- 
+2.20.1
+

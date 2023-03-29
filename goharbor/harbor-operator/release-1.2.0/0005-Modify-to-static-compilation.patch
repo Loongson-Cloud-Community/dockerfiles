@@ -1,0 +1,43 @@
+From 1a242361c668ab575fef58ea1d27e5710d55aaf5 Mon Sep 17 00:00:00 2001
+From: zhaixiaojuan <zhaixiaojuan@loongson.cn>
+Date: Mon, 27 Mar 2023 20:51:05 +0800
+Subject: [PATCH 5/5] Modify to static compilation
+
+---
+ Makefile | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/Makefile b/Makefile
+index e52d53e3..36fefa78 100644
+--- a/Makefile
++++ b/Makefile
+@@ -149,7 +149,7 @@ create-environment: delete-environment kind docker-build
+ manager: go-generate
+ 	go build \
+ 		-o bin/manager \
+-		-ldflags "-X main.version=$(RELEASE_VERSION) -X main.gitCommit=$(GIT_COMMIT)" \
++		-ldflags "-linkmode external -extldflags -static -X main.version=$(RELEASE_VERSION) -X main.gitCommit=$(GIT_COMMIT)" \
+ 		*.go
+ 
+ .PHONY: helm-generate
+@@ -528,7 +528,7 @@ $(CONTROLLER_GEN):
+ 	go mod init tmp ;\
+ 	go get sigs.k8s.io/controller-tools/cmd/controller-gen@v$(CONTROLLER_GEN_VERSION) ;\
+ 	go get  -d golang.org/x/sys@bc2c85ada10aa9b6aa9607e9ac9ad0761b95cf1d ;\
+-	go build -mod=readonly -o $(CONTROLLER_GEN) sigs.k8s.io/controller-tools/cmd/controller-gen ;\
++	go build -ldflags "-linkmode external -extldflags -static" -mod=readonly -o $(CONTROLLER_GEN) sigs.k8s.io/controller-tools/cmd/controller-gen ;\
+ 	rm -rf $$CONTROLLER_GEN_TMP_DIR ;\
+ 	}
+ 
+@@ -654,7 +654,7 @@ $(STRINGER):
+ 	cd $$STRINGER_TMP_DIR ;\
+ 	go mod init tmp ;\
+ 	go get golang.org/x/tools/cmd/stringer@$(STRINGER_VERSION) ;\
+-	go build -mod=readonly -o $(STRINGER) golang.org/x/tools/cmd/stringer ;\
++	go build -ldflags "-linkmode external -extldflags -static" -mod=readonly -o $(STRINGER) golang.org/x/tools/cmd/stringer ;\
+ 	rm -rf $$STRINGER_TMP_DIR ;\
+ 	}
+ 
+-- 
+2.20.1
+
