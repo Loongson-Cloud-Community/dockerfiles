@@ -1,0 +1,67 @@
+diff --git a/Makefile b/Makefile
+index 7f55fa5..3141b35 100644
+--- a/Makefile
++++ b/Makefile
+@@ -1,4 +1,4 @@
+-NAME = osixia/light-baseimage
++NAME = cr.loongnix.cn/osixia/light-baseimage
+ VERSION = 1.3.2
+ 
+ .PHONY: build build-nocache test tag-latest push push-latest release git-tag-version
+diff --git a/image/Dockerfile b/image/Dockerfile
+index be4b87b..030c7b9 100644
+--- a/image/Dockerfile
++++ b/image/Dockerfile
+@@ -1,4 +1,4 @@
+-FROM debian:buster-slim
++FROM cr.loongnix.cn/library/debian:buster-slim
+ 
+ COPY . /container
+ RUN /container/build.sh
+diff --git a/image/service-available/:ssl-tools/download.sh b/image/service-available/:ssl-tools/download.sh
+index a699f0f..5e34098 100755
+--- a/image/service-available/:ssl-tools/download.sh
++++ b/image/service-available/:ssl-tools/download.sh
+@@ -20,6 +20,9 @@ case "${UARCH}" in
+     "i386")
+         HOST_ARCH="386"
+     ;;
++    "loongarch64")
++        HOST_ARCH="loongarch64"
++    ;;
+     
+     *)
+         echo "Architecture not supported. Exiting."
+@@ -51,17 +54,23 @@ if [[ "${HOST_ARCH}" == 'arm' ]]; then
+     LC_ALL=C DEBIAN_FRONTEND=noninteractive c_rehash
+ fi
+ 
+-echo "Download cfssl ..."
+-echo "curl -o /usr/sbin/cfssl -SL https://github.com/osixia/cfssl/releases/download/1.5.0/cfssl_linux-${HOST_ARCH}"
+-curl -o /usr/sbin/cfssl -SL "https://github.com/osixia/cfssl/releases/download/1.5.0/cfssl_linux-${HOST_ARCH}"
+-chmod 700 /usr/sbin/cfssl
++if [[ "${HOST_ARCH}" == 'loongarch64' ]]; then
++    # https://github.com/Loongson-Cloud-Community/cfssl/releases/download/v1.5.0/cfssl-1.5.0-bin-loongarch64.tar.gz
++    cp /container/cfssl-1.5.0-bin-loongarch64/cfssl /usr/sbin/cfssl
++    cp /container/cfssl-1.5.0-bin-loongarch64/cfssljson  /usr/sbin/cfssljson
++else
++    echo "Download cfssl ..."
++    echo "curl -o /usr/sbin/cfssl -SL https://github.com/osixia/cfssl/releases/download/1.5.0/cfssl_linux-${HOST_ARCH}"
++    curl -o /usr/sbin/cfssl -SL "https://github.com/osixia/cfssl/releases/download/1.5.0/cfssl_linux-${HOST_ARCH}"
++    chmod 700 /usr/sbin/cfssl
+ 
+-echo "Download cfssljson ..."
+-echo "curl -o /usr/sbin/cfssljson -SL https://github.com/osixia/cfssl/releases/download/1.5.0/cfssljson_linux-${HOST_ARCH}"
+-curl -o /usr/sbin/cfssljson -SL "https://github.com/osixia/cfssl/releases/download/1.5.0/cfssljson_linux-${HOST_ARCH}"
+-chmod 700 /usr/sbin/cfssljson
++    echo "Download cfssljson ..."
++    echo "curl -o /usr/sbin/cfssljson -SL https://github.com/osixia/cfssl/releases/download/1.5.0/cfssljson_linux-${HOST_ARCH}"
++    curl -o /usr/sbin/cfssljson -SL "https://github.com/osixia/cfssl/releases/download/1.5.0/cfssljson_linux-${HOST_ARCH}"
++    chmod 700 /usr/sbin/cfssljson
+ 
+-echo "Project sources: https://github.com/cloudflare/cfssl"
++    echo "Project sources: https://github.com/cloudflare/cfssl"
++fi
+ 
+ # remove tools installed to download cfssl
+ if [ ${#to_install[@]} -ne 0 ]; then
