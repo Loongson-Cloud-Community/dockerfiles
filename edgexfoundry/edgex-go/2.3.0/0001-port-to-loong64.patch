@@ -1,0 +1,771 @@
+From 1364110fdc792354ff1970f5c5e29fa6cde63b29 Mon Sep 17 00:00:00 2001
+From: wangweijie <wangweijie@loongson.cn>
+Date: Tue, 23 May 2023 10:52:36 +0800
+Subject: [PATCH] port to loong64
+
+---
+ Makefile                                      | 104 ++++++++++--------
+ cmd/core-command/Dockerfile                   |   6 +-
+ cmd/core-data/Dockerfile                      |   6 +-
+ cmd/core-metadata/Dockerfile                  |   6 +-
+ cmd/security-bootstrapper/Dockerfile          |   6 +-
+ cmd/security-proxy-setup/Dockerfile           |   6 +-
+ cmd/security-secretstore-setup/Dockerfile     |   6 +-
+ cmd/security-spiffe-token-provider/Dockerfile |  12 +-
+ cmd/security-spire-agent/Dockerfile           |  29 +++--
+ cmd/security-spire-config/Dockerfile          |  29 +++--
+ cmd/security-spire-server/Dockerfile          |  21 +++-
+ cmd/support-notifications/Dockerfile          |   6 +-
+ cmd/support-scheduler/Dockerfile              |   6 +-
+ cmd/sys-mgmt-agent/Dockerfile                 |  10 +-
+ 14 files changed, 164 insertions(+), 89 deletions(-)
+
+diff --git a/Makefile b/Makefile
+index 7d4d1a1..5817a03 100644
+--- a/Makefile
++++ b/Makefile
+@@ -56,7 +56,7 @@ MICROSERVICES= \
+ 
+ .PHONY: $(MICROSERVICES)
+ 
+-VERSION=$(shell cat ./VERSION 2>/dev/null || echo 0.0.0)
++VERSION=$(shell git describe --tags --abbrev=0 | sed 's/^v//')
+ DOCKER_TAG=$(VERSION)-dev
+ 
+ GOFLAGS=-ldflags "-X github.com/edgexfoundry/edgex-go.Version=$(VERSION)" -trimpath -mod=readonly
+@@ -67,6 +67,9 @@ GIT_SHA=$(shell git rev-parse HEAD)
+ 
+ ARCH=$(shell uname -m)
+ 
++HTTP_PROXY=$(shell echo $$http_proxy)
++HTTPS_PROXY=$(shell echo $$https_proxy)
++
+ GO_VERSION=$(shell grep '^go [0-9].[0-9]*' go.mod | cut -d' ' -f 2)
+ 
+ # DO NOT change the following flag, as it is automatically set based on the boolean switch INCLUDE_DELAYED_START_BUILD_CORE
+@@ -85,7 +88,17 @@ NO_ZMQ_GO_BUILD_TAG:=no_zmq
+ # Base docker image to speed up local builds
+ BASE_DOCKERFILE=https://raw.githubusercontent.com/edgexfoundry/ci-build-images/golang-${GO_VERSION}/Dockerfile
+ LOCAL_CACHE_IMAGE_BASE=edgex-go-local-cache-base
+-LOCAL_CACHE_IMAGE=edgex-go-local-cache
++ifeq ($(ARCH), loongarch64)
++	LOCAL_CACHE_IMAGE=cr.loongnix.cn/library/golang:1.19-alpine
++	LOCAL_BASE_IMAGE=cr.loongnix.cn/library/alpine:3.11
++	REPOSITORY=cr.loongnix.cn
++# -buildmode=pie not supported on linux/loong64
++	GOFLAGS=-ldflags "-X github.com/edgexfoundry/edgex-go.Version=$(VERSION)" -trimpath -mod=vendor
++	CGOFLAGS=-ldflags "-linkmode=external -X github.com/edgexfoundry/edgex-go.Version=$(VERSION)" -trimpath -mod=vendor
++
++else
++	LOCAL_CACHE_IMAGE=edgex-go-local-cache
++endif
+ 
+ build: $(MICROSERVICES)
+ 
+@@ -178,15 +191,17 @@ clean_docker_base:
+ 	docker rmi -f $(LOCAL_CACHE_IMAGE) $(LOCAL_CACHE_IMAGE_BASE) 
+ 
+ docker_base:
+-	echo "Building local cache image";\
+-	response=$(shell curl --write-out '%{http_code}' --silent --output /dev/null "$(BASE_DOCKERFILE)"); \
+-	if [ "$${response}" = "200" ]; then \
+-		echo "Found base Dockerfile"; \
+-		curl -s "$(BASE_DOCKERFILE)" | docker build -t $(LOCAL_CACHE_IMAGE_BASE) -f - .; \
+-		echo "FROM $(LOCAL_CACHE_IMAGE_BASE)\nWORKDIR /edgex-go\nCOPY go.mod .\nRUN go mod download" | docker build -t $(LOCAL_CACHE_IMAGE) -f - .; \
+-	else \
+-		echo "No base Dockerfile found. Using golang:$(GO_VERSION)-alpine"; \
+-		echo "FROM golang:$(GO_VERSION)-alpine\nRUN apk add --update make git\nWORKDIR /edgex-go\nCOPY go.mod .\nRUN go mod download" | docker build -t $(LOCAL_CACHE_IMAGE) -f - .; \
++	if [ "$(ARCH)" != "loongarch64" ]; then \
++		echo "Building local cache image"; \
++		response=$(shell curl --write-out '%{http_code}' --silent --output /dev/null "$(BASE_DOCKERFILE)"); \
++		if [ "$${response}" = "200" ]; then \
++			echo "Found base Dockerfile"; \
++			curl -s "$(BASE_DOCKERFILE)" | docker build -t $(LOCAL_CACHE_IMAGE_BASE) -f - .; \
++			echo "FROM $(LOCAL_CACHE_IMAGE_BASE)\nWORKDIR /edgex-go\nCOPY go.mod .\nRUN go mod download" | docker build -t $(LOCAL_CACHE_IMAGE) -f - .; \
++		else \
++			echo "No base Dockerfile found. Using golang:$(GO_VERSION)-alpine"; \
++			echo "FROM golang:$(GO_VERSION)-alpine\nRUN apk add --update make git\nWORKDIR /edgex-go\nCOPY go.mod .\nRUN go mod download" | docker build -t $(LOCAL_CACHE_IMAGE) -f - .; \
++		fi; \
+ 	fi
+ 
+ dcore: dmetadata ddata dcommand
+@@ -198,10 +213,10 @@ docker_core_metadata: docker_base
+ 		--build-arg http_proxy \
+ 		--build-arg https_proxy \
+ 		--build-arg BUILDER_BASE=$(LOCAL_CACHE_IMAGE) \
++		--build-arg BASE_IMAGE=$(LOCAL_BASE_IMAGE) \
+ 		-f cmd/core-metadata/Dockerfile \
+ 		--label "git_sha=$(GIT_SHA)" \
+-		-t edgexfoundry/core-metadata:$(GIT_SHA) \
+-		-t edgexfoundry/core-metadata:$(DOCKER_TAG) \
++		-t $(REPOSITORY)/edgexfoundry/core-metadata:$(VERSION) \
+ 		.
+ 
+ ddata: docker_core_data
+@@ -211,10 +226,10 @@ docker_core_data: docker_base
+ 		--build-arg http_proxy \
+ 		--build-arg https_proxy \
+ 		--build-arg BUILDER_BASE=$(LOCAL_CACHE_IMAGE) \
++		--build-arg BASE_IMAGE=$(LOCAL_BASE_IMAGE) \
+ 		-f cmd/core-data/Dockerfile \
+ 		--label "git_sha=$(GIT_SHA)" \
+-		-t edgexfoundry/core-data:$(GIT_SHA) \
+-		-t edgexfoundry/core-data:$(DOCKER_TAG) \
++		-t $(REPOSITORY)/edgexfoundry/core-data:$(VERSION) \
+ 		.
+ 
+ dcommand: docker_core_command
+@@ -224,10 +239,10 @@ docker_core_command: docker_base
+ 		--build-arg http_proxy \
+ 		--build-arg https_proxy \
+ 		--build-arg BUILDER_BASE=$(LOCAL_CACHE_IMAGE) \
++		--build-arg BASE_IMAGE=$(LOCAL_BASE_IMAGE) \
+ 		-f cmd/core-command/Dockerfile \
+ 		--label "git_sha=$(GIT_SHA)" \
+-		-t edgexfoundry/core-command:$(GIT_SHA) \
+-		-t edgexfoundry/core-command:$(DOCKER_TAG) \
++		-t $(REPOSITORY)/edgexfoundry/core-command:$(VERSION) \
+ 		.
+ 
+ dsupport: dnotifications dscheduler
+@@ -239,10 +254,10 @@ docker_support_notifications: docker_base
+ 		--build-arg http_proxy \
+ 		--build-arg https_proxy \
+ 		--build-arg BUILDER_BASE=$(LOCAL_CACHE_IMAGE) \
++		--build-arg BASE_IMAGE=$(LOCAL_BASE_IMAGE) \
+ 		-f cmd/support-notifications/Dockerfile \
+ 		--label "git_sha=$(GIT_SHA)" \
+-		-t edgexfoundry/support-notifications:$(GIT_SHA) \
+-		-t edgexfoundry/support-notifications:$(DOCKER_TAG) \
++		-t $(REPOSITORY)/edgexfoundry/support-notifications:$(VERSION) \
+ 		.
+ 
+ dscheduler: docker_support_scheduler
+@@ -252,10 +267,10 @@ docker_support_scheduler: docker_base
+ 		--build-arg http_proxy \
+ 		--build-arg https_proxy \
+ 		--build-arg BUILDER_BASE=$(LOCAL_CACHE_IMAGE) \
++		--build-arg BASE_IMAGE=$(LOCAL_BASE_IMAGE) \
+ 		-f cmd/support-scheduler/Dockerfile \
+ 		--label "git_sha=$(GIT_SHA)" \
+-		-t edgexfoundry/support-scheduler:$(GIT_SHA) \
+-		-t edgexfoundry/support-scheduler:$(DOCKER_TAG) \
++		-t $(REPOSITORY)/edgexfoundry/support-scheduler:$(VERSION) \
+ 		.
+ 
+ docker_sys_mgmt_agent: docker_base
+@@ -263,10 +278,10 @@ docker_sys_mgmt_agent: docker_base
+ 		--build-arg http_proxy \
+ 		--build-arg https_proxy \
+ 		--build-arg BUILDER_BASE=$(LOCAL_CACHE_IMAGE) \
++		--build-arg BASE_IMAGE=$(LOCAL_BASE_IMAGE) \
+ 		-f cmd/sys-mgmt-agent/Dockerfile \
+ 		--label "git_sha=$(GIT_SHA)" \
+-		-t edgexfoundry/sys-mgmt-agent:$(GIT_SHA) \
+-		-t edgexfoundry/sys-mgmt-agent:$(DOCKER_TAG) \
++		-t $(REPOSITORY)/edgexfoundry/sys-mgmt-agent:$(VERSION) \
+ 		.
+ 
+ dproxy: docker_security_proxy_setup
+@@ -275,10 +290,10 @@ docker_security_proxy_setup: docker_base
+ 		--build-arg http_proxy \
+ 		--build-arg https_proxy \
+ 		--build-arg BUILDER_BASE=$(LOCAL_CACHE_IMAGE) \
++		--build-arg BASE_IMAGE=$(LOCAL_BASE_IMAGE) \
+ 		-f cmd/security-proxy-setup/Dockerfile \
+ 		--label "git_sha=$(GIT_SHA)" \
+-		-t edgexfoundry/security-proxy-setup:$(GIT_SHA) \
+-		-t edgexfoundry/security-proxy-setup:$(DOCKER_TAG) \
++		-t $(REPOSITORY)/edgexfoundry/security-proxy-setup:$(VERSION) \
+ 		.
+ 
+ dsecretstore: docker_security_secretstore_setup
+@@ -287,10 +302,10 @@ docker_security_secretstore_setup: docker_base
+ 		--build-arg http_proxy \
+ 		--build-arg https_proxy \
+ 		--build-arg BUILDER_BASE=$(LOCAL_CACHE_IMAGE) \
++		--build-arg BASE_IMAGE=$(LOCAL_BASE_IMAGE) \
+ 		-f cmd/security-secretstore-setup/Dockerfile \
+ 		--label "git_sha=$(GIT_SHA)" \
+-		-t edgexfoundry/security-secretstore-setup:$(GIT_SHA) \
+-		-t edgexfoundry/security-secretstore-setup:$(DOCKER_TAG) \
++		-t $(REPOSITORY)/edgexfoundry/security-secretstore-setup:$(VERSION) \
+ 		.
+ 
+ dbootstrapper: docker_security_bootstrapper
+@@ -299,46 +314,49 @@ docker_security_bootstrapper: docker_base
+ 		--build-arg http_proxy \
+ 		--build-arg https_proxy \
+ 		--build-arg BUILDER_BASE=$(LOCAL_CACHE_IMAGE) \
++		--build-arg BASE_IMAGE=$(LOCAL_BASE_IMAGE) \
+ 		-f cmd/security-bootstrapper/Dockerfile \
+ 		--label "git_sha=$(GIT_SHA)" \
+-		-t edgexfoundry/security-bootstrapper:$(GIT_SHA) \
+-		-t edgexfoundry/security-bootstrapper:$(DOCKER_TAG) \
++		-t $(REPOSITORY)/edgexfoundry/security-bootstrapper:$(VERSION) \
+ 		.
+ 
+ dspires: docker_security_spire_server
+ docker_security_spire_server: docker_base
+ 	docker build \
+-		--build-arg http_proxy \
+-		--build-arg https_proxy \
++		--build-arg http_proxy=$(HTTP_PROXY) \
++		--build-arg https_proxy=$(HTTPS_PROXY) \
+ 		--build-arg BUILDER_BASE=$(LOCAL_CACHE_IMAGE) \
++		--build-arg BASE_IMAGE=$(LOCAL_BASE_IMAGE) \
++		--build-arg ARCH=$(ARCH) \
+ 		-f cmd/security-spire-server/Dockerfile \
+ 		--label "git_sha=$(GIT_SHA)" \
+-		-t edgexfoundry/security-spire-server:$(GIT_SHA) \
+-		-t edgexfoundry/security-spire-server:$(DOCKER_TAG) \
++		-t $(REPOSITORY)/edgexfoundry/security-spire-server:$(VERSION) \
+ 		.
+ 
+ dspirea: docker_security_spire_agent
+ docker_security_spire_agent: docker_base
+ 	docker build \
+-		--build-arg http_proxy \
+-		--build-arg https_proxy \
++		--build-arg http_proxy=$(HTTP_PROXY) \
++		--build-arg https_proxy=$(HTTPS_PROXY) \
+ 		--build-arg BUILDER_BASE=$(LOCAL_CACHE_IMAGE) \
++		--build-arg BASE_IMAGE=$(LOCAL_BASE_IMAGE) \
++		--build-arg ARCH=$(ARCH) \
+ 		-f cmd/security-spire-agent/Dockerfile \
+ 		--label "git_sha=$(GIT_SHA)" \
+-		-t edgexfoundry/security-spire-agent:$(GIT_SHA) \
+-		-t edgexfoundry/security-spire-agent:$(DOCKER_TAG) \
++		-t $(REPOSITORY)/edgexfoundry/security-spire-agent:$(VERSION) \
+ 		.
+ 
+ dspirec: docker_security_spire_config
+ docker_security_spire_config: docker_base
+ 	docker build \
+-		--build-arg http_proxy \
+-		--build-arg https_proxy \
++		--build-arg http_proxy=$(HTTP_PROXY) \
++		--build-arg https_proxy=$(HTTPS_PROXY) \
+ 		--build-arg BUILDER_BASE=$(LOCAL_CACHE_IMAGE) \
++		--build-arg BASE_IMAGE=$(LOCAL_BASE_IMAGE) \
++		--build-arg ARCH=$(ARCH) \
+ 		-f cmd/security-spire-config/Dockerfile \
+ 		--label "git_sha=$(GIT_SHA)" \
+-		-t edgexfoundry/security-spire-config:$(GIT_SHA) \
+-		-t edgexfoundry/security-spire-config:$(DOCKER_TAG) \
++		-t $(REPOSITORY)/edgexfoundry/security-spire-config:$(VERSION) \
+ 		.
+ 
+ dspiffetp: docker_security_spiffe_token_provider
+@@ -347,10 +365,10 @@ docker_security_spiffe_token_provider: docker_base
+ 		--build-arg http_proxy \
+ 		--build-arg https_proxy \
+ 		--build-arg BUILDER_BASE=$(LOCAL_CACHE_IMAGE) \
++		--build-arg BASE_IMAGE=$(LOCAL_BASE_IMAGE) \
+ 		-f cmd/security-spiffe-token-provider/Dockerfile \
+ 		--label "git_sha=$(GIT_SHA)" \
+-		-t edgexfoundry/security-spiffe-token-provider:$(GIT_SHA) \
+-		-t edgexfoundry/security-spiffe-token-provider:$(DOCKER_TAG) \
++		-t $(REPOSITORY)/edgexfoundry/security-spiffe-token-provider:$(VERSION) \
+ 		.
+ 
+ vendor:
+diff --git a/cmd/core-command/Dockerfile b/cmd/core-command/Dockerfile
+index eeb95a6..9adb1bb 100644
+--- a/cmd/core-command/Dockerfile
++++ b/cmd/core-command/Dockerfile
+@@ -17,6 +17,7 @@
+ #  ----------------------------------------------------------------------------------
+ 
+ ARG BUILDER_BASE=golang:1.18-alpine3.16
++ARG BASE_IMAGE=alpine:3.16
+ FROM ${BUILDER_BASE} AS builder
+ 
+ ARG ADD_BUILD_TAGS=""
+@@ -25,13 +26,14 @@ WORKDIR /edgex-go
+ 
+ RUN apk add --update --no-cache make git
+ 
+-COPY go.mod vendor* ./
++COPY vendor* ./vendor
++COPY go.mod .
+ RUN [ ! -d "vendor" ] && go mod download all || echo "skipping..."
+ 
+ COPY . .
+ RUN make -e ADD_BUILD_TAGS=$ADD_BUILD_TAGS  cmd/core-command/core-command
+ 
+-FROM alpine:3.16
++FROM ${BASE_IMAGE}
+ 
+ RUN apk add --update --no-cache dumb-init
+ 
+diff --git a/cmd/core-data/Dockerfile b/cmd/core-data/Dockerfile
+index 8d48137..7a15c08 100644
+--- a/cmd/core-data/Dockerfile
++++ b/cmd/core-data/Dockerfile
+@@ -18,6 +18,7 @@
+ 
+ # Docker image for Golang Core Data micro service
+ ARG BUILDER_BASE=golang:1.18-alpine3.16
++ARG BASE_IMAGE=alpine:3.16
+ FROM ${BUILDER_BASE} AS builder
+ 
+ ARG ADD_BUILD_TAGS=""
+@@ -26,14 +27,15 @@ WORKDIR /edgex-go
+ 
+ RUN apk add --update --no-cache zeromq-dev libsodium-dev pkgconfig build-base git
+ 
+-COPY go.mod vendor* ./
++COPY vendor* ./vendor
++COPY go.mod .
+ RUN [ ! -d "vendor" ] && go mod download all || echo "skipping..."
+ 
+ COPY . .
+ RUN make -e ADD_BUILD_TAGS=$ADD_BUILD_TAGS cmd/core-data/core-data
+ 
+ #Next image - Copy built Go binary into new workspace
+-FROM alpine:3.16
++FROM ${BASE_IMAGE}
+ 
+ LABEL license='SPDX-License-Identifier: Apache-2.0' \
+       copyright='Copyright (c) 2018: Dell, Cavium'
+diff --git a/cmd/core-metadata/Dockerfile b/cmd/core-metadata/Dockerfile
+index 9cdb71e..6ca2eaf 100644
+--- a/cmd/core-metadata/Dockerfile
++++ b/cmd/core-metadata/Dockerfile
+@@ -17,6 +17,7 @@
+ #  ----------------------------------------------------------------------------------
+ 
+ ARG BUILDER_BASE=golang:1.18-alpine3.16
++ARG BASE_IMAGE=alpine:3.16
+ FROM ${BUILDER_BASE} AS builder
+ 
+ ARG ADD_BUILD_TAGS=""
+@@ -25,14 +26,15 @@ WORKDIR /edgex-go
+ 
+ RUN apk add --update --no-cache make git
+ 
+-COPY go.mod vendor* ./
++COPY vendor* ./vendor
++COPY go.mod ./
+ RUN [ ! -d "vendor" ] && go mod download all || echo "skipping..."
+ 
+ COPY . .
+ RUN make -e ADD_BUILD_TAGS=$ADD_BUILD_TAGS cmd/core-metadata/core-metadata
+ 
+ #Next image - Copy built Go binary into new workspace
+-FROM alpine:3.16
++FROM ${BASE_IMAGE}
+ 
+ RUN apk add --update --no-cache dumb-init
+ 
+diff --git a/cmd/security-bootstrapper/Dockerfile b/cmd/security-bootstrapper/Dockerfile
+index 9087b01..5ed8e9d 100644
+--- a/cmd/security-bootstrapper/Dockerfile
++++ b/cmd/security-bootstrapper/Dockerfile
+@@ -18,19 +18,21 @@
+ #  ----------------------------------------------------------------------------------
+ 
+ ARG BUILDER_BASE=golang:1.18-alpine3.16
++ARG BASE_IMAGE=alpine:3.16
+ FROM ${BUILDER_BASE} AS builder
+ 
+ WORKDIR /edgex-go
+ 
+ RUN apk add --update --no-cache make git
+ 
+-COPY go.mod vendor* ./
++COPY vendor* ./vendor
++COPY go.mod .
+ RUN [ ! -d "vendor" ] && go mod download all || echo "skipping..."
+ 
+ COPY . .
+ RUN make cmd/security-bootstrapper/security-bootstrapper
+ 
+-FROM alpine:3.16
++FROM ${BASE_IMAGE}
+ 
+ LABEL license='SPDX-License-Identifier: Apache-2.0' \
+       copyright='Copyright (c) 2022 Intel Corporation'
+diff --git a/cmd/security-proxy-setup/Dockerfile b/cmd/security-proxy-setup/Dockerfile
+index ca838f2..106b568 100644
+--- a/cmd/security-proxy-setup/Dockerfile
++++ b/cmd/security-proxy-setup/Dockerfile
+@@ -17,19 +17,21 @@
+ #  ----------------------------------------------------------------------------------
+ 
+ ARG BUILDER_BASE=golang:1.18-alpine3.16
++ARG BASE_IMAGE=alpine:3.16
+ FROM ${BUILDER_BASE} AS builder
+ 
+ WORKDIR /edgex-go
+ 
+ RUN apk add --update --no-cache make git
+ 
+-COPY go.mod vendor* ./
++COPY vendor* ./vendor
++COPY go.mod .
+ RUN [ ! -d "vendor" ] && go mod download all || echo "skipping..."
+ 
+ COPY . .
+ RUN make cmd/security-proxy-setup/security-proxy-setup cmd/secrets-config/secrets-config
+ 
+-FROM alpine:3.16
++FROM ${BASE_IMAGE}
+ 
+ RUN apk add --update --no-cache curl dumb-init
+ 
+diff --git a/cmd/security-secretstore-setup/Dockerfile b/cmd/security-secretstore-setup/Dockerfile
+index bb95b33..3fae3b3 100644
+--- a/cmd/security-secretstore-setup/Dockerfile
++++ b/cmd/security-secretstore-setup/Dockerfile
+@@ -17,20 +17,22 @@
+ #  ----------------------------------------------------------------------------------
+ 
+ ARG BUILDER_BASE=golang:1.18-alpine3.16
++ARG BASE_IMAGE=alpine:3.16
+ FROM ${BUILDER_BASE} AS builder
+ 
+ WORKDIR /edgex-go
+ 
+ RUN apk add --update --no-cache make git
+ 
+-COPY go.mod vendor* ./
++COPY vendor* ./vendor
++COPY go.mod .
+ RUN [ ! -d "vendor" ] && go mod download all || echo "skipping..."
+ 
+ COPY . .
+ RUN make cmd/security-file-token-provider/security-file-token-provider \
+   cmd/security-secretstore-setup/security-secretstore-setup
+ 
+-FROM alpine:3.16
++FROM ${BASE_IMAGE}
+ 
+ RUN apk add --update --no-cache ca-certificates dumb-init su-exec
+ 
+diff --git a/cmd/security-spiffe-token-provider/Dockerfile b/cmd/security-spiffe-token-provider/Dockerfile
+index 8f7d764..30931c1 100644
+--- a/cmd/security-spiffe-token-provider/Dockerfile
++++ b/cmd/security-spiffe-token-provider/Dockerfile
+@@ -17,25 +17,31 @@
+ 
+ # Build utility container
+ ARG BUILDER_BASE=golang:1.18-alpine3.16
++ARG BASE_IMAGE=alpine:3.15
+ FROM ${BUILDER_BASE} AS builder
+ 
+ WORKDIR /edgex-go
+ 
+ RUN apk update && apk --no-cache --update add build-base
+ 
+-COPY go.mod vendor* ./
++COPY vendor* ./vendor
++COPY go.mod .
+ RUN [ ! -d "vendor" ] && go mod download all || echo "skipping..."
+ 
+ COPY . .
+ RUN make cmd/security-spiffe-token-provider/security-spiffe-token-provider
+ 
+ # Deployment image
+-FROM alpine:3.15
++FROM ${BASE_IMAGE}
+ 
+ LABEL license='SPDX-License-Identifier: Apache-2.0' \
+       copyright='Copyright (c) 2022 Intel Corporation'
+ 
+-RUN apk update && apk --no-cache --update add dumb-init curl gcompat
++# Error after installing gcompat
++RUN apk update && apk --no-cache --update add dumb-init curl &&\
++    if [ "$(uname -m)" != "loongarch64" ]; then \
++	apk --no-cache --update add gcompat; \
++    fi
+ 
+ COPY --from=builder /edgex-go/Attribution.txt /
+ COPY --from=builder /edgex-go/cmd/security-spiffe-token-provider/security-spiffe-token-provider /
+diff --git a/cmd/security-spire-agent/Dockerfile b/cmd/security-spire-agent/Dockerfile
+index f7439bb..71a8e9a 100644
+--- a/cmd/security-spire-agent/Dockerfile
++++ b/cmd/security-spire-agent/Dockerfile
+@@ -17,39 +17,50 @@
+ 
+ # Build utility container
+ ARG BUILDER_BASE=golang:1.18-alpine3.16
++ARG BASE_IMAGE=alpine:3.15
+ FROM ${BUILDER_BASE} AS builder
+ 
+ WORKDIR /edgex-go
+ 
+ RUN apk add --update --no-cache make git build-base curl
+ 
+-COPY go.mod vendor* ./
++COPY vendor* ./vendor
++COPY go.mod  .
+ RUN [ ! -d "vendor" ] && go mod download all || echo "skipping..."
+ 
+ COPY . .
+ 
+ ARG SPIRE_RELEASE=1.2.1
+-
++ARG ARCH
+ # build spire from the source in order to be compatible with arch arm64 as well
+ # in CI the BUILDER_BASE will already contain a compiled spire-server/agent
+ # so we check to see if the binary is already in the image before compilation
+ WORKDIR /edgex-go/spire-build
+-RUN if ! test -f /usr/local/bin/spire-server; then wget -q "https://github.com/spiffe/spire/archive/refs/tags/v${SPIRE_RELEASE}.tar.gz" && \
+-    tar xv --strip-components=1 -f "v${SPIRE_RELEASE}.tar.gz" && \
+-    echo "building spire from source..." && \
+-    make bin/spire-server bin/spire-agent && \
+-    cp bin/spire* /usr/local/bin/; \
++RUN if ! test -f /usr/local/bin/spire-server; then \
++      if [ "${ARCH}" = "loongarch64" ]; then \
++            wget -O v${SPIRE_RELEASE}.tar.gz "https://github.com/Loongson-Cloud-Community/spire/archive/refs/tags/v${SPIRE_RELEASE}-loong64.tar.gz"; \
++      else \
++            wget -q "https://github.com/spiffe/spire/archive/refs/tags/v${SPIRE_RELEASE}.tar.gz"; \
++      fi && \
++      tar xv --strip-components=1 -f "v${SPIRE_RELEASE}.tar.gz" && \
++      echo "building spire from source..." && \
++      make bin/spire-server bin/spire-agent && \
++      cp bin/spire* /usr/local/bin/; \
+     fi
+ 
+ WORKDIR /edgex-go
+ 
+ # Deployment image
+-FROM alpine:3.15
++FROM ${BASE_IMAGE}
+ 
+ LABEL license='SPDX-License-Identifier: Apache-2.0' \
+       copyright='Copyright (c) 2022 Intel Corporation'
+ 
+-RUN apk update && apk --no-cache --update add dumb-init openssl gcompat
++# Error after installing gcompat
++RUN apk update && apk --no-cache --update add dumb-init openssl &&\
++    if [ "$(uname -m)" != "loongarch64" ]; then \
++        apk --no-cache --update add gcompat; \
++    fi
+ 
+ COPY --from=builder /usr/local/bin/spire-agent /usr/local/bin
+ COPY --from=builder /usr/local/bin/spire-server /usr/local/bin
+diff --git a/cmd/security-spire-config/Dockerfile b/cmd/security-spire-config/Dockerfile
+index e220e87..5193463 100644
+--- a/cmd/security-spire-config/Dockerfile
++++ b/cmd/security-spire-config/Dockerfile
+@@ -17,39 +17,50 @@
+ 
+ # Build utility container
+ ARG BUILDER_BASE=golang:1.18-alpine3.16
++ARG BASE_IMAGE=alpine:3.15
+ FROM ${BUILDER_BASE} AS builder
+ 
+ WORKDIR /edgex-go
+ 
+ RUN apk add --update --no-cache make git build-base curl
+ 
+-COPY go.mod vendor* ./
++COPY vendor* ./vendor
++COPY go.mod .
+ RUN [ ! -d "vendor" ] && go mod download all || echo "skipping..."
+ 
+ COPY . .
+ 
+ ARG SPIRE_RELEASE=1.2.1
+-
++ARG ARCH
+ # build spire from the source in order to be compatible with arch arm64 as well
+ # in CI the BUILDER_BASE will already contain a compiled spire-server/agent
+ # so we check to see if the binary is already in the image before compilation
+ WORKDIR /edgex-go/spire-build
+-RUN if ! test -f /usr/local/bin/spire-server; then wget -q "https://github.com/spiffe/spire/archive/refs/tags/v${SPIRE_RELEASE}.tar.gz" && \
+-    tar xv --strip-components=1 -f "v${SPIRE_RELEASE}.tar.gz" && \
+-    echo "building spire from source..." && \
+-    make bin/spire-server bin/spire-agent && \
+-    cp bin/spire* /usr/local/bin/; \
++RUN if ! test -f /usr/local/bin/spire-server; then \
++      if [ "${ARCH}" = "loongarch64" ]; then \
++            wget -O v${SPIRE_RELEASE}.tar.gz "https://github.com/Loongson-Cloud-Community/spire/archive/refs/tags/v${SPIRE_RELEASE}-loong64.tar.gz"; \
++      else \
++            wget -q "https://github.com/spiffe/spire/archive/refs/tags/v${SPIRE_RELEASE}.tar.gz"; \
++      fi && \
++      tar xv --strip-components=1 -f "v${SPIRE_RELEASE}.tar.gz" && \
++      echo "building spire from source..." && \
++      make bin/spire-server bin/spire-agent && \
++      cp bin/spire* /usr/local/bin/; \
+     fi
+ 
+ WORKDIR /edgex-go
+ 
+ # Deployment image
+-FROM alpine:3.15
++FROM ${BASE_IMAGE}
+ 
+ LABEL license='SPDX-License-Identifier: Apache-2.0' \
+       copyright='Copyright (c) 2022 Intel Corporation'
+ 
+-RUN apk update && apk --no-cache --update add dumb-init gcompat
++# Error after installing gcompat
++RUN apk update && apk --no-cache --update add dumb-init &&\
++    if [ "$(uname -m)" != "loongarch64" ]; then \
++        apk --no-cache --update add gcompat; \
++    fi
+ 
+ COPY --from=builder /usr/local/bin/spire-server /usr/local/bin
+ COPY --from=builder /edgex-go/cmd/security-spire-config/docker-entrypoint.sh /usr/local/bin/
+diff --git a/cmd/security-spire-server/Dockerfile b/cmd/security-spire-server/Dockerfile
+index b0a737a..eab7959 100644
+--- a/cmd/security-spire-server/Dockerfile
++++ b/cmd/security-spire-server/Dockerfile
+@@ -17,24 +17,31 @@
+ 
+ # Build utility container
+ ARG BUILDER_BASE=golang:1.18-alpine3.16
++ARG BASE_IMAGE=alpine:3.15
+ FROM ${BUILDER_BASE} AS builder
+ 
+ WORKDIR /edgex-go
+ 
+ RUN apk add --update --no-cache make git build-base curl
+ 
+-COPY go.mod vendor* ./
++COPY vendor* ./vendor
++COPY go.mod .
+ RUN [ ! -d "vendor" ] && go mod download all || echo "skipping..."
+ 
+ COPY . .
+ 
+ ARG SPIRE_RELEASE=1.2.1
+-
++ARG ARCH
+ # build spire from the source in order to be compatible with arch arm64 as well
+ # in CI the BUILDER_BASE will already contain a compiled spire-server/agent
+ # so we check to see if the binary is already in the image before compilation
+ WORKDIR /edgex-go/spire-build
+-RUN if ! test -f /usr/local/bin/spire-server; then wget -q "https://github.com/spiffe/spire/archive/refs/tags/v${SPIRE_RELEASE}.tar.gz" && \
++RUN if ! test -f /usr/local/bin/spire-server; then \
++      if [ "${ARCH}" = "loongarch64" ]; then \
++            wget -O v${SPIRE_RELEASE}.tar.gz "https://github.com/Loongson-Cloud-Community/spire/archive/refs/tags/v${SPIRE_RELEASE}-loong64.tar.gz"; \
++      else \
++            wget -q "https://github.com/spiffe/spire/archive/refs/tags/v${SPIRE_RELEASE}.tar.gz"; \
++      fi && \
+       tar xv --strip-components=1 -f "v${SPIRE_RELEASE}.tar.gz" && \
+       echo "building spire from source..." && \
+       make bin/spire-server bin/spire-agent && \
+@@ -44,12 +51,16 @@ RUN if ! test -f /usr/local/bin/spire-server; then wget -q "https://github.com/s
+ WORKDIR /edgex-go
+ 
+ # Deployment image
+-FROM alpine:3.15
++FROM ${BASE_IMAGE}
+ 
+ LABEL license='SPDX-License-Identifier: Apache-2.0' \
+       copyright='Copyright (c) 2022 Intel Corporation'
+ 
+-RUN apk update && apk --no-cache --update add dumb-init openssl gcompat
++# Error after installing gcompat
++RUN apk update && apk --no-cache --update add dumb-init openssl &&\
++    if [ "$(uname -m)" != "loongarch64" ]; then \
++        apk --no-cache --update add gcompat; \
++    fi
+ 
+ COPY --from=builder /usr/local/bin/spire-server /usr/local/bin
+ COPY --from=builder /edgex-go/cmd/security-spire-server/docker-entrypoint.sh /usr/local/bin/
+diff --git a/cmd/support-notifications/Dockerfile b/cmd/support-notifications/Dockerfile
+index 2d83c16..882d69c 100644
+--- a/cmd/support-notifications/Dockerfile
++++ b/cmd/support-notifications/Dockerfile
+@@ -16,6 +16,7 @@
+ #  ----------------------------------------------------------------------------------
+ 
+ ARG BUILDER_BASE=golang:1.18-alpine3.16
++ARG BASE_IMAGE=alpine:3.16
+ FROM ${BUILDER_BASE} AS builder
+ 
+ ARG ADD_BUILD_TAGS=""
+@@ -24,13 +25,14 @@ WORKDIR /edgex-go
+ 
+ RUN apk add --update --no-cache make bash git ca-certificates
+ 
+-COPY go.mod vendor* ./
++COPY vendor* ./vendor
++COPY go.mod .
+ RUN [ ! -d "vendor" ] && go mod download all || echo "skipping..."
+ 
+ COPY . .
+ RUN make cmd/support-notifications/support-notifications
+ 
+-FROM alpine:3.16
++FROM ${BASE_IMAGE}
+ 
+ RUN apk add --update --no-cache ca-certificates dumb-init
+ 
+diff --git a/cmd/support-scheduler/Dockerfile b/cmd/support-scheduler/Dockerfile
+index c59dfab..9c663d9 100644
+--- a/cmd/support-scheduler/Dockerfile
++++ b/cmd/support-scheduler/Dockerfile
+@@ -17,6 +17,7 @@
+ #  ----------------------------------------------------------------------------------
+ 
+ ARG BUILDER_BASE=golang:1.18-alpine3.16
++ARG BASE_IMAGE=alpine:3.16
+ FROM ${BUILDER_BASE} AS builder
+ 
+ ARG ADD_BUILD_TAGS=""
+@@ -25,13 +26,14 @@ WORKDIR /edgex-go
+ 
+ RUN apk add --update --no-cache make git
+ 
+-COPY go.mod vendor* ./
++COPY vendor* ./vendor
++COPY go.mod .
+ RUN [ ! -d "vendor" ] && go mod download all || echo "skipping..."
+ 
+ COPY . .
+ RUN make cmd/support-scheduler/support-scheduler
+ 
+-FROM alpine:3.16
++FROM ${BASE_IMAGE}
+ 
+ RUN apk add --update --no-cache dumb-init
+ 
+diff --git a/cmd/sys-mgmt-agent/Dockerfile b/cmd/sys-mgmt-agent/Dockerfile
+index 37ad0e7..af532fa 100644
+--- a/cmd/sys-mgmt-agent/Dockerfile
++++ b/cmd/sys-mgmt-agent/Dockerfile
+@@ -6,13 +6,15 @@
+ #
+ 
+ ARG BUILDER_BASE=golang:1.18-alpine3.16
++ARG BASE_IMAGE=alpine:3.16
+ FROM ${BUILDER_BASE} AS builder
+ 
+ WORKDIR /edgex-go
+ 
+ RUN apk add --update --no-cache make bash git
+ 
+-COPY go.mod vendor* ./
++COPY vendor* ./vendor
++COPY go.mod .
+ RUN [ ! -d "vendor" ] && go mod download all || echo "skipping..."
+ 
+ COPY . .
+@@ -23,14 +25,14 @@ RUN make cmd/sys-mgmt-agent/sys-mgmt-agent
+ RUN make cmd/sys-mgmt-executor/sys-mgmt-executor
+ 
+ # Get the Docker-in-Docker image layered-in now.
+-FROM alpine:3.16
++FROM ${BASE_IMAGE}
+ 
+ LABEL license='SPDX-License-Identifier: Apache-2.0' \
+       copyright='Copyright (c) 2017-2019: Mainflux, Cavium, Dell, Copyright (c) 2021: Intel Corporation'
+ 
+ # consul token needs to be security-bootstrappable and for security-bootstrappable, dumb-init is required
+-RUN apk add --update --no-cache bash dumb-init py3-pip curl docker-cli && \
+-      pip install --no-cache-dir docker-compose==1.23.2
++RUN apk add --update --no-cache bash dumb-init py3-pip curl docker-ce-cli && \
++      pip3 install --no-cache-dir docker-compose==1.23.2
+ 
+ ENV APP_PORT=58890
+ #expose system mgmt agent port
+-- 
+2.27.0
+
