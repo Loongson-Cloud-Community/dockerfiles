@@ -1,0 +1,82 @@
+From 89ff771b55c4a3e4d57f005908f6ea893b774e7b Mon Sep 17 00:00:00 2001
+From: wangweijie <wangweijie@loongson.cn>
+Date: Wed, 24 May 2023 17:37:44 +0800
+Subject: [PATCH] port to loong64
+
+---
+ Dockerfile |  6 ++++--
+ makefile   | 16 ++++++++++++++++
+ 2 files changed, 20 insertions(+), 2 deletions(-)
+
+diff --git a/Dockerfile b/Dockerfile
+index 3b3e91b..8e06f55 100644
+--- a/Dockerfile
++++ b/Dockerfile
+@@ -16,6 +16,7 @@
+ 
+ #build stage
+ ARG BASE=golang:1.18-alpine3.16
++ARG FINAL_IMAGE=alpine:3.16
+ FROM ${BASE} AS builder
+ 
+ ARG ALPINE_PKG_BASE="make git gcc libc-dev libsodium-dev zeromq-dev"
+@@ -29,7 +30,8 @@ LABEL license='SPDX-License-Identifier: Apache-2.0' \
+ RUN apk add --update --no-cache ${ALPINE_PKG_BASE} ${ALPINE_PKG_EXTRA}
+ WORKDIR /app
+ 
+-COPY go.mod vendor* ./
++COPY vendor* ./vendor
++COPY go.mod .
+ RUN [ ! -d "vendor" ] && go mod download all || echo "skipping..."
+ 
+ COPY . .
+@@ -37,7 +39,7 @@ ARG MAKE="make -e ADD_BUILD_TAGS=$ADD_BUILD_TAGS build"
+ RUN $MAKE
+ 
+ #final stage
+-FROM alpine:3.16
++FROM ${FINAL_IMAGE}
+ LABEL license='SPDX-License-Identifier: Apache-2.0' \
+   copyright='Copyright (c) 2022: Intel'
+ LABEL Name=app-service-configurable Version=${VERSION}
+diff --git a/makefile b/makefile
+index 63ea182..f4153d3 100644
+--- a/makefile
++++ b/makefile
+@@ -24,6 +24,19 @@ CGOFLAGS=-ldflags "-linkmode=external \
+ 
+ GIT_SHA=$(shell git rev-parse HEAD)
+ 
++ARCH=$(shell uname -m)
++
++ifeq ($(ARCH), loongarch64)
++	APPVERSION=2.3.0
++	CGOFLAGS=-ldflags "-linkmode=external \
++                   -X github.com/edgexfoundry/app-functions-sdk-go/v2/internal.SDKVersion=$(SDKVERSION) \
++                   -X github.com/edgexfoundry/app-functions-sdk-go/v2/internal.ApplicationVersion=$(APPVERSION)" \
++                   -trimpath -mod=vendor
++	LOCAL_BASE=cr.loongnix.cn/library/golang:1.19-alpine
++	LOCAL_FINAL_IMAGE=cr.loongnix.cn/library/alpine:3.11
++	REGISTRY=cr.loongnix.cn
++endif
++
+ build:
+ 	$(GO) build -tags "$(ADD_BUILD_TAGS)" $(CGOFLAGS) -o $(MICROSERVICE)
+ 
+@@ -39,10 +52,13 @@ docker:
+ 		--build-arg ADD_BUILD_TAGS=$(ADD_BUILD_TAGS) \
+ 	    --build-arg http_proxy \
+ 	    --build-arg https_proxy \
++	        --build-arg BASE=$(LOCAL_BASE) \
++		--build-arg FINAL_IMAGE=$(LOCAL_FINAL_IMAGE) \
+ 		-f Dockerfile \
+ 		--label "git_sha=$(GIT_SHA)" \
+ 		-t edgexfoundry/app-service-configurable:$(GIT_SHA) \
+ 		-t edgexfoundry/app-service-configurable:${APPVERSION}-dev \
++		-t $(REGISTRY)/edgexfoundry/app-service-configurable:$(APPVERSION) \
+ 		.
+ 
+ docker-nats:
+-- 
+2.27.0
+
