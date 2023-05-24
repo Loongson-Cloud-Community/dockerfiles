@@ -29,7 +29,7 @@ index 7d4d1a1..5817a03 100644
  .PHONY: $(MICROSERVICES)
  
 -VERSION=$(shell cat ./VERSION 2>/dev/null || echo 0.0.0)
-+VERSION=$(shell git describe --tags --abbrev=0 | sed 's/^v//')
++VERSION=2.3.0
  DOCKER_TAG=$(VERSION)-dev
  
  GOFLAGS=-ldflags "-X github.com/edgexfoundry/edgex-go.Version=$(VERSION)" -trimpath -mod=readonly
