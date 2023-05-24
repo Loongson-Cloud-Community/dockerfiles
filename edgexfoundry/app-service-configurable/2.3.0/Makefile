@@ -2,41 +2,31 @@
 
 REGISTRY?=cr.loongnix.cn
 ORGANIZATION?=edgexfoundry
-REPOSITORY?=edgex-go
+REPOSITORY?=app-service-configurable
 TAG?=2.3.0
+LATEST?=false
+
+IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):$(TAG)
+LATEST_IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):latest
 
 # SOURCE_URL is a url to download source, such as https://github.com/merore/merore.git.
 # SOURCE is project sources, its located at src/$(SORUCE).
 # PATCH is a patch that supports loong64 to $(SOURCE).
 # Be sure to fill in the follows!!!
-SOURCE_URL=https://github.com/edgexfoundry/edgex-go.git
+SOURCE_URL=https://github.com/edgexfoundry/app-service-configurable.git
 SOURCE=$(shell echo $(SOURCE_URL) | awk -F '/' '{print $$NF}' | awk -F '.' '{print $$1}')
 PATCH=0001-port-to-loong64.patch
-IS_ROOT=$(shell id -u)
+
+default: image
+IS_ROOT := $(shell id -u)
 ifneq ($(IS_ROOT), 0)
 	SUDO=sudo
 endif
-default: image
-
-DOCKERS= \
-	core-data \
-        core-metadata \
-        core-command  \
-        support-notifications \
-        sys-mgmt-agent \
-        support-scheduler \
-        security-proxy-setup \
-        security-secretstore-setup \
-        security-bootstrapper \
-        security-spire-server \
-        security-spire-agent \
-        security-spire-config \
-        security-spiffe-token-provider
 
 
 image: src/$(SOURCE)
 # Commands for building.
-	$(MAKE) -C src/$(SOURCE) vendor && \
+	$(MAKE) -C src/$(SOURCE) vendor
 	$(SUDO) $(MAKE) -C src/$(SOURCE) docker
 
 src/$(SOURCE):
@@ -45,9 +35,12 @@ src/$(SOURCE):
 		git apply ../../$(PATCH)
 
 push:
-	$(foreach i,$(DOCKERS), \
-	docker push $(REGISTRY)/$(ORGANIZATION)/$(i):$(TAG) &&) true
+	docker push $(IMAGE)
+	@if [ $(LATEST) = "true" ]; \
+		then\
+		docker tag $(IMAGE) $(LATEST_IMAGE); \
+		docker push $(LATEST_IMAGE); \
+	fi
 
 clean:
 	rm -rf src
-
