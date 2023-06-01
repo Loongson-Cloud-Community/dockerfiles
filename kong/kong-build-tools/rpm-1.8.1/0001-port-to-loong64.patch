@@ -1,0 +1,47 @@
+From 1b93d4aa52048d325592688e5b0f810b59ae0ba1 Mon Sep 17 00:00:00 2001
+From: wangweijie <wangweijie@loongson.cn>
+Date: Thu, 1 Jun 2023 11:42:26 +0800
+Subject: [PATCH] port to loong64
+
+---
+ Dockerfile.rpm | 14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
+
+diff --git a/Dockerfile.rpm b/Dockerfile.rpm
+index 1f14179..85dd55c 100644
+--- a/Dockerfile.rpm
++++ b/Dockerfile.rpm
+@@ -1,7 +1,6 @@
+-FROM centos:7
++FROM cr.loongnix.cn/loongson/loongnix-server:8.4.0
+ 
+-RUN yum -y install epel-release && \
+-    yum update -y && \
++RUN yum update -y && \
+     yum -y install \
+         automake \
+         bzip2 \
+@@ -25,15 +24,16 @@ RUN yum -y install epel-release && \
+         unzip \
+         wget \
+         zlib-devel \
+-    && ln -s /usr/bin/cmake3 /usr/bin/cmake \
+-    && curl -sSL https://github.com/mikefarah/yq/releases/download/1.15.0/yq_linux_amd64 -o /usr/local/bin/yaml \
+-    && chmod +x /usr/local/bin/yaml \
+-    && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
++    && curl -sSL https://github.com/Loongson-Cloud-Community/yq/releases/download/v4.24.5/yq_linux_loong64 -o /usr/local/bin/yaml \
++    && chmod +x /usr/local/bin/yaml
+ 
+ RUN curl -fsSLo /tmp/yaml-0.2.5.tar.gz https://pyyaml.org/download/libyaml/yaml-0.2.5.tar.gz \
+     && cd /tmp \
+     && tar xzf yaml-0.2.5.tar.gz \
+     && ln -s /tmp/yaml-0.2.5 /tmp/yaml \
++    && cd /tmp/yaml/config \
++    && wget -O ./config.sub "git.savannah.gnu.org/gitweb/?p=config.git;a=blob_plain;f=config.sub;hb=HEAD" \
++    && wget -O ./config.guess "git.savannah.gnu.org/gitweb/?p=config.git;a=blob_plain;f=config.guess;hb=HEAD" \
+     && cd /tmp/yaml \
+     && ./configure \
+       --libdir=/tmp/build/usr/local/kong/lib \
+-- 
+2.27.0
+
