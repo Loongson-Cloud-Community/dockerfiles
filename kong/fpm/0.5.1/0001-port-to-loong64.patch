@@ -1,0 +1,39 @@
+From b07a7fdb60d84dfb438fd813357bdfd73eaba514 Mon Sep 17 00:00:00 2001
+From: wangweijie <wangweijie@loongson.cn>
+Date: Thu, 1 Jun 2023 15:04:23 +0800
+Subject: [PATCH] port to loong64
+
+---
+ Dockerfile | 12 +-----------
+ 1 file changed, 1 insertion(+), 11 deletions(-)
+
+diff --git a/Dockerfile b/Dockerfile
+index 03d8a79..2201a64 100644
+--- a/Dockerfile
++++ b/Dockerfile
+@@ -1,13 +1,4 @@
+-FROM amd64/ubuntu:bionic@sha256:e4771b7160543c6e43968b4e9795be9ddcad9d573edd7cd7aebd3ce61326fc7a
+-RUN echo "disabled"
+-
+-FROM arm64v8/ubuntu:bionic@sha256:8c646d06cb9c9b9c24c004704a313dd3e23a783989b5b155fcc4a5b2796fc90c
+-RUN echo "disabled"
+-
+-FROM arm32v7/ubuntu:bionic@sha256:f0e293e967551be5f21f8d1c60c8cd3c58f341547f98cb65cc2ad1fb7839b045
+-RUN echo "disabled"
+-
+-FROM ubuntu:bionic
++FROM cr.loongnix.cn/library/debian:buster
+ 
+ ENV DEBIAN_FRONTEND noninteractive
+ 
+@@ -23,7 +14,6 @@ RUN set -x \
+         make \
+         ca-certificates \
+         libffi-dev \
+-        ruby-ffi \
+         rpm \
+         git \
+         gpg \
+-- 
+2.27.0
+
