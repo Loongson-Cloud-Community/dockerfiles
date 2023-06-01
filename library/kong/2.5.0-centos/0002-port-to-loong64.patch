@@ -1,0 +1,242 @@
+From 6989fd6bf9b70c2364af007585b86b8f4f436896 Mon Sep 17 00:00:00 2001
+From: wangweijie <wangweijie@loongson.cn>
+Date: Thu, 1 Jun 2023 19:30:41 +0800
+Subject: [PATCH] port to loong64
+
+---
+ Makefile                             | 23 ++++++++++++++++-------
+ build-kong.sh                        |  3 +--
+ dockerfiles/Dockerfile.kong          |  4 ++++
+ dockerfiles/Dockerfile.openresty     |  6 +++---
+ dockerfiles/Dockerfile.package       |  4 ++--
+ openresty-build-tools/kong-ngx-build | 17 ++++++++++++++---
+ 6 files changed, 40 insertions(+), 17 deletions(-)
+
+diff --git a/Makefile b/Makefile
+index 0f4a4fe..59b5155 100644
+--- a/Makefile
++++ b/Makefile
+@@ -23,9 +23,9 @@ endif
+ VARS_OLD = $(filter-out $(MAKEFILE_VARS),$(.VARIABLES))
+ 
+ VERBOSE?=false
+-RESTY_IMAGE_BASE?=ubuntu
+-RESTY_IMAGE_TAG?=20.04
+-PACKAGE_TYPE?=deb
++RESTY_IMAGE_BASE?=centos
++RESTY_IMAGE_TAG?=8.4.0
++PACKAGE_TYPE?=rpm
+ PACKAGE_TYPE?=debian
+ 
+ SSL_PROVIDER?=openssl
+@@ -138,9 +138,11 @@ else ifeq ($(RESTY_IMAGE_BASE),alpine)
+ 	CACHE_COMMAND=false
+ 	BUILDX=true
+ endif
++CACHE=true
++BUILDX=false
+ 
+ ifeq ($(BUILDX),false)
+-	DOCKER_COMMAND?=docker buildx build --progress=$(DOCKER_BUILD_PROGRESS) $(KONG_EE_PORTS_FLAG) --platform="linux/amd64" $(DOCKER_LABELS)
++	DOCKER_COMMAND?=docker build
+ else
+ 	DOCKER_COMMAND?=docker buildx build --progress=$(DOCKER_BUILD_PROGRESS) $(KONG_EE_PORTS_FLAG) --push --platform="linux/amd64,linux/arm64" $(DOCKER_LABELS)
+ endif
+@@ -168,6 +170,9 @@ AWS_VPC ?= vpc-0316062370efe1cff
+ # us-east-1 bionic 18.04 amd64 hvm-ssd 20220308
+ AWS_AMI ?= ami-0d73480446600f555
+ 
++HTTP_PROXY=$(shell echo $$http_proxy)
++HTTPS_PROXY=$(shell echo $$https_proxy)
++
+ # this prints out variables defined within this Makefile by filtering out
+ # from pre-existing ones ($VARS_OLD), then echoing both the unexpanded variable
+ # value (within single quotes) and the expanded variable value (without quotes)
+@@ -225,7 +230,6 @@ ifeq ($(RESTY_IMAGE_BASE),src)
+ 	@echo "nothing to be done"
+ else
+ 	-rm github-token
+-	$(CACHE_COMMAND) $(DOCKER_REPOSITORY):openresty-$(PACKAGE_TYPE)-$(DOCKER_OPENRESTY_SUFFIX) || \
+ 	( \
+ 		echo $$GITHUB_TOKEN > github-token; \
+ 		docker pull --quiet $$(sed -ne 's;FROM \(.*$(PACKAGE_TYPE).*\) as.*;\1;p' dockerfiles/Dockerfile.openresty); \
+@@ -251,6 +255,8 @@ else
+ 		--build-arg OPENRESTY_PATCHES=$(OPENRESTY_PATCHES) \
+ 		--build-arg DEBUG=$(DEBUG) \
+ 		--build-arg BUILDKIT_INLINE_CACHE=1 \
++		--build-arg http_proxy=$(HTTP_PROXY) \
++		--build-arg https_proxy=$(HTTPS_PROXY) \
+ 		-t $(DOCKER_REPOSITORY):openresty-$(PACKAGE_TYPE)-$(DOCKER_OPENRESTY_SUFFIX) . && \
+ 		( \
+ 			rm github-token || true \
+@@ -265,7 +271,7 @@ else
+ package-kong: actual-package-kong
+ endif
+ 
+-actual-package-kong: cleanup setup-build
++actual-package-kong: setup-build
+ ifeq ($(DEBUG),1)
+ 	exit 1
+ endif
+@@ -285,6 +291,8 @@ endif
+ 	--build-arg PACKAGE_PROVIDES=$(PACKAGE_PROVIDES) \
+ 	--build-arg PACKAGE_REPLACES=$(PACKAGE_REPLACES) \
+ 	--build-arg SSL_PROVIDER=$(SSL_PROVIDER) \
++	--build-arg http_proxy=$(HTTP_PROXY) \
++	--build-arg https_proxy=$(HTTPS_PROXY) \
+ 	--build-arg PRIVATE_KEY_FILE=kong.private.gpg-key.asc \
+ 	--build-arg PRIVATE_KEY_PASSPHRASE="$(PRIVATE_KEY_PASSPHRASE)" \
+ 	-t $(DOCKER_REPOSITORY):kong-packaged-$(PACKAGE_TYPE)-$(DOCKER_KONG_SUFFIX) .
+@@ -318,7 +326,6 @@ kong-ci-cache-key:
+ 
+ actual-build-kong: setup-kong-source
+ 	touch id_rsa.private
+-	$(CACHE_COMMAND) $(DOCKER_REPOSITORY):kong-$(PACKAGE_TYPE)-$(DOCKER_KONG_SUFFIX) || \
+ 	( $(MAKE) build-openresty && \
+ 	-rm github-token; \
+ 	echo $$GITHUB_TOKEN > github-token; \
+@@ -328,6 +335,8 @@ actual-build-kong: setup-kong-source
+ 	--build-arg DOCKER_REPOSITORY=$(DOCKER_REPOSITORY) \
+ 	--build-arg DOCKER_OPENRESTY_SUFFIX=$(DOCKER_OPENRESTY_SUFFIX) \
+ 	--build-arg ENABLE_LJBC=$(ENABLE_LJBC) \
++	--build-arg http_proxy=$(HTTP_PROXY) \
++	--build-arg https_proxy=$(HTTPS_PROXY) \
+ 	--build-arg BUILDKIT_INLINE_CACHE=1 \
+ 	--build-arg SSL_PROVIDER=$(SSL_PROVIDER) \
+ 	-t $(DOCKER_REPOSITORY):kong-$(PACKAGE_TYPE)-$(DOCKER_KONG_SUFFIX) . )
+diff --git a/build-kong.sh b/build-kong.sh
+index af75650..7093c45 100755
+--- a/build-kong.sh
++++ b/build-kong.sh
+@@ -1,7 +1,6 @@
+ #!/bin/bash
+ 
+ set -e
+-
+ source /common.sh
+ 
+ ROCKS_CONFIG=$(mktemp)
+@@ -64,7 +63,7 @@ pushd /kong
+     cp kong/pluginsocket.proto /tmp/build/usr/local/kong/include/kong
+   fi
+ 
+-  with_backoff curl -fsSLo /tmp/protoc.zip https://github.com/protocolbuffers/protobuf/releases/download/v3.19.0/protoc-3.19.0-linux-x86_64.zip
++  with_backoff curl -fsSLo /tmp/protoc.zip https://github.com/Loongson-Cloud-Community/protobuf/releases/download/v3.19.0/protoc-3.19.0-linux-loongarch_64.zip
+   unzip -o /tmp/protoc.zip -d /tmp/protoc 'include/*'
+   cp -r /tmp/protoc/include/google /tmp/build/usr/local/kong/include/
+ popd
+diff --git a/dockerfiles/Dockerfile.kong b/dockerfiles/Dockerfile.kong
+index 69f8138..c38aa99 100644
+--- a/dockerfiles/Dockerfile.kong
++++ b/dockerfiles/Dockerfile.kong
+@@ -6,6 +6,9 @@ ARG DOCKER_REPOSITORY
+ 
+ FROM ${DOCKER_REPOSITORY}:openresty-${PACKAGE_TYPE}-${DOCKER_OPENRESTY_SUFFIX}
+ 
++ARG http_proxy
++ARG https_proxy
++
+ ARG ENABLE_LJBC=
+ ENV ENABLE_LJBC $ENABLE_LJBC
+ 
+@@ -22,4 +25,5 @@ RUN --mount=type=secret,id=github-token if [ -f "/distribution/post-install.sh"
+ WORKDIR /kong
+ COPY openresty-build-tools/common.sh /common.sh
+ COPY build-kong.sh /build-kong.sh
++RUN git config --global url."https://".insteadOf git://
+ RUN /build-kong.sh
+diff --git a/dockerfiles/Dockerfile.openresty b/dockerfiles/Dockerfile.openresty
+index 85e9ea9..2923370 100644
+--- a/dockerfiles/Dockerfile.openresty
++++ b/dockerfiles/Dockerfile.openresty
+@@ -4,9 +4,9 @@ ARG DOCKER_BASE_SUFFIX
+ ARG DOCKER_REPOSITORY
+ ARG PACKAGE_TYPE
+ 
+-FROM kong/kong-build-tools:apk-1.8.1 as APK
+-FROM kong/kong-build-tools:deb-1.8.1 as DEB
+-FROM kong/kong-build-tools:rpm-1.8.1 as RPM
++#FROM kong/kong-build-tools:apk-1.8.1 as APK
++#FROM kong/kong-build-tools:deb-1.8.1 as DEB
++FROM cr.loongnix.cn/kong/kong-build-tools:rpm-1.8.1 as RPM
+ 
+ FROM $PACKAGE_TYPE
+ 
+diff --git a/dockerfiles/Dockerfile.package b/dockerfiles/Dockerfile.package
+index 26af7db..df7aacc 100644
+--- a/dockerfiles/Dockerfile.package
++++ b/dockerfiles/Dockerfile.package
+@@ -5,7 +5,7 @@ ARG DOCKER_REPOSITORY
+ 
+ FROM ${DOCKER_REPOSITORY}:kong-${PACKAGE_TYPE}-${DOCKER_KONG_SUFFIX} as KONG
+ 
+-FROM kong/fpm:0.5.1 as FPM
++FROM cr.loongnix.cn/kong/fpm:0.5.1 as FPM
+ 
+ COPY --from=KONG /tmp/build /tmp/build
+ COPY fpm-entrypoint.sh sign-rpm.exp .rpmmacros /
+@@ -46,5 +46,5 @@ COPY kong.logrotate /tmp/build/etc/kong/kong.logrotate
+ 
+ RUN /fpm-entrypoint.sh
+ 
+-FROM alpine
++FROM cr.loongnix.cn/library/alpine:3.11
+ COPY --from=FPM /output /output
+diff --git a/openresty-build-tools/kong-ngx-build b/openresty-build-tools/kong-ngx-build
+index 73b2cb6..a700e22 100755
+--- a/openresty-build-tools/kong-ngx-build
++++ b/openresty-build-tools/kong-ngx-build
+@@ -1,6 +1,6 @@
+ #!/usr/bin/env bash
+ 
+-set -e
++set -ex
+ 
+ SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+ source $SCRIPT_DIR/common.sh
+@@ -257,7 +257,9 @@ main() {
+       package_architecture=x86_64
+       if [ "$(arch)" == "aarch64" ]; then
+         package_architecture=aarch64
+-      fi
++      #elif [ "$(arch)" == "loongarch64" ]; then
++      #  package_architecture=loongarch64
++      fi 
+       with_backoff curl --fail -sSLo openssl.tar.gz https://github.com/Kong/kong-openssl/releases/download/$KONG_OPENSSL_VER/$package_architecture-$OSTYPE.tar.gz
+       tar -C /tmp/build -xvf openssl.tar.gz
+     elif [ "$OPENSSL_VER" != 0 -a "$SSL_PROVIDER" = "openssl" ]; then
+@@ -324,6 +326,11 @@ main() {
+           notice "Downloaded: $(sha256sum "openresty-$OPENRESTY_VER.tar.gz")"
+         fi
+         tar -xzf openresty-$OPENRESTY_VER.tar.gz
++        pushd openresty-$OPENRESTY_VER/bundle 
++        rm -r LuaJIT-2.1-20201027 
++        git clone -b v2.1-agentzh-loongarch64 --depth 1 https://github.com/loongson/luajit2.git 
++        mv luajit2 LuaJIT-2.1-20201027
++        popd
+         ln -s openresty-$OPENRESTY_VER openresty
+ 
+         # use unreleased version of lua-resty-dns
+@@ -368,6 +375,10 @@ main() {
+           notice "Downloaded: $(sha256sum "pcre-${PCRE_VER}.tar.gz")"
+         fi
+         tar -xzf pcre-${PCRE_VER}.tar.gz
++        pushd pcre-${PCRE_VER}
++          wget -O ./config.sub "git.savannah.gnu.org/gitweb/?p=config.git;a=blob_plain;f=config.sub;hb=HEAD"
++          wget -O ./config.guess "git.savannah.gnu.org/gitweb/?p=config.git;a=blob_plain;f=config.guess;hb=HEAD"
++        popd
+         ln -s pcre-${PCRE_VER} pcre
+       fi
+     fi
+@@ -769,7 +780,7 @@ main() {
+ 
+         OPENRESTY_OPTS=(
+           "--prefix=$OPENRESTY_PREFIX"
+-          "--with-pcre-jit"
++          #"--with-pcre-jit"
+           "--with-http_ssl_module"
+           "--with-http_sub_module"
+           "--with-http_realip_module"
+-- 
+2.27.0
+
