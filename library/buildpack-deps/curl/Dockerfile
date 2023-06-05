@@ -1,4 +1,4 @@
-FROM cr.loongnix.cn/loongson/loongnix:20
+FROM cr.loongnix.cn/library/debian:buster
 
 LABEL maintainer="wangweijie@loongson.cn"
 
