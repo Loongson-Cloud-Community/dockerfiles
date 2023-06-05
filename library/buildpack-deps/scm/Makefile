@@ -22,7 +22,7 @@ push: alias
 		docker push $$i; \
 	done
 
-alias:
+alias: image
 	for i in $(ALIAS);do \
 		docker tag $(IMAGE) $$i; \
 	done

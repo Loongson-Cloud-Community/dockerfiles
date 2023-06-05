@@ -20,5 +20,5 @@ push: alias
 	docker push $(IMAGE)
 	docker push $(ALIAS)
 
-alias:
+alias: image
 	docker tag $(IMAGE) $(ALIAS)
