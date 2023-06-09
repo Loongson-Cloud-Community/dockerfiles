@@ -1,0 +1,89 @@
+From 6c3b046bfd071ab5e0b9cc6239158f9cf52ee5b6 Mon Sep 17 00:00:00 2001
+From: wangweijie <wangweijie@loongson.cn>
+Date: Fri, 9 Jun 2023 10:58:37 +0800
+Subject: [PATCH] port to loong64
+
+---
+ Makefile                                      |  2 +-
+ image/Dockerfile                              |  2 +-
+ image/build.sh                                |  1 +
+ .../service-available/:ssl-tools/download.sh  | 21 +++++++++++++++----
+ 4 files changed, 20 insertions(+), 6 deletions(-)
+
+diff --git a/Makefile b/Makefile
+index ac8390e..21dbb5a 100644
+--- a/Makefile
++++ b/Makefile
+@@ -1,4 +1,4 @@
+-NAME = osixia/light-baseimage
++NAME = cr.loongnix.cn/osixia/light-baseimage
+ VERSION = 1.2.0
+ 
+ .PHONY: build build-nocache test tag-latest push push-latest release git-tag-version
+diff --git a/image/Dockerfile b/image/Dockerfile
+index be4b87b..030c7b9 100644
+--- a/image/Dockerfile
++++ b/image/Dockerfile
+@@ -1,4 +1,4 @@
+-FROM debian:buster-slim
++FROM cr.loongnix.cn/library/debian:buster-slim
+ 
+ COPY . /container
+ RUN /container/build.sh
+diff --git a/image/build.sh b/image/build.sh
+index 342444e..ff7fc00 100755
+--- a/image/build.sh
++++ b/image/build.sh
+@@ -56,6 +56,7 @@ printf en_US.UTF-8 > /container/environment/LC_CTYPE
+ apt-get clean
+ rm -rf /tmp/* /var/tmp/*
+ rm -rf /var/lib/apt/lists/*
++rm -rf /var/cache/apt/*
+ 
+ # Remove useless files
+ rm -rf /container/file
+diff --git a/image/service-available/:ssl-tools/download.sh b/image/service-available/:ssl-tools/download.sh
+index 985b1bb..a2ea52d 100755
+--- a/image/service-available/:ssl-tools/download.sh
++++ b/image/service-available/:ssl-tools/download.sh
+@@ -20,6 +20,9 @@ case "${UARCH}" in
+     "i386")
+         HOST_ARCH="386"
+     ;;
++    "loongarch64")
++	HOST_ARCH="loong64"
++    ;;
+     
+     *)
+         echo "Architecture not supported. Exiting."
+@@ -52,13 +55,23 @@ if [[ "${HOST_ARCH}" == 'arm' ]]; then
+ fi
+ 
+ echo "Download cfssl ..."
+-echo "curl -o /usr/sbin/cfssl -SL https://github.com/osixia/cfssl/releases/download/1.4.1/cfssl_linux-${HOST_ARCH}"
+-curl -o /usr/sbin/cfssl -SL "https://github.com/osixia/cfssl/releases/download/1.4.1/cfssl_linux-${HOST_ARCH}"
++if [[ "${HOST_ARCH}" == 'loong64' ]]; then
++	echo "curl -o /usr/sbin/cfssl -SL https://github.com/Loongson-Cloud-Community/cfssl/releases/download/v1.4.1/cfssl_1.4.1_linux_loong64"
++	curl -o /usr/sbin/cfssl -SL "https://github.com/Loongson-Cloud-Community/cfssl/releases/download/v1.4.1/cfssl_1.4.1_linux_loong64"
++else
++	echo "curl -o /usr/sbin/cfssl -SL https://github.com/osixia/cfssl/releases/download/1.4.1/cfssl_linux-${HOST_ARCH}"
++	curl -o /usr/sbin/cfssl -SL "https://github.com/osixia/cfssl/releases/download/1.4.1/cfssl_linux-${HOST_ARCH}"
++fi
+ chmod 700 /usr/sbin/cfssl
+ 
+ echo "Download cfssljson ..."
+-echo "curl -o /usr/sbin/cfssljson -SL https://github.com/osixia/cfssl/releases/download/1.4.1/cfssljson_linux-${HOST_ARCH}"
+-curl -o /usr/sbin/cfssljson -SL "https://github.com/osixia/cfssl/releases/download/1.4.1/cfssljson_linux-${HOST_ARCH}"
++if [[ "${HOST_ARCH}" == 'loong64' ]]; then
++	echo "curl -o /usr/sbin/cfssljson -SL https://github.com/Loongson-Cloud-Community/cfssl/releases/download/v1.4.1/cfssljson_1.4.1_linux_loong64"
++	curl -o /usr/sbin/cfssljson -SL "https://github.com/Loongson-Cloud-Community/cfssl/releases/download/v1.4.1/cfssljson_1.4.1_linux_loong64"
++else
++	echo "curl -o /usr/sbin/cfssljson -SL https://github.com/osixia/cfssl/releases/download/1.4.1/cfssljson_linux-${HOST_ARCH}"
++	curl -o /usr/sbin/cfssljson -SL "https://github.com/osixia/cfssl/releases/download/1.4.1/cfssljson_linux-${HOST_ARCH}"
++fi
+ chmod 700 /usr/sbin/cfssljson
+ 
+ echo "Project sources: https://github.com/cloudflare/cfssl"
+-- 
+2.27.0
+
