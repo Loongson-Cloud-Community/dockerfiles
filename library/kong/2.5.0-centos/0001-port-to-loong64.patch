@@ -1,0 +1,54 @@
+From bd8b8686012aa19853440b8b4480a5f4e7778804 Mon Sep 17 00:00:00 2001
+From: wangweijie <wangweijie@loongson.cn>
+Date: Mon, 12 Jun 2023 14:54:18 +0800
+Subject: [PATCH] port to loong64
+
+---
+ Makefile          |  4 ++--
+ centos/Dockerfile | 10 ++--------
+ 2 files changed, 4 insertions(+), 10 deletions(-)
+
+diff --git a/Makefile b/Makefile
+index c839880..e914a49 100644
+--- a/Makefile
++++ b/Makefile
+@@ -1,8 +1,8 @@
+-KONG_BUILD_TOOLS?=4.20.0
++KONG_BUILD_TOOLS?=4.42.0
+ BASE?=centos
+ 
+ build:
+-	docker build --no-cache -t kong-$(BASE) $(BASE)/
++	docker build --no-cache -t cr.loongnix.cn/library/kong:2.5.0-$(BASE) $(BASE)/
+ 
+ .PHONY: test
+ test:
+diff --git a/centos/Dockerfile b/centos/Dockerfile
+index 8ebcb21..8fb9fa9 100644
+--- a/centos/Dockerfile
++++ b/centos/Dockerfile
+@@ -1,5 +1,5 @@
+-FROM centos:7
+-LABEL maintainer="Kong <support@konghq.com>"
++FROM cr.loongnix.cn/loongson/loongnix-server:8.4.0
++LABEL maintainer="wangweijie@loongson.cn"
+ 
+ ARG ASSET=ce
+ ENV ASSET $ASSET
+@@ -11,13 +11,7 @@ COPY kong.rpm /tmp/kong.rpm
+ ARG KONG_VERSION=2.5.0
+ ENV KONG_VERSION $KONG_VERSION
+ 
+-ARG KONG_SHA256="87b789aed871991b92d264b02ceca3c66246c825c28dd71e73faac7293e43fa2"
+-
+ RUN set -ex; \
+-    if [ "$ASSET" = "ce" ] ; then \
+-      curl -fL https://download.konghq.com/gateway-${KONG_VERSION%%.*}.x-centos-7/Packages/k/kong-$KONG_VERSION.el7.amd64.rpm -o /tmp/kong.rpm \
+-      && echo "$KONG_SHA256  /tmp/kong.rpm" | sha256sum -c -; \
+-    fi; \
+     yum install -y -q unzip shadow-utils git \
+     && yum clean all -q \
+     && rm -fr /var/cache/yum/* /tmp/yum_save*.yumtx /root/.pki \
+-- 
+2.27.0
+
