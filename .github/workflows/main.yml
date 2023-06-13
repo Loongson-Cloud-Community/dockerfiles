@@ -1,6 +1,7 @@
 name: cr.loongnix.cn 
 # 指定此工作流程的触发器
-on: [push]
+# on: [push]
+on: []
 jobs:
   # 定义名称为"image-build"的job
   image-build:
