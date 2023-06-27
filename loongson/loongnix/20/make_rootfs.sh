@@ -11,6 +11,7 @@ DISTRO=loongnix
 WKDIR=$1
 cd ${WKDIR?}
 
+apt update
 apt install -y debootstrap
 # loongnix do not have $RELEASE file, fix it!
 if [ ! -f /usr/share/debootstrap/scripts/$RELEASE ]; then
