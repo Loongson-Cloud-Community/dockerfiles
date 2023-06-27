@@ -8,4 +8,6 @@ jobs:
     steps:
       # 获取最新变动
       - uses: actions/checkout@v3
+        with:
+          fetch-depth: 2
       - run: lmake image
