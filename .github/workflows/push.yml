@@ -4,9 +4,8 @@ on: [push]
 jobs:
   # 定义名称为"image-build"的job
   image-build:
-    # runs-on: self-hosted
     runs-on: self-hosted
     steps:
       # 获取最新变动
       - uses: actions/checkout@v3
-      - run: echo "push"
+      - run: lmake image
