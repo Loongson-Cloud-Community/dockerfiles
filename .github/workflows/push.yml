@@ -9,3 +9,4 @@ jobs:
       # 获取最新变动
       - uses: actions/checkout@v3
       - run: lmake image
+      - run: echo hello
