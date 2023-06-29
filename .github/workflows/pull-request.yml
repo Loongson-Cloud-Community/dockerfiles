@@ -12,4 +12,4 @@ jobs:
       with:
         fetch-depth: 2
     - run: lmake image
-    - run: echo "lmake push"
+    - run: lmake push
