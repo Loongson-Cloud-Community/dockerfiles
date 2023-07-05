@@ -1,0 +1,127 @@
+From bb1f1c53000d60dd81158a6280097306a5850e84 Mon Sep 17 00:00:00 2001
+From: qiangxuhui <qiangxuhui@loongson.cn>
+Date: Tue, 16 May 2023 02:36:40 +0000
+Subject: [PATCH] 1. add loong64 support
+
+---
+ Dockerfile.dapper  | 30 +++++++++++++++---------------
+ Makefile           |  3 +--
+ package/Dockerfile |  8 ++++----
+ scripts/package    | 12 ++++++------
+ 4 files changed, 26 insertions(+), 27 deletions(-)
+
+diff --git a/Dockerfile.dapper b/Dockerfile.dapper
+index 051fc07..db4e5c6 100644
+--- a/Dockerfile.dapper
++++ b/Dockerfile.dapper
+@@ -1,22 +1,22 @@
+-FROM golang:1.15-alpine
++FROM cr.loongnix.cn/library/golang:1.19-alpine
+ 
+ ARG DAPPER_HOST_ARCH
+ ENV ARCH $DAPPER_HOST_ARCH
+ 
+-RUN apk -U add bash git gcc musl-dev docker vim less file curl wget ca-certificates
+-RUN go get -d golang.org/x/lint/golint && \
+-    git -C /go/src/golang.org/x/lint/golint checkout -b current 738671d3881b9731cc63024d5d88cf28db875626 && \
+-    go install golang.org/x/lint/golint && \
+-    rm -rf /go/src /go/pkg
+-RUN go get -d github.com/alecthomas/gometalinter && \
+-    git -C /go/src/github.com/alecthomas/gometalinter checkout -b current v3.0.0 && \
+-    go install github.com/alecthomas/gometalinter && \
+-    gometalinter --install && \
+-    rm -rf /go/src /go/pkg
+-RUN go get -d github.com/rancher/trash && \
+-    git -C /go/src/github.com/rancher/trash checkout -b current v0.2.7 && \
+-    go install github.com/rancher/trash && \
+-    rm -rf /go/src /go/pkg
++RUN apk -U add bash git gcc musl-dev docker-ce docker-ce-cli vim less file curl wget ca-certificates
++#RUN go get -d golang.org/x/lint/golint && \
++#    git -C /go/src/golang.org/x/lint/golint checkout -b current 738671d3881b9731cc63024d5d88cf28db875626 && \
++#    go install golang.org/x/lint/golint && \
++#    rm -rf /go/src /go/pkg
++#RUN go get -d github.com/alecthomas/gometalinter && \
++#    git -C /go/src/github.com/alecthomas/gometalinter checkout -b current v3.0.0 && \
++#    go install github.com/alecthomas/gometalinter && \
++#    gometalinter --install && \
++#    rm -rf /go/src /go/pkg
++#RUN go get -d github.com/rancher/trash && \
++#    git -C /go/src/github.com/rancher/trash checkout -b current v0.2.7 && \
++#    go install github.com/rancher/trash && \
++#    rm -rf /go/src /go/pkg
+ 
+ ENV DAPPER_ENV REPO TAG DRONE_TAG
+ ENV DAPPER_SOURCE /go/src/github.com/k3s-io/klipper-helm/
+diff --git a/Makefile b/Makefile
+index d7d72a1..5aadeb5 100644
+--- a/Makefile
++++ b/Makefile
+@@ -2,9 +2,8 @@ TARGETS := $(shell ls scripts)
+ 
+ .dapper:
+ 	@echo Downloading dapper
+-	@curl -sL https://releases.rancher.com/dapper/latest/dapper-`uname -s`-`uname -m` > .dapper.tmp
++	@https_proxy=10.130.0.20:7890 curl -sL https://github.com/Loongson-Cloud-Community/dapper/releases/download/v0.6.0/dapper-Linux-loong64 > .dapper.tmp
+ 	@@chmod +x .dapper.tmp
+-	@./.dapper.tmp -v
+ 	@mv .dapper.tmp .dapper
+ 
+ $(TARGETS): .dapper
+diff --git a/package/Dockerfile b/package/Dockerfile
+index 3550d44..e9bf032 100644
+--- a/package/Dockerfile
++++ b/package/Dockerfile
+@@ -1,12 +1,12 @@
+-FROM alpine:3.12 as extract
++FROM cr.loongnix.cn/library/alpine:3.11 as extract
+ RUN apk add -U curl ca-certificates
+ ARG ARCH
+-RUN curl https://get.helm.sh/helm-v2.16.10-linux-${ARCH}.tar.gz | tar xvzf - --strip-components=1 -C /usr/bin
++RUN curl -L https://github.com/Loongson-Cloud-Community/helm/releases/download/v2.16.10/helm-v2.16.10-linux_loong64.tar.gz | tar xvzf - --strip-components=1 -C /usr/bin
+ RUN mv /usr/bin/helm /usr/bin/helm_v2
+-RUN curl https://get.helm.sh/helm-v3.3.1-linux-${ARCH}.tar.gz | tar xvzf - --strip-components=1 -C /usr/bin
++RUN curl -L https://github.com/Loongson-Cloud-Community/helm/releases/download/v3.3.1/helm-v3.3.1-linux_loong64.tar.gz | tar xvzf - --strip-components=1 -C /usr/bin
+ RUN mv /usr/bin/helm /usr/bin/helm_v3
+ 
+-FROM alpine:3.12
++FROM cr.loongnix.cn/library/alpine:3.11
+ RUN apk add -U --no-cache ca-certificates jq bash git
+ COPY --from=extract /usr/bin/helm_v2 /usr/bin/helm_v3 /usr/bin/tiller /usr/bin/
+ COPY entry /usr/bin/
+diff --git a/scripts/package b/scripts/package
+index 0091199..7bd5916 100755
+--- a/scripts/package
++++ b/scripts/package
+@@ -3,7 +3,7 @@ set -e
+ 
+ source $(dirname $0)/version
+ 
+-ARCH=${ARCH:-"amd64"}
++ARCH=${ARCH:-"loong64"}
+ SUFFIX="-${ARCH}"
+ 
+ cd $(dirname $0)/..
+@@ -11,9 +11,9 @@ cd $(dirname $0)/..
+ TAG=${TAG:-${VERSION}${SUFFIX}}
+ REPO=${REPO:-rancher}
+ 
+-if echo $TAG | grep -q dirty; then
+-    TAG=dev
+-fi
++#if echo $TAG | grep -q dirty; then
++#    TAG=dev
++#fi
+ 
+ IMAGE=${REPO}/klipper-helm:${TAG}
+ DOCKERFILE=package/Dockerfile
+@@ -21,5 +21,5 @@ if [ -e ${DOCKERFILE}.${ARCH} ]; then
+     DOCKERFILE=${DOCKERFILE}.${ARCH}
+ fi
+ 
+-docker build --build-arg ARCH=${ARCH} -f ${DOCKERFILE} -t ${IMAGE} .
+-echo Built ${IMAGE}
++docker build --build-arg ARCH=${ARCH} -f ${DOCKERFILE} -t  cr.loongnix.cn/rancher/klipper-helm:v0.4.3 .
++echo "Built cr.loongnix.cn/rancher/klipper-helm:v0.4.3"
+-- 
+2.27.0
+
