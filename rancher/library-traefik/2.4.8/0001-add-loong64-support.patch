@@ -1,0 +1,47 @@
+From 710649413abda0569f346381a05a547544e30a8d Mon Sep 17 00:00:00 2001
+From: qiangxuhui <qiangxuhui@loongson.cn>
+Date: Wed, 5 Jul 2023 08:35:20 +0000
+Subject: [PATCH] add loong64 support
+
+---
+ Makefile          |  6 ++++++
+ alpine/Dockerfile | 11 ++---------
+ 2 files changed, 8 insertions(+), 9 deletions(-)
+ create mode 100644 Makefile
+
+diff --git a/Makefile b/Makefile
+new file mode 100644
+index 0000000..92bb61c
+--- /dev/null
++++ b/Makefile
+@@ -0,0 +1,6 @@
++image:
++	cd alpine && docker build \
++		--build-arg http_proxy=$(http_proxy) \
++		--build-arg https_proxy=$(https_proxy) \
++		-t cr.loongnix.cn/rancher/library-traefik:2.4.8 \
++		.
+diff --git a/alpine/Dockerfile b/alpine/Dockerfile
+index 1c2d02a..0163712 100644
+--- a/alpine/Dockerfile
++++ b/alpine/Dockerfile
+@@ -1,14 +1,7 @@
+-FROM alpine:3.11
++FROM cr.loongnix.cn/library/alpine:3.11
+ RUN apk --no-cache add ca-certificates tzdata
+ RUN set -ex; \
+-	apkArch="$(apk --print-arch)"; \
+-	case "$apkArch" in \
+-		armhf) arch='armv6' ;; \
+-		aarch64) arch='arm64' ;; \
+-		x86_64) arch='amd64' ;; \
+-		*) echo >&2 "error: unsupported architecture: $apkArch"; exit 1 ;; \
+-	esac; \
+-	wget --quiet -O /tmp/traefik.tar.gz "https://github.com/traefik/traefik/releases/download/v2.4.8/traefik_v2.4.8_linux_$arch.tar.gz"; \
++	wget -O /tmp/traefik.tar.gz "https://github.com/Loongson-Cloud-Community/traefik/releases/download/v2.4.8/traefik_v2.4.8_linux_loong64.tar.gz"; \
+ 	tar xzvf /tmp/traefik.tar.gz -C /usr/local/bin traefik; \
+ 	rm -f /tmp/traefik.tar.gz; \
+ 	chmod +x /usr/local/bin/traefik
+-- 
+2.27.0
+
