@@ -1,0 +1,37 @@
+From 5bb299683226c95acd57d3707e20ae60200d6894 Mon Sep 17 00:00:00 2001
+From: qiangxuhui <qiangxuhui@loongson.cn>
+Date: Wed, 5 Jul 2023 08:02:49 +0000
+Subject: [PATCH] add loong64 support
+
+---
+ Makefile           | 3 +++
+ package/Dockerfile | 2 +-
+ 2 files changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/Makefile b/Makefile
+index d7d72a1..128654f 100644
+--- a/Makefile
++++ b/Makefile
+@@ -18,6 +18,9 @@ trash-keep: .dapper
+ 
+ deps: trash
+ 
++image:
++	docker build -f package/Dockerfile -t cr.loongnix.cn/rancher/klipper-lb:v0.1.2 .
++
+ .DEFAULT_GOAL := ci
+ 
+ .PHONY: $(TARGETS)
+diff --git a/package/Dockerfile b/package/Dockerfile
+index d3a042d..7bdae85 100644
+--- a/package/Dockerfile
++++ b/package/Dockerfile
+@@ -1,4 +1,4 @@
+-FROM alpine:3.8
++FROM cr.loongnix.cn/library/alpine:3.11
+ RUN apk add -U --no-cache iptables
+ COPY entry /usr/bin/
+ CMD ["entry"]
+-- 
+2.27.0
+
