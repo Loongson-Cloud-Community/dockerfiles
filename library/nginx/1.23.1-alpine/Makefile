@@ -11,6 +11,7 @@ IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):$(TAG)
 default: image
 
 image:
+	echo "test"
 	docker build \
 		-t $(IMAGE) \
 		.
