@@ -11,11 +11,11 @@ IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):$(TAG)
 default: image
 
 image:
-	echo "ci test-07-05"
+	echo "ci test-07-05-1"
 	docker build \
 		-t $(IMAGE) \
 		.
 
 push:
-	echo "ci test-07-05"
+	echo "ci test-07-05-1"
 	docker push $(IMAGE)
