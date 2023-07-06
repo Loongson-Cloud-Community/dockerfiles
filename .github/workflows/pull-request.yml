@@ -1,4 +1,4 @@
-name: PULL REQUEST MERGED
+name: pull request merge
 on:
   pull_request:
     types:
@@ -6,7 +6,10 @@ on:
 jobs:
   if_merged:
     if: github.event.pull_request.merged == true
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
     - uses: actions/checkout@v3
-    - run: echo "The PR was merged"
+      with:
+        fetch-depth: 2
+    - run: lmake image
+    - run: lmake push
