@@ -21,7 +21,7 @@ default: image
 
 image: src/$(SOURCE)
 # Commands for building.
-	sudo $(MAKE) -C src/$(SOURCE) container
+	$(MAKE) -C src/$(SOURCE) container
 
 src/$(SOURCE):
 	git clone -b v$(TAG) --depth=1 $(SOURCE_URL) $@
