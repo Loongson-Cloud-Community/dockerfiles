@@ -4,7 +4,7 @@
 # PLEASE DO NOT EDIT IT DIRECTLY.
 #
 FROM cr.loongnix.cn/library/alpine:3.11
-MAINTAINER Xuhui Qiang <qiangxuhui@loongson.cn>
+LABEL maintainer="qiangxuhui@loongson.cn"
 
 ENV NGINX_VERSION 1.23.1
 ENV NJS_VERSION   0.7.6
