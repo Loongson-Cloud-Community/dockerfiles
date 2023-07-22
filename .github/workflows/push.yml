@@ -1,6 +1,10 @@
 name: push
 # 指定此工作流程的触发器
-on: [push]
+on: 
+  push:
+    branches: [ci_run]
+  pull_request:
+    branches: [ci_run]
 jobs:
   # 定义名称为"image-build"的job
   image-build:
