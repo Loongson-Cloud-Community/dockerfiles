@@ -23,5 +23,7 @@ push:
 $(ROOTFS):
 	docker run -it --rm \
 		-v `pwd`:/wk \
+		--env https_proxy=$(https_proxy) \
+		--env http_proxy=$(http_proxy) \
 		cr.loongnix.cn/library/debian:buster \
 		/bin/bash -c "/wk/make_rootfs.sh /wk"
