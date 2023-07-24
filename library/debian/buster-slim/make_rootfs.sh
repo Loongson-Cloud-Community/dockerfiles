@@ -41,7 +41,8 @@ for slimExclude in "${slimExcludes[@]}"; do
                         -depth -mindepth 1 \
                         -not \( -type d -o -type l \) \
                         -not "${findMatchIncludes[@]}" \
-                        -exec rm -f '{}' ';'
+                        -exec rm -f '{}' ';' \
+                        || echo "${slimExclude} not found"
         }
 done
 
