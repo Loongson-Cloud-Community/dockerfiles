@@ -1,15 +1,17 @@
 #!/bin/bash
+set -e
 
 : ${DISTRO:="loongnix"}
 : ${RELEASE:=DaoXiangHu-stable}
 : ${MIRROR_ADDRESS:=http://pkg.loongnix.cn/loongnix}
 : ${ROOTFS:="rootfs.tar.gz"}
+: ${APT_CONF_URL:="https://raw.githubusercontent.com/GoogleContainerTools/base-images-docker/master/debian/reproducible/overlay/etc/apt/apt.conf.d/"}
 
 WKDIR=$1
 cd ${WKDIR?}
 
 apt update -y
-apt install -y debootstrap
+apt install -y debootstrap curl
 if [ ! -f /usr/share/debootstrap/scripts/$RELEASE ]; then
 	ln -s /usr/share/debootstrap/scripts/sid /usr/share/debootstrap/scripts/$RELEASE
 fi
@@ -44,6 +46,18 @@ for slimExclude in "${slimExcludes[@]}"; do
                         -exec rm -f '{}' ';' \
                         || echo "${slimExclude} not found"
         }
+done
+
+# https://github.com/GoogleContainerTools/base-images-docker/tree/master/debian/reproducible/overlay/etc/apt/apt.conf.d
+apt_conf=(
+    apt-retry
+    docker-autoremove-suggests
+    docker-clean
+    docker-gzip-indexes
+)
+
+for apt_file in ${apt_conf[@]};do
+    curl -o $TMPDIR/etc/apt/apt.conf.d/${apt_file} -sSL ${APT_CONF_URL}/${apt_file}
 done
 
 while [ "$(
