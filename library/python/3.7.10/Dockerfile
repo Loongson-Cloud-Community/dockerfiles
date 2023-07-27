@@ -9,8 +9,6 @@ ENV PATH /usr/local/bin:$PATH
 # > At the moment, setting "LANG=C" on a Linux system *fundamentally breaks Python 3*, and that's not OK.
 ENV LANG C.UTF-8
 
-COPY Python-3.7.10.tar.xz python.tar.xz
-
 # runtime dependencies
 RUN set -eux; \
 	apt-get update; \
@@ -20,8 +18,8 @@ RUN set -eux; \
 	; \
 	rm -rf /var/lib/apt/lists/*
 
-
-ENV PYTHON_VERSION 3.7.10
+ARG PYTHON_VERSION 3.7.10
+ENV PYTHON_VERSION ${PYTHON_VERSION}
 
 RUN set -eux; \
 	\
@@ -49,6 +47,7 @@ RUN set -eux; \
 		xz-utils \
 		zlib1g-dev \
 	; \
+	wget -O python.tar.xz "https://www.python.org/ftp/python/${PYTHON_VERSION%%[a-z]*}/Python-$PYTHON_VERSION.tar.xz"; \
 	mkdir -p /usr/src/python; \
 	tar --extract --directory /usr/src/python --strip-components=1 --file python.tar.xz; \
 	rm python.tar.xz; \
@@ -133,7 +132,8 @@ RUN set -eux; \
 		| xargs -r apt-mark manual \
 	; \
 	apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false; \
-	rm -rf /var/lib/apt/lists/*; \
+	apt-get clean; \
+	rm -rf /var/lib/apt/lists/* /var/cache/apt/* /tmp/*; \
 	\
 	python3 --version
 
@@ -148,11 +148,23 @@ RUN set -eux; \
 
 # if this is called "PIP_VERSION", pip explodes with "ValueError: invalid truth value '<VERSION>'"
 ENV PYTHON_PIP_VERSION 21.1.3
-
-COPY get-pip.py /
+# https://github.com/pypa/get-pip
+ARG PYTHON_GET_PIP_URL https://github.com/pypa/get-pip/raw/0d8570dc44796f4369b652222cf176b3db6ac70e/public/get-pip.py
+ENV PYTHON_GET_PIP_URL ${PYTHON_GET_PIP_URL}
 
 RUN set -eux; \
 	\
+	savedAptMark="$(apt-mark showmanual)"; \
+	apt-get update; \
+	apt-get install -y --no-install-recommends wget; \
+	\
+	wget -O get-pip.py "$PYTHON_GET_PIP_URL"; \
+	\
+		apt-mark auto '.*' > /dev/null; \
+	[ -z "$savedAptMark" ] || apt-mark manual $savedAptMark > /dev/null; \
+	apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false; \
+	apt-get clean; \
+	rm -rf /var/lib/apt/lists/* /var/cache/apt/* /tmp/*; \
 	export PYTHONDONTWRITEBYTECODE=1; \
 	\
 	python get-pip.py \

@@ -8,7 +8,6 @@ ENV PATH /usr/local/bin:$PATH
 # > At the moment, setting "LANG=C" on a Linux system *fundamentally breaks Python 3*, and that's not OK.
 ENV LANG C.UTF-8
 
-COPY Python-3.8.0.tar.xz python.tar.xz
 
 # runtime dependencies
 RUN set -eux; \
@@ -17,7 +16,8 @@ RUN set -eux; \
 		wget \
 	;
 
-ENV PYTHON_VERSION 3.8.0
+ARG PYTHON_VERSION 3.8.0
+ENV PYTHON_VERSION ${PYTHON_VERSION}
 
 RUN set -eux; \
 	\
@@ -27,6 +27,7 @@ RUN set -eux; \
 		xz \
 	; \
 	\
+	wget -O python.tar.xz "https://www.python.org/ftp/python/${PYTHON_VERSION%%[a-z]*}/Python-$PYTHON_VERSION.tar.xz"; \
 	mkdir -p /usr/src/python; \
 	tar --extract --directory /usr/src/python --strip-components=1 --file python.tar.xz; \
 	rm python.tar.xz; \
@@ -62,7 +63,6 @@ RUN set -eux; \
 # update config.sub && config.guess
 	wget -O ./config.sub "git.savannah.gnu.org/gitweb/?p=config.git;a=blob_plain;f=config.sub;hb=HEAD"; \
 	wget -O ./config.guess "git.savannah.gnu.org/gitweb/?p=config.git;a=blob_plain;f=config.guess;hb=HEAD"; \
-
 	gnuArch="$(dpkg-architecture --query DEB_BUILD_GNU_TYPE)"; \
 	./configure \
 		--build="$gnuArch" \
@@ -113,10 +113,14 @@ RUN set -eux; \
 
 # if this is called "PIP_VERSION", pip explodes with "ValueError: invalid truth value '<VERSION>'"
 ENV PYTHON_PIP_VERSION 19.3.1
-
-COPY get-pip.py /
+# https://github.com/pypa/get-pip
+ARG PYTHON_GET_PIP_URL https://github.com/pypa/get-pip/raw/ffe826207a010164265d9cc807978e3604d18ca0/get-pip.py
+ENV PYTHON_GET_PIP_URL ${PYTHON_GET_PIP_URL}
 
 RUN set -ex; \
+	\
+	wget -O get-pip.py "$PYTHON_GET_PIP_URL"; \
+	\
 	export PYTHONDONTWRITEBYTECODE=1; \
 	\
 	python get-pip.py \
