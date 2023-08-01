@@ -1,0 +1,21 @@
+From 0e094a52ce3be8f56551a5d3156a84e29d235d1d Mon Sep 17 00:00:00 2001
+From: zhangguanzhang <zhangguanzhang@qq.com>
+Date: Tue, 1 Aug 2023 14:35:50 +0800
+Subject: [PATCH] add dockerfile loong64
+
+---
+ Dockerfile.loong64 | 2 ++
+ 1 file changed, 2 insertions(+)
+ create mode 100644 Dockerfile.loong64
+
+diff --git a/Dockerfile.loong64 b/Dockerfile.loong64
+new file mode 100644
+index 0000000..cce169b
+--- /dev/null
++++ b/Dockerfile.loong64
+@@ -0,0 +1,2 @@
++FROM cr.loongnix.cn/library/alpine:3.11
++COPY dist/flannel-loong64 /flannel
+-- 
+2.25.1
+
