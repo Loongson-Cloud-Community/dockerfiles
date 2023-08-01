@@ -1,12 +1,12 @@
-From 2aff4f511b0963ab5d476f64f5834ef9a989a4a4 Mon Sep 17 00:00:00 2001
+From cdfd5747e3367bf7af21a32792e3f127120aab01 Mon Sep 17 00:00:00 2001
 From: zhangguanzhang <zhangguanzhang@qq.com>
-Date: Tue, 1 Aug 2023 15:41:55 +0800
+Date: Tue, 22 Aug 2023 16:30:56 +0800
 Subject: [PATCH] support loong64
 
 ---
  Dockerfile | 7 ++++---
- Makefile   | 4 +++-
- 2 files changed, 7 insertions(+), 4 deletions(-)
+ Makefile   | 7 +++++--
+ 2 files changed, 9 insertions(+), 5 deletions(-)
 
 diff --git a/Dockerfile b/Dockerfile
 index c02e3a5b..e2a4ef26 100644
@@ -32,23 +32,26 @@ index c02e3a5b..e2a4ef26 100644
  
  USER nobody
 diff --git a/Makefile b/Makefile
-index e716baf5..b4fd2424 100644
+index e716baf5..1bc80807 100644
 --- a/Makefile
 +++ b/Makefile
-@@ -17,6 +17,7 @@ ALL_ARCH = amd64 arm arm64 ppc64le s390x
+@@ -17,7 +17,9 @@ ALL_ARCH = amd64 arm arm64 ppc64le s390x
  PKG = github.com/prometheus/common
  PROMETHEUS_VERSION = 2.44.0
  GO_VERSION = 1.20.4
+-IMAGE = $(REGISTRY)/kube-state-metrics
 +GO_IMG ?= golang:1.20
- IMAGE = $(REGISTRY)/kube-state-metrics
++IMAGE ?= $(REGISTRY)/kube-state-metrics
++IMAGE_NAME ?= $(IMAGE):$(TAG)
  MULTI_ARCH_IMG = $(IMAGE)-$(ARCH)
  USER ?= $(shell id -u -n)
-@@ -92,7 +93,8 @@ all: all-container
+ HOST ?= $(shell hostname)
+@@ -92,7 +94,8 @@ all: all-container
  container: container-$(ARCH)
  
  container-%:
 -	${DOCKER_CLI} build --pull -t $(IMAGE)-$*:$(TAG) --build-arg GOVERSION=$(GO_VERSION) --build-arg GOARCH=$* .
-+	${DOCKER_CLI} build --pull -t $(IMAGE):$(TAG) \
++	${DOCKER_CLI} build --pull -t $(IMAGE_NAME) \
 +		--build-arg GO_IMG=$(GO_IMG) --build-arg GOARCH=$* .
  
  sub-container-%:

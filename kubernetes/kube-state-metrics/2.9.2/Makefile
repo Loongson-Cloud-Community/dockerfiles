@@ -8,7 +8,7 @@ LATEST?=true
 
 GO_IMG?=cr.loongnix.cn/library/golang:1.19
 
-IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):$(TAG)
+IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):$(patsubst v%,%,$(TAG))
 LATEST_IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):latest
 
 SOURCE_URL=https://github.com/kubernetes/kube-state-metrics.git
@@ -24,14 +24,13 @@ src/$(SOURCE):
 
 image: src/$(SOURCE)
 	cd src/$(SOURCE) && \
-	REGISTRY=$(REGISTRY)/$(ORGANIZATION) \
-	GO_IMG=$(GO_IMG) \
-		make container-loong64
+	IMAGE_NAME=$(IMAGE) \
+	ARCH=loong64 GO_IMG=$(GO_IMG) \
+		make container
 
 push:
 	docker push $(IMAGE)
-	@if [ $(LATEST) = "true" ]; \
-		then\
+	@if [ $(LATEST) = "true" ]; then \
 		docker tag $(IMAGE) $(LATEST_IMAGE); \
 		docker push $(LATEST_IMAGE); \
 	fi
