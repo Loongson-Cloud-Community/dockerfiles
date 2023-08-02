@@ -1,0 +1,50 @@
+From c0f3d3a67670bf32e56b7619897b70fae195b5af Mon Sep 17 00:00:00 2001
+From: zhangguanzhang <zhangguanzhang@qq.com>
+Date: Wed, 2 Aug 2023 10:24:18 +0800
+Subject: [PATCH] support loong64
+
+---
+ Dockerfile | 16 +++-------------
+ Makefile   |  1 -
+ 2 files changed, 3 insertions(+), 14 deletions(-)
+
+diff --git a/Dockerfile b/Dockerfile
+index 21266f76..734dd2d1 100644
+--- a/Dockerfile
++++ b/Dockerfile
+@@ -1,17 +1,7 @@
+-FROM --platform=${BUILDPLATFORM} golang:1.20
++ARG IMG=cr.loongnix.cn/prometheus/busybox:glibc
++FROM ${IMG}
+ 
+-LABEL org.opencontainers.image.source https://github.com/cloudflare/cfssl
+-LABEL org.opencontainers.image.description "Cloudflare's PKI toolkit"
+-
+-ARG TARGETOS
+-ARG TARGETARCH
+-
+-WORKDIR /workdir
+-COPY . /workdir
+-
+-RUN git clone https://github.com/cloudflare/cfssl_trust.git /etc/cfssl && \
+-    make clean && \
+-    GOOS=${TARGETOS} GOARCH=${TARGETARCH} make all && cp bin/* /usr/bin/
++COPY bin/* /usr/bin/
+ 
+ EXPOSE 8888
+ 
+diff --git a/Makefile b/Makefile
+index 6c72dc03..c4a68ad2 100644
+--- a/Makefile
++++ b/Makefile
+@@ -2,7 +2,6 @@ VERSION := $(shell git describe --tags --abbrev=0 | tr -d '[:alpha:]')
+ LDFLAGS := "-s -w -X github.com/cloudflare/cfssl/cli/version.version=$(VERSION)"
+ 
+ export GOFLAGS := -mod=vendor
+-export GOPROXY := off
+ 
+ .PHONY: all
+ all: bin/cfssl bin/cfssl-bundle bin/cfssl-certinfo bin/cfssl-newkey bin/cfssl-scan bin/cfssljson bin/mkbundle bin/multirootca
+-- 
+2.25.1
+
