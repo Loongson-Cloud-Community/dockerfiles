@@ -2,9 +2,6 @@ FROM cr.loongnix.cn/library/debian:buster
 
 LABEL maintainer="shanjiantao@loongson.cn"
 
-ENV http_proxy http://10.130.0.16:7890
-ENV https_proxy http://10.130.0.16:7890
-
 RUN groupadd --gid 1000 node \
   && useradd --uid 1000 --gid node --shell /bin/bash --create-home node
 
