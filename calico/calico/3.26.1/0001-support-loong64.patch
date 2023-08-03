@@ -1,0 +1,810 @@
+From 2d5fdd8f71caa6d0c146c79bfac423b8d5864bd4 Mon Sep 17 00:00:00 2001
+From: zhangguanzhang <zhangguanzhang@qq.com>
+Date: Fri, 4 Aug 2023 17:02:21 +0800
+Subject: [PATCH] support loong64
+
+---
+ apiserver/Makefile                            |  7 ++-
+ apiserver/docker-image/Dockerfile.loong64     | 25 +++++++++
+ app-policy/Dockerfile.loong64                 |  5 ++
+ app-policy/Makefile                           |  5 +-
+ calicoctl/Dockerfile.loong64                  | 13 +++++
+ calicoctl/Makefile                            |  5 +-
+ cni-plugin/Dockerfile.loong64                 | 12 +++++
+ cni-plugin/Makefile                           | 17 +++---
+ felix/bpf-apache/Makefile                     |  5 +-
+ felix/bpf-gpl/Makefile                        |  5 +-
+ .../include/libbpf/src/loong64/libbpf.pc      | 12 +++++
+ go.mod                                        |  8 +--
+ go.sum                                        | 11 ++++
+ kube-controllers/Dockerfile.loong64           |  7 +++
+ kube-controllers/Makefile                     | 11 ++--
+ .../flannel-migration/Dockerfile.loong64      |  7 +++
+ lib.Makefile                                  | 32 +++++++----
+ node/Dockerfile.loong64                       | 53 +++++++++++++++++++
+ node/Makefile                                 |  5 +-
+ pod2daemon/Dockerfile.loong64                 |  6 +++
+ pod2daemon/Makefile                           | 12 +++--
+ pod2daemon/csidriver/Dockerfile.loong64       |  5 ++
+ .../Dockerfile.loong64                        |  5 ++
+ typha/Makefile                                |  5 +-
+ typha/docker-image/Dockerfile.loong64         | 21 ++++++++
+ 25 files changed, 256 insertions(+), 43 deletions(-)
+ create mode 100644 apiserver/docker-image/Dockerfile.loong64
+ create mode 100644 app-policy/Dockerfile.loong64
+ create mode 100644 calicoctl/Dockerfile.loong64
+ create mode 100644 cni-plugin/Dockerfile.loong64
+ create mode 100644 felix/bpf-gpl/include/libbpf/src/loong64/libbpf.pc
+ create mode 100644 kube-controllers/Dockerfile.loong64
+ create mode 100644 kube-controllers/docker-images/flannel-migration/Dockerfile.loong64
+ create mode 100644 node/Dockerfile.loong64
+ create mode 100644 pod2daemon/Dockerfile.loong64
+ create mode 100644 pod2daemon/csidriver/Dockerfile.loong64
+ create mode 100644 pod2daemon/node-driver-registrar-docker/Dockerfile.loong64
+ create mode 100644 typha/docker-image/Dockerfile.loong64
+
+diff --git a/apiserver/Makefile b/apiserver/Makefile
+index 0b909a789..17e0aee30 100644
+--- a/apiserver/Makefile
++++ b/apiserver/Makefile
+@@ -10,6 +10,7 @@ EXTRA_FILES_TO_COMMIT=*_generated.go *_generated.*.go
+ # e.g., <registry>/<name>:<tag>
+ API_SERVER_IMAGE      ?=apiserver
+ BUILD_IMAGES          ?=$(API_SERVER_IMAGE)
++IMAGE_NAME            ?=$(API_SERVER_IMAGE):latest-$(ARCH)
+ 
+ EXTRA_DOCKER_ARGS += -e GOLANGCI_LINT_CACHE=/lint-cache -v $(CURDIR)/.lint-cache:/lint-cache:rw \
+ 				 -v $(CURDIR)/../hack/boilerplate:/go/src/k8s.io/kubernetes/hack/boilerplate:rw
+@@ -68,7 +69,9 @@ BINDIR=bin
+ endif
+ 
+ # Use ARCH specific build image.
++ifeq ($(ARCH),arm64)
+ CALICO_BUILD:=$(CALICO_BUILD)-$(ARCH)
++endif
+ 
+ ###############################################################################
+ # Static checks
+@@ -124,8 +127,8 @@ sub-image-fips-%:
+ 
+ $(API_SERVER_IMAGE): register $(CONTAINER_MARKER)
+ $(CONTAINER_CREATED): docker-image/Dockerfile.$(ARCH) $(BINDIR)/apiserver-$(ARCH) $(BINDIR)/filecheck-$(ARCH)
+-	$(DOCKER_BUILD) --build-arg BIN_DIR=$(BINDIR) -t $(API_SERVER_IMAGE):latest-$(ARCH) -f docker-image/Dockerfile.$(ARCH) . --load
+-	$(MAKE) retag-build-images-with-registries VALIDARCHES=$(ARCH) IMAGETAG=latest
++	$(DOCKER_BUILD) --build-arg BIN_DIR=$(BINDIR) -t $(IMAGE_NAME) -f docker-image/Dockerfile.$(ARCH) . 
++	# $(MAKE) retag-build-images-with-registries VALIDARCHES=$(ARCH) IMAGETAG=latest
+ 	touch $@
+ 
+ $(CONTAINER_FIPS_CREATED): docker-image/Dockerfile.$(ARCH) $(BINDIR)/apiserver-$(ARCH) $(BINDIR)/filecheck-$(ARCH)
+diff --git a/apiserver/docker-image/Dockerfile.loong64 b/apiserver/docker-image/Dockerfile.loong64
+new file mode 100644
+index 000000000..805ba0833
+--- /dev/null
++++ b/apiserver/docker-image/Dockerfile.loong64
+@@ -0,0 +1,25 @@
++ARG UBI_IMAGE
++
++FROM --platform=linux/loong64 ${UBI_IMAGE} as ubi
++
++RUN microdnf upgrade || true
++
++# At runtime, apiserver generate certificates in /code directory
++# hence, provide RW permission for user 1001
++RUN mkdir /code
++RUN rm -rf /tmp
++RUN mkdir /tmp
++
++FROM scratch
++COPY  --from=ubi /code /code
++COPY  --from=ubi /tmp /tmp
++# copies the shared linux libs required by apiserver
++COPY --from=ubi /lib64/libpthread.so.0 /lib64/libpthread.so.0
++COPY --from=ubi /lib64/libc.so.6 /lib64/libc.so.6
++
++ADD  bin/apiserver-loong64 /code/apiserver
++ADD  bin/filecheck-loong64 /code/filecheck
++
++WORKDIR /code
++
++ENTRYPOINT ["./apiserver"]
+diff --git a/app-policy/Dockerfile.loong64 b/app-policy/Dockerfile.loong64
+new file mode 100644
+index 000000000..41f85d5f2
+--- /dev/null
++++ b/app-policy/Dockerfile.loong64
+@@ -0,0 +1,5 @@
++FROM scratch
++
++ADD bin/dikastes-loong64 /dikastes
++ADD bin/healthz-loong64 /healthz
++CMD ["/dikastes"]
+diff --git a/app-policy/Makefile b/app-policy/Makefile
+index d29bebd4e..cead084e6 100644
+--- a/app-policy/Makefile
++++ b/app-policy/Makefile
+@@ -17,6 +17,7 @@ SRC_FILES=$(shell find . -name '*.go' |grep -v vendor) $(GENERATED_FILES)
+ # e.g., <registry>/<name>:<tag>
+ DIKASTES_IMAGE ?=dikastes
+ BUILD_IMAGES ?= $(DIKASTES_IMAGE)
++IMAGE_NAME ?= $(DIKASTES_IMAGE):latest-$(ARCH)
+ 
+ LDFLAGS = -X $(PACKAGE_NAME)/buildinfo.GitVersion=$(GIT_DESCRIPTION) \
+ 			-X $(PACKAGE_NAME)/buildinfo.BuildDate=$(DATE) \
+@@ -175,8 +176,8 @@ sub-image-fips-%:
+ 
+ $(DIKASTES_IMAGE): $(CONTAINER_MARKER)
+ $(CONTAINER_CREATED): Dockerfile.$(ARCH) $(BINDIR)/dikastes-$(ARCH) $(BINDIR)/healthz-$(ARCH)
+-	$(DOCKER_BUILD) --build-arg BIN_DIR=$(BINDIR) -t $(DIKASTES_IMAGE):latest-$(ARCH) -f Dockerfile.$(ARCH) . --load
+-	$(MAKE) retag-build-images-with-registries VALIDARCHES=$(ARCH) IMAGETAG=latest
++	$(DOCKER_BUILD) --build-arg BIN_DIR=$(BINDIR) -t $(IMAGE_NAME) -f Dockerfile.$(ARCH) . 
++	# $(MAKE) retag-build-images-with-registries VALIDARCHES=$(ARCH) IMAGETAG=latest
+ 	touch $@
+ 
+ $(CONTAINER_FIPS_CREATED): Dockerfile.$(ARCH) $(BINDIR)/dikastes-$(ARCH) $(BINDIR)/healthz-$(ARCH)
+diff --git a/calicoctl/Dockerfile.loong64 b/calicoctl/Dockerfile.loong64
+new file mode 100644
+index 000000000..dd31e0aaa
+--- /dev/null
++++ b/calicoctl/Dockerfile.loong64
+@@ -0,0 +1,13 @@
++FROM cr.loongnix.cn/library/alpine:3.11
++# Enable non-native builds of this image on an amd64 hosts.
++# This must be the first RUN command in this file!
++LABEL MAINTAINER Tom Denham <tom@projectcalico.org>
++
++ADD bin/calicoctl-linux-loong64 /calicoctl
++
++ENV CALICO_CTL_CONTAINER=TRUE
++ENV PATH=$PATH:/
++
++
++WORKDIR /root
++ENTRYPOINT ["/calicoctl"]
+diff --git a/calicoctl/Makefile b/calicoctl/Makefile
+index b3979c3d8..f4fb16408 100644
+--- a/calicoctl/Makefile
++++ b/calicoctl/Makefile
+@@ -9,6 +9,7 @@ KUBE_MOCK_NODE_MANIFEST?=mock-node.yaml
+ # e.g., <registry>/<name>:<tag>
+ CALICOCTL_IMAGE       ?=ctl
+ BUILD_IMAGES          ?=$(CALICOCTL_IMAGE)
++IMAGE_NAME            ?= $(CALICOCTL_IMAGE):latest-$(ARCH)
+ RELEASE_BRANCH_PREFIX ?= release
+ DEV_TAG_SUFFIX        ?= 0.dev
+ 
+@@ -101,8 +102,8 @@ gen-crds:
+ image: $(CALICOCTL_IMAGE)
+ $(CALICOCTL_IMAGE): $(CTL_CONTAINER_CREATED)
+ $(CTL_CONTAINER_CREATED): Dockerfile.$(ARCH) bin/calicoctl-linux-$(ARCH) register
+-	$(DOCKER_BUILD) -t $(CALICOCTL_IMAGE):latest-$(ARCH) -f Dockerfile.$(ARCH) . --load
+-	$(MAKE) retag-build-images-with-registries VALIDARCHES=$(ARCH) IMAGETAG=latest
++	$(DOCKER_BUILD) -t $(IMAGE_NAME) -f Dockerfile.$(ARCH) . 
++	# $(MAKE) retag-build-images-with-registries VALIDARCHES=$(ARCH) IMAGETAG=latest
+ 	touch $@
+ 
+ # by default, build the image for the target architecture
+diff --git a/cni-plugin/Dockerfile.loong64 b/cni-plugin/Dockerfile.loong64
+new file mode 100644
+index 000000000..ff4120111
+--- /dev/null
++++ b/cni-plugin/Dockerfile.loong64
+@@ -0,0 +1,12 @@
++FROM scratch
++
++ADD licenses/ /licenses
++ADD LICENSE /licenses/
++
++LABEL maintainer "maintainers@projectcalico.org"
++
++ADD bin/loong64 /opt/cni/bin/
++
++ENV PATH=$PATH:/opt/cni/bin
++WORKDIR /opt/cni/bin
++CMD ["/opt/cni/bin/install"]
+\ No newline at end of file
+diff --git a/cni-plugin/Makefile b/cni-plugin/Makefile
+index e8a4c03f5..b2ffa7de2 100644
+--- a/cni-plugin/Makefile
++++ b/cni-plugin/Makefile
+@@ -9,6 +9,7 @@ LOCAL_CHECKS=check-boring-ssl
+ # e.g., <registry>/<name>:<tag>
+ CNI_PLUGIN_IMAGE ?=cni
+ BUILD_IMAGES   ?=$(CNI_PLUGIN_IMAGE)
++IMAGE_NAME    ?= $(CNI_PLUGIN_IMAGE):latest-$(ARCH)
+ 
+ ###############################################################################
+ # Download and include ../lib.Makefile
+@@ -30,7 +31,7 @@ CURL=curl -C - -sSf
+ # Use forked CNI plugin URL and corresponding tagged artifacts.
+ CNI_VERSION=v1.1.1-calico+go-1.20.5
+ CNI_ARTIFACTS_URL=https://github.com/projectcalico/containernetworking-plugins/releases/download
+-FLANNEL_VERSION=v1.1.2
++FLANNEL_VERSION ?= v1.2.0
+ 
+ # By default set the CNI_SPEC_VERSION to 0.3.1 for tests.
+ CNI_SPEC_VERSION?=0.3.1
+@@ -118,8 +119,8 @@ sub-image-fips-%:
+ 
+ # Builds the statically compiled binaries into a container.
+ $(DEPLOY_CONTAINER_STATIC_MARKER): Dockerfile.$(ARCH) build fetch-cni-bins
+-	$(DOCKER_BUILD) --build-arg BIN_DIR=$(BIN) -t $(CNI_PLUGIN_IMAGE):latest-$(ARCH) -f Dockerfile.$(ARCH) . --load
+-	$(MAKE) retag-build-images-with-registries VALIDARCHES=$(ARCH) IMAGETAG=latest
++	$(DOCKER_BUILD) --build-arg BIN_DIR=$(BIN) -t $(IMAGE_NAME) -f Dockerfile.$(ARCH) . 
++	# $(MAKE) retag-build-images-with-registries VALIDARCHES=$(ARCH) IMAGETAG=latest
+ 	touch $@
+ 
+ # Builds the FIPS binaries into a container.
+@@ -133,12 +134,16 @@ fetch-cni-bins: $(BIN)/flannel $(BIN)/loopback $(BIN)/host-local $(BIN)/portmap
+ 
+ $(BIN)/loopback $(BIN)/host-local $(BIN)/portmap $(BIN)/tuning $(BIN)/bandwidth:
+ 	mkdir -p $(BIN)
+-	$(CURL) -L --retry 5 $(CNI_ARTIFACTS_URL)/$(CNI_VERSION)/cni-plugins-linux-$(subst v7,,$(ARCH))-$(CNI_VERSION).tgz | tar -xz -C $(BIN) ./loopback ./host-local ./portmap ./tuning ./bandwidth
++	git clone -q -b $(CNI_VERSION) --depth=1 https://github.com/projectcalico/containernetworking-plugins.git
++	$(DOCKER_GO_BUILD) bash -c "cd containernetworking-plugins && go get -u golang.org/x/sys && go mod vendor && ./build_linux.sh"
++	cd containernetworking-plugins/bin && cp ./loopback ./host-local ./portmap ./tuning ./bandwidth ../../$(BIN)/
++	rm -rf containernetworking-plugins
+ 
+ $(BIN)/flannel:
+ 	mkdir -p $(BIN)
+-	$(CURL) -L --retry 5 https://github.com/flannel-io/cni-plugin/releases/download/$(FLANNEL_VERSION)/cni-plugin-flannel-linux-$(subst v7,,$(ARCH))-$(FLANNEL_VERSION).tgz | tar -xz -C $(BIN) ./flannel-$(subst v7,,$(ARCH))
+-	mv $(BIN)/flannel-$(subst v7,,$(ARCH)) $(BIN)/flannel
++	docker pull cr.loongnix.cn/flannel/flannel-cni-plugin:$(FLANNEL_VERSION)
++	docker create --name flannel-$(ARCH) cr.loongnix.cn/flannel/flannel-cni-plugin:$(FLANNEL_VERSION)
++	docker cp flannel-$(ARCH):/flannel $(BIN)/flannel
+ 
+ ###############################################################################
+ # Unit Tests
+diff --git a/felix/bpf-apache/Makefile b/felix/bpf-apache/Makefile
+index 85b357dc1..796d00dad 100644
+--- a/felix/bpf-apache/Makefile
++++ b/felix/bpf-apache/Makefile
+@@ -24,7 +24,6 @@ CFLAGS +=  \
+ 	-Wno-compare-distinct-pointer-types \
+ 	-Wunused \
+ 	-Wall \
+-	-Werror \
+ 	-fno-stack-protector \
+ 	-O2 \
+ 	-target bpf \
+@@ -34,8 +33,8 @@ CFLAGS +=  \
+ TRIPLET := $(shell gcc -dumpmachine)
+ CFLAGS += -I/usr/include/$(TRIPLET)
+ 
+-CC := clang-12
+-LD := llc-12
++CC := clang-13
++LD := llc-13
+ 
+ C_FILES:=filter.c redir.c sockops.c
+ OBJS:=$(addprefix bin/,$(C_FILES:.c=.o))
+diff --git a/felix/bpf-gpl/Makefile b/felix/bpf-gpl/Makefile
+index 7c927caf2..466d87f37 100644
+--- a/felix/bpf-gpl/Makefile
++++ b/felix/bpf-gpl/Makefile
+@@ -9,7 +9,6 @@
+ # for BPF programs and makes inline assembly aware of the BPF registers.
+ CFLAGS +=  \
+ 	-Wall \
+-	-Werror \
+ 	-fno-stack-protector \
+ 	-O2 \
+ 	-target bpf \
+@@ -43,8 +42,8 @@ CFLAGS +=  \
+ TRIPLET := $(shell gcc -dumpmachine)
+ CFLAGS += -I/usr/include/$(TRIPLET)
+ 
+-CC := clang-12
+-LD := llc-12
++CC := clang-13
++LD := llc-13
+ 
+ UT_C_FILES:=$(shell find ut -name '*.c')
+ UT_OBJS:=$(UT_C_FILES:.c=.o) $(shell ./list-ut-objs)
+diff --git a/felix/bpf-gpl/include/libbpf/src/loong64/libbpf.pc b/felix/bpf-gpl/include/libbpf/src/loong64/libbpf.pc
+new file mode 100644
+index 000000000..b90b66683
+--- /dev/null
++++ b/felix/bpf-gpl/include/libbpf/src/loong64/libbpf.pc
+@@ -0,0 +1,12 @@
++# SPDX-License-Identifier: (LGPL-2.1 OR BSD-2-Clause)
++
++prefix=/usr
++libdir=${prefix}/lib
++includedir=${prefix}/include
++
++Name: libbpf
++Description: BPF library
++Version: 0.4.0
++Libs: -L${libdir} -lbpf
++Requires.private: libelf zlib
++Cflags: -I${includedir}
+diff --git a/go.mod b/go.mod
+index ed24a9e2d..d7781d208 100644
+--- a/go.mod
++++ b/go.mod
+@@ -62,7 +62,7 @@ require (
+ 	github.com/prometheus/common v0.37.0
+ 	github.com/rakelkar/gonetsh v0.3.2
+ 	github.com/satori/go.uuid v1.2.0
+-	github.com/shirou/gopsutil v0.0.0-20190323131628-2cbc9195c892
++	github.com/shirou/gopsutil v3.21.11+incompatible
+ 	github.com/sirupsen/logrus v1.9.0
+ 	github.com/spf13/cobra v1.7.0
+ 	github.com/spf13/pflag v1.0.5
+@@ -76,7 +76,7 @@ require (
+ 	go.etcd.io/etcd/client/v3 v3.5.8
+ 	golang.org/x/net v0.8.0
+ 	golang.org/x/sync v0.1.0
+-	golang.org/x/sys v0.6.0
++	golang.org/x/sys v0.10.0
+ 	golang.org/x/text v0.8.0
+ 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20200324154536-ceff61240acf
+ 	google.golang.org/genproto v0.0.0-20221227171554-f9683d7f8bef
+@@ -95,7 +95,7 @@ require (
+ 	k8s.io/kube-openapi v0.0.0-20230303024457-afdc3dddf62d
+ 	k8s.io/kubernetes v1.26.5
+ 	k8s.io/utils v0.0.0-20230313181309-38a27ef9d749
+-	modernc.org/memory v1.5.0
++	modernc.org/memory v1.6.0
+ 	sigs.k8s.io/kind v0.11.1
+ )
+ 
+@@ -222,6 +222,8 @@ require (
+ 	github.com/stretchr/testify v1.8.1 // indirect
+ 	github.com/subosito/gotenv v1.4.2 // indirect
+ 	github.com/syndtr/gocapability v0.0.0-20200815063812-42c35b437635 // indirect
++	github.com/tklauser/go-sysconf v0.3.11 // indirect
++	github.com/tklauser/numcpus v0.6.0 // indirect
+ 	github.com/vishvananda/netns v0.0.0-20210104183010-2eb08e3e575f // indirect
+ 	github.com/vmware/govmomi v0.20.3 // indirect
+ 	go.opencensus.io v0.24.0 // indirect
+diff --git a/go.sum b/go.sum
+index 380b9900f..dd0d50cc5 100644
+--- a/go.sum
++++ b/go.sum
+@@ -788,6 +788,8 @@ github.com/seccomp/libseccomp-golang v0.9.2-0.20220502022130-f33da4d89646 h1:Rpf
+ github.com/seccomp/libseccomp-golang v0.9.2-0.20220502022130-f33da4d89646/go.mod h1:JA8cRccbGaA1s33RQf7Y1+q9gHmZX1yB/z9WDN1C6fg=
+ github.com/shirou/gopsutil v0.0.0-20190323131628-2cbc9195c892 h1:oiNB/s36DdNBEnulbhdj6zHS73U/wRQihnsoJwanqfM=
+ github.com/shirou/gopsutil v0.0.0-20190323131628-2cbc9195c892/go.mod h1:WWnYX4lzhCH5h/3YBfyVA3VbLYjlMZZAQcW9ojMexNc=
++github.com/shirou/gopsutil v3.21.11+incompatible h1:+1+c1VGhc88SSonWP6foOcLhvnKlUeu/erjjvaPEYiI=
++github.com/shirou/gopsutil v3.21.11+incompatible/go.mod h1:5b4v6he4MtMOwMlS0TUMTu2PcXUg8+E1lC7eC3UO/RA=
+ github.com/shirou/w32 v0.0.0-20160930032740-bb4de0191aa4 h1:udFKJ0aHUL60LboW/A+DfgoHVedieIzIXE8uylPue0U=
+ github.com/shirou/w32 v0.0.0-20160930032740-bb4de0191aa4/go.mod h1:qsXQc7+bwAM3Q1u/4XEfrquwF8Lw7D7y5cD8CuHnfIc=
+ github.com/shurcooL/sanitized_anchor_name v1.0.0/go.mod h1:1NzhyTcUVG4SuEtjjoZeVRXNmyL/1OwPU0+IJeTBvfc=
+@@ -849,6 +851,10 @@ github.com/tchap/go-patricia/v2 v2.3.1 h1:6rQp39lgIYZ+MHmdEq4xzuk1t7OdC35z/xm0BG
+ github.com/tchap/go-patricia/v2 v2.3.1/go.mod h1:VZRHKAb53DLaG+nA9EaYYiaEx6YztwDlLElMsnSHD4k=
+ github.com/termie/go-shutil v0.0.0-20140729215957-bcacb06fecae h1:vgGSvdW5Lqg+I1aZOlG32uyE6xHpLdKhZzcTEktz5wM=
+ github.com/termie/go-shutil v0.0.0-20140729215957-bcacb06fecae/go.mod h1:quDq6Se6jlGwiIKia/itDZxqC5rj6/8OdFyMMAwTxCs=
++github.com/tklauser/go-sysconf v0.3.11 h1:89WgdJhk5SNwJfu+GKyYveZ4IaJ7xAkecBo+KdJV0CM=
++github.com/tklauser/go-sysconf v0.3.11/go.mod h1:GqXfhXY3kiPa0nAXPDIQIWzJbMCB7AmcWpGR8lSZfqI=
++github.com/tklauser/numcpus v0.6.0 h1:kebhY2Qt+3U6RNK7UqpYNA+tJ23IBEGKkB7JQBfDYms=
++github.com/tklauser/numcpus v0.6.0/go.mod h1:FEZLMke0lhOUG6w2JadTzp0a+Nl8PF/GFkQ5UVIcaL4=
+ github.com/tmc/grpc-websocket-proxy v0.0.0-20190109142713-0ad062ec5ee5/go.mod h1:ncp9v5uamzpCO7NfCPTXjqaC+bZgJeR0sMTm6dMHP7U=
+ github.com/tmc/grpc-websocket-proxy v0.0.0-20201229170055-e5319fda7802 h1:uruHq4dN7GR16kFc5fp3d1RIYzJW5onx8Ybykw2YQFA=
+ github.com/urfave/cli v0.0.0-20171014202726-7bc6a0acffa5/go.mod h1:70zkFmudgCuE/ngEzBv17Jvp/497gISqfk5gWijbERA=
+@@ -1178,9 +1184,12 @@ golang.org/x/sys v0.0.0-20220722155257-8c9f86f7a55f/go.mod h1:oPkhp1MJrh7nUepCBc
+ golang.org/x/sys v0.0.0-20220804214406-8e32c043e418/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
+ golang.org/x/sys v0.0.0-20220908164124-27713097b956/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
+ golang.org/x/sys v0.1.0/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
++golang.org/x/sys v0.2.0/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
+ golang.org/x/sys v0.5.0/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
+ golang.org/x/sys v0.6.0 h1:MVltZSvRTcU2ljQOhs94SXPftV6DCNnZViHeQps87pQ=
+ golang.org/x/sys v0.6.0/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
++golang.org/x/sys v0.10.0 h1:SqMFp9UcQJZa+pmYuAKjd9xq1f0j5rLcDIk0mj4qAsA=
++golang.org/x/sys v0.10.0/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
+ golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1/go.mod h1:bj7SfCRtBDWHUb9snDiAeCFNEtKQo2Wmx5Cou7ajbmo=
+ golang.org/x/term v0.0.0-20210927222741-03fcf44c2211/go.mod h1:jbD1KX2456YbFQfuXm/mYQcufACuNUgVhRMnK/tPxf8=
+ golang.org/x/term v0.1.0/go.mod h1:jbD1KX2456YbFQfuXm/mYQcufACuNUgVhRMnK/tPxf8=
+@@ -1554,6 +1563,8 @@ k8s.io/utils v0.0.0-20230313181309-38a27ef9d749/go.mod h1:OLgZIPagt7ERELqWJFomSt
+ modernc.org/mathutil v1.5.0 h1:rV0Ko/6SfM+8G+yKiyI830l3Wuz1zRutdslNoQ0kfiQ=
+ modernc.org/memory v1.5.0 h1:N+/8c5rE6EqugZwHii4IFsaJ7MUhoWX07J5tC/iI5Ds=
+ modernc.org/memory v1.5.0/go.mod h1:PkUhL0Mugw21sHPeskwZW4D6VscE/GQJOnIpCnW6pSU=
++modernc.org/memory v1.6.0 h1:i6mzavxrE9a30whzMfwf7XWVODx2r5OYXvU46cirX7o=
++modernc.org/memory v1.6.0/go.mod h1:PkUhL0Mugw21sHPeskwZW4D6VscE/GQJOnIpCnW6pSU=
+ rsc.io/binaryregexp v0.2.0/go.mod h1:qTv7/COck+e2FymRvadv62gMdZztPaShugOCi3I+8D8=
+ rsc.io/quote/v3 v3.1.0/go.mod h1:yEA65RcK8LyAZtP9Kv3t0HmxON59tX3rD+tICJqUlj0=
+ rsc.io/sampler v1.3.0/go.mod h1:T1hPZKmBbMNahiBKFy5HrXp6adAjACjK9JXDnKaTXpA=
+diff --git a/kube-controllers/Dockerfile.loong64 b/kube-controllers/Dockerfile.loong64
+new file mode 100644
+index 000000000..fba4d11cc
+--- /dev/null
++++ b/kube-controllers/Dockerfile.loong64
+@@ -0,0 +1,7 @@
++FROM cr.loongnix.cn/library/alpine:3.11
++
++LABEL maintainer "Casey Davenport <casey@tigera.io>"
++
++ADD bin/kube-controllers-linux-loong64 /usr/bin/kube-controllers
++ADD bin/check-status-linux-loong64 /usr/bin/check-status
++ENTRYPOINT ["/usr/bin/kube-controllers"]
+diff --git a/kube-controllers/Makefile b/kube-controllers/Makefile
+index 1718edd09..0fae78b57 100644
+--- a/kube-controllers/Makefile
++++ b/kube-controllers/Makefile
+@@ -5,7 +5,9 @@ PACKAGE_NAME = github.com/projectcalico/calico/kube-controllers
+ # Name of the images.
+ # e.g., <registry>/<name>:<tag>
+ KUBE_CONTROLLERS_IMAGE  ?=kube-controllers
++IMAGE_NAME 				?= $(KUBE_CONTROLLERS_IMAGE):latest-$(ARCH)
+ FLANNEL_MIGRATION_IMAGE ?=flannel-migration-controller
++FLANNEL_IMAGE_NAME		?=$(FLANNEL_MIGRATION_IMAGE):latest-$(ARCH)
+ 
+ BUILD_IMAGES            ?=$(KUBE_CONTROLLERS_IMAGE) $(FLANNEL_MIGRATION_IMAGE)
+ 
+@@ -91,7 +93,8 @@ $(BINDIR)/check-status-linux-$(ARCH): $(SRC_FILES)
+ 	  $(CALICO_BUILD) sh -c '$(GIT_CONFIG_SSH) go build $(BUILD_TAGS) -buildvcs=false -v -o $@ -ldflags "$(LDFLAGS)" ./cmd/check-status/'
+ 
+ $(BINDIR)/kubectl-$(ARCH):
+-	wget https://storage.googleapis.com/kubernetes-release/release/$(KUBECTL_VERSION)/bin/linux/$(subst armv7,arm,$(ARCH))/kubectl -O $@
++	wget https://github.com/Loongson-Cloud-Community/kubectl/releases/download/kubernetes-$(KUBECTL_VERSION)/kubectl -O $@
++	# wget https://storage.googleapis.com/kubernetes-release/release/$(KUBECTL_VERSION)/bin/linux/$(subst armv7,arm,$(ARCH))/kubectl -O $@
+ 	chmod +x $@
+ 
+ ###############################################################################
+@@ -107,9 +110,9 @@ sub-image-fips-%:
+ image: $(KUBE_CONTROLLER_CONTAINER_MARKER)
+ 
+ $(KUBE_CONTROLLER_CONTAINER_CREATED): $(BINDIR)/kube-controllers-linux-$(ARCH) $(BINDIR)/check-status-linux-$(ARCH) $(BINDIR)/kubectl-$(ARCH) register
+-	$(DOCKER_BUILD) --build-arg BIN_DIR=$(BINDIR) -t $(KUBE_CONTROLLERS_IMAGE):latest-$(ARCH) -f Dockerfile.$(ARCH) . --load
+-	$(DOCKER_BUILD) --build-arg BIN_DIR=$(BINDIR) -t $(FLANNEL_MIGRATION_IMAGE):latest-$(ARCH) -f docker-images/flannel-migration/Dockerfile.$(ARCH) . --load
+-	$(MAKE) retag-build-images-with-registries VALIDARCHES=$(ARCH) IMAGETAG=latest
++	$(DOCKER_BUILD) --build-arg BIN_DIR=$(BINDIR) -t $(IMAGE_NAME) -f Dockerfile.$(ARCH) . 
++	$(DOCKER_BUILD) --build-arg BIN_DIR=$(BINDIR) -t $(FLANNEL_IMAGE_NAME) -f docker-images/flannel-migration/Dockerfile.$(ARCH) . 
++	# $(MAKE) retag-build-images-with-registries VALIDARCHES=$(ARCH) IMAGETAG=latest
+ 	touch $@
+ 
+ $(KUBE_CONTROLLER_CONTAINER_FIPS_CREATED): $(BINDIR)/kube-controllers-linux-$(ARCH) $(BINDIR)/check-status-linux-$(ARCH) $(BINDIR)/kubectl-$(ARCH) register
+diff --git a/kube-controllers/docker-images/flannel-migration/Dockerfile.loong64 b/kube-controllers/docker-images/flannel-migration/Dockerfile.loong64
+new file mode 100644
+index 000000000..236aa3bfb
+--- /dev/null
++++ b/kube-controllers/docker-images/flannel-migration/Dockerfile.loong64
+@@ -0,0 +1,7 @@
++FROM cr.loongnix.cn/library/alpine:3.11
++LABEL maintainer "Song Jiang <song@tigera.io>"
++
++ADD bin/kubectl-loong64 /usr/bin/kubectl
++ADD bin/kube-controllers-linux-loong64 /usr/bin/kube-controllers
++ADD bin/check-status-linux-loong64 /usr/bin/check-status
++ENTRYPOINT ["/usr/bin/kube-controllers"]
+diff --git a/lib.Makefile b/lib.Makefile
+index f61309141..075fd8f84 100644
+--- a/lib.Makefile
++++ b/lib.Makefile
+@@ -50,6 +50,9 @@ endif
+ ifeq ($(BUILDARCH),armv7l)
+         BUILDARCH=armv7
+ endif
++ifeq ($(BUILDARCH),loongarch64)
++        BUILDARCH=loong64
++endif
+ 
+ # unless otherwise set, I am building for my own architecture, i.e. not cross-compiling
+ ARCH ?= $(BUILDARCH)
+@@ -149,8 +152,7 @@ endif
+ # the one for the host should contain all the necessary cross-compilation tools
+ # we do not need to use the arch since go-build:v0.15 now is multi-arch manifest
+ GO_BUILD_IMAGE ?= calico/go-build
+-CALICO_BUILD    = $(GO_BUILD_IMAGE):$(GO_BUILD_VER)
+-
++CALICO_BUILD   ?= $(GO_BUILD_IMAGE):$(GO_BUILD_VER)
+ 
+ # We use BoringCrypto as FIPS validated cryptography in order to allow users to run in FIPS Mode (amd64 only).
+ ifeq ($(ARCH), $(filter $(ARCH),amd64))
+@@ -161,6 +163,8 @@ else
+ CGO_ENABLED?=0
+ endif
+ 
++GOPROXY ?= https://goproxy.cn,https://mirrors.aliyun.com/goproxy/,https://goproxy.io,direct
++
+ # Build a static binary with boring crypto support.
+ # This function expects you to pass in two arguments:
+ #   1st arg: path/to/input/package(s)
+@@ -173,7 +177,7 @@ define build_static_cgo_boring_binary
+         -e CGO_ENABLED=1 \
+         -e CGO_LDFLAGS=$(CGO_LDFLAGS) \
+         -e CGO_CFLAGS=$(CGO_CFLAGS) \
+-        $(GO_BUILD_IMAGE):$(GO_BUILD_VER) \
++        $(CALICO_BUILD) \
+         sh -c '$(GIT_CONFIG_SSH) \
+             GOEXPERIMENT=boringcrypto go build -o $(2)  \
+             -tags fipsstrict,osusergo,netgo -v -buildvcs=false \
+@@ -194,7 +198,7 @@ define build_cgo_boring_binary
+         -e CGO_ENABLED=1 \
+         -e CGO_LDFLAGS=$(CGO_LDFLAGS) \
+         -e CGO_CFLAGS=$(CGO_CFLAGS) \
+-        $(GO_BUILD_IMAGE):$(GO_BUILD_VER) \
++        $(CALICO_BUILD) \
+         sh -c '$(GIT_CONFIG_SSH) \
+             GOEXPERIMENT=boringcrypto go build -o $(2)  \
+             -tags fipsstrict -v -buildvcs=false \
+@@ -209,7 +213,7 @@ define build_cgo_binary
+         -e CGO_ENABLED=1 \
+         -e CGO_LDFLAGS=$(CGO_LDFLAGS) \
+         -e CGO_CFLAGS=$(CGO_CFLAGS) \
+-        $(GO_BUILD_IMAGE):$(GO_BUILD_VER) \
++        $(CALICO_BUILD) \
+         sh -c '$(GIT_CONFIG_SSH) \
+             go build -o $(2)  \
+             -v -buildvcs=false \
+@@ -219,7 +223,7 @@ endef
+ 
+ # For binaries that do not require boring crypto.
+ define build_binary
+-	$(DOCKER_RUN) $(GO_BUILD_IMAGE):$(GO_BUILD_VER) \
++	$(DOCKER_RUN) $(CALICO_BUILD) \
+ 		sh -c '$(GIT_CONFIG_SSH) \
+ 		go build -o $(2)  \
+ 		-v -buildvcs=false \
+@@ -229,7 +233,7 @@ endef
+ 
+ # For binaries that do not require boring crypto.
+ define build_static_binary
+-        $(DOCKER_RUN) $(GO_BUILD_IMAGE):$(GO_BUILD_VER) \
++        $(DOCKER_RUN) $(CALICO_BUILD) \
+                 sh -c '$(GIT_CONFIG_SSH) \
+                 go build -o $(2)  \
+                 -v -buildvcs=false \
+@@ -277,6 +281,8 @@ LOCAL_USER_ID:=$(shell id -u)
+ LOCAL_GROUP_ID:=$(shell id -g)
+ endif
+ 
++EXTRA_DOCKER_ARGS?=
++
+ ifeq ("$(LOCAL_USER_ID)", "0")
+ # The build needs to run as root.
+ EXTRA_DOCKER_ARGS+=-e RUN_AS_ROOT='true'
+@@ -287,15 +293,17 @@ ifdef SSH_AUTH_SOCK
+ 	EXTRA_DOCKER_ARGS += -v $(SSH_AUTH_SOCK):/ssh-agent --env SSH_AUTH_SOCK=/ssh-agent
+ endif
+ 
++EXTRA_DOCKER_ARGS += -e GOPROXY=$(GOPROXY)
++
+ # Volume-mount gopath into the build container to cache go module's packages. If the environment is using multiple
+ # comma-separated directories for gopath, use the first one, as that is the default one used by go modules.
+ ifneq ($(GOPATH),)
+ 	# If the environment is using multiple comma-separated directories for gopath, use the first one, as that
+ 	# is the default one used by go modules.
+-	GOMOD_CACHE = $(shell echo $(GOPATH) | cut -d':' -f1)/pkg/mod
++	GOMOD_CACHE ?= $(shell echo $(GOPATH) | cut -d':' -f1)/pkg/mod
+ else
+ 	# If gopath is empty, default to $(HOME)/go.
+-	GOMOD_CACHE = $(HOME)/go/pkg/mod
++	GOMOD_CACHE ?= $(HOME)/go/pkg/mod
+ endif
+ 
+ EXTRA_DOCKER_ARGS += -v $(GOMOD_CACHE):/go/pkg/mod:rw
+@@ -324,10 +332,14 @@ endif
+ ifeq ($(ARCH),s390x)
+ TARGET_PLATFORM=--platform=linux/s390x
+ endif
++ifeq ($(ARCH),loong64)
++TARGET_PLATFORM=--platform=linux/loong64
++endif
+ 
+ # DOCKER_BUILD is the base build command used for building all images.
+-DOCKER_BUILD=docker buildx build --pull \
++DOCKER_BUILD=docker build --pull \
+ 	     --build-arg QEMU_IMAGE=$(CALICO_BUILD) \
++		 --build-arg GOPROXY=$(GOPROXY) \
+ 	     --build-arg UBI_IMAGE=$(UBI_IMAGE) \
+ 	     --build-arg GIT_VERSION=$(GIT_VERSION) $(TARGET_PLATFORM)
+ 
+diff --git a/node/Dockerfile.loong64 b/node/Dockerfile.loong64
+new file mode 100644
+index 000000000..8fdd0882e
+--- /dev/null
++++ b/node/Dockerfile.loong64
+@@ -0,0 +1,53 @@
++# Copyright (c) 2015-2016,2021 Tigera, Inc. All rights reserved.
++# Copyright IBM Corp. 2017
++#
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#     http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++
++ARG BIRD_IMAGE=calico/bird:latest
++
++FROM ${BIRD_IMAGE} as bird
++
++FROM cr.loongnix.cn/calico/bpftool:5.19 as bpftool
++
++FROM cr.loongnix.cn/library/alpine:3.11
++LABEL MAINTAINER David Wilder <wilder@us.ibm.com>
++
++ARG ARCH=loong64
++
++# Set the minimum required Docker API version.
++ENV DOCKER_API_VERSION 1.21
++
++# Install remaining runtime deps required for felix from the global repository
++RUN apk add --no-cache ip6tables ipset iputils iproute2 conntrack-tools runit file ca-certificates
++
++# Copy our bird binaries in
++COPY --from=bird /bird* /bin/
++
++# Copy in the filesystem - this contains felix, calico-bgp-daemon etc...
++COPY filesystem/ /
++
++# Copy in the calico-node binary
++COPY dist/bin/calico-node-${ARCH} /bin/calico-node
++
++# Copy in the moutnns binary
++COPY dist/bin/mountns-${ARCH} /bin/mountns
++
++# Set the suid bit on mountns
++RUN chmod u+s /bin/mountns
++
++COPY --from=bpftool /bpftool /bin
++
++CMD ["start_runit"]
++
++# Tell sv where to find the services.
++ENV SVDIR=/etc/service/enabled
+diff --git a/node/Makefile b/node/Makefile
+index 67f4d43ee..71ce68172 100644
+--- a/node/Makefile
++++ b/node/Makefile
+@@ -16,6 +16,7 @@ WINDOWS_VERSIONS?=1809 2004 20H2 ltsc2022
+ # We don't include the windows images here because we build them differently
+ # using targets within this makefile.
+ BUILD_IMAGES ?=$(NODE_IMAGE)
++IMAGE_NAME   ?=$(NODE_IMAGE):latest-$(ARCH)
+ 
+ # Paths within the build container for BPF source.
+ LIBBPF_CONTAINER_PATH=/go/src/github.com/projectcalico/calico/felix/bpf-gpl/include/libbpf/src/
+@@ -294,8 +295,8 @@ sub-image-fips-%:
+ 
+ image $(NODE_IMAGE): register $(NODE_CONTAINER_MARKER)
+ $(NODE_CONTAINER_CREATED): $(REMOTE_DEPS) ./Dockerfile.$(ARCH) $(NODE_CONTAINER_BINARY) $(INCLUDED_SOURCE) $(NODE_CONTAINER_FILES) $(TOOLS_MOUNTNS_BINARY)
+-	$(DOCKER_BUILD) --build-arg BIN_DIR=$(NODE_CONTAINER_BIN_DIR) --build-arg BIRD_IMAGE=$(BIRD_IMAGE) -t $(NODE_IMAGE):latest-$(ARCH) -f ./Dockerfile.$(ARCH) . --load
+-	$(MAKE) retag-build-images-with-registries VALIDARCHES=$(ARCH) IMAGETAG=latest
++	$(DOCKER_BUILD) --build-arg BIN_DIR=$(NODE_CONTAINER_BIN_DIR) --build-arg BIRD_IMAGE=$(BIRD_IMAGE) -t $(IMAGE_NAME) -f ./Dockerfile.$(ARCH) . 
++	# $(MAKE) retag-build-images-with-registries VALIDARCHES=$(ARCH) IMAGETAG=latest
+ 	touch $@
+ 
+ $(NODE_CONTAINER_FIPS_CREATED): $(REMOTE_DEPS) ./Dockerfile.$(ARCH) $(NODE_CONTAINER_BINARY) $(INCLUDED_SOURCE) $(NODE_CONTAINER_FILES) $(TOOLS_MOUNTNS_BINARY)
+diff --git a/pod2daemon/Dockerfile.loong64 b/pod2daemon/Dockerfile.loong64
+new file mode 100644
+index 000000000..d365cfea1
+--- /dev/null
++++ b/pod2daemon/Dockerfile.loong64
+@@ -0,0 +1,6 @@
++FROM cr.loongnix.cn/library/alpine:3.11
++
++ADD flexvol/docker/flexvol.sh /usr/local/bin/
++ADD bin/flexvol-loong64 /usr/local/bin/flexvol
++
++ENTRYPOINT ["/usr/local/bin/flexvol.sh"]
+diff --git a/pod2daemon/Makefile b/pod2daemon/Makefile
+index cfae90392..e1099a50b 100644
+--- a/pod2daemon/Makefile
++++ b/pod2daemon/Makefile
+@@ -7,6 +7,7 @@ PACKAGE_NAME = github.com/projectcalico/calico/pod2daemon
+ FLEXVOL_IMAGE   ?=pod2daemon-flexvol
+ CSI_IMAGE       ?=csi
+ REGISTRAR_IMAGE ?=node-driver-registrar
++IMAGE_NAME      ?=$(REGISTRAR_IMAGE):latest-$(ARCH)
+ BUILD_IMAGES    ?=$(FLEXVOL_IMAGE) $(CSI_IMAGE) $(REGISTRAR_IMAGE)
+ 
+ ###############################################################################
+@@ -130,6 +131,9 @@ REGISTRAR_BUILD_CMD=$(REGISTRAR_UPSTREAM_BUILD_CMD)
+ else ifeq ($(ARCH), $(filter $(ARCH),s390x))
+ BUILD_PLATFORMS="linux s390x s390x"
+ REGISTRAR_BUILD_CMD=$(REGISTRAR_UPSTREAM_BUILD_CMD)
++else ifeq ($(ARCH), $(filter $(ARCH),loong64))
++BUILD_PLATFORMS="linux loong64 loong64"
++REGISTRAR_BUILD_CMD=$(REGISTRAR_UPSTREAM_BUILD_CMD)
+ else ifeq ($(ARCH), $(filter $(ARCH),win64))
+ BUILD_PLATFORMS="windows amd64 amd64"
+ REGISTRAR_BUILD_CMD=$(REGISTRAR_UPSTREAM_BUILD_CMD)
+@@ -171,13 +175,13 @@ sub-image-fips-%:
+ 
+ $(FLEXVOL_IMAGE): $(FLEXVOL_CONTAINER_MARKER)
+ $(FLEXVOL_CONTAINER_CREATED): Dockerfile.$(ARCH) bin/flexvol-$(ARCH)
+-	$(DOCKER_BUILD) --build-arg BIN_DIR=bin -t $(FLEXVOL_IMAGE):latest-$(ARCH) -f Dockerfile.$(ARCH) . --load
++	$(DOCKER_BUILD) --build-arg BIN_DIR=bin -t $(FLEXVOL_IMAGE):latest-$(ARCH) -f Dockerfile.$(ARCH) . 
+ 	$(MAKE) retag-build-images-with-registries VALIDARCHES=$(ARCH) IMAGETAG=latest BUILD_IMAGES=$(FLEXVOL_IMAGE)
+ 	touch $@
+ 
+ $(CSI_IMAGE): $(CSI_CONTAINER_MARKER)
+ $(CSI_CONTAINER_CREATED): csidriver/Dockerfile.$(ARCH) $(BINDIR)/csi-driver-$(ARCH)
+-	$(DOCKER_BUILD) --build-arg BIN_DIR=$(BINDIR) -t $(CSI_IMAGE):latest-$(ARCH) -f csidriver/Dockerfile.$(ARCH) . --load
++	$(DOCKER_BUILD) --build-arg BIN_DIR=$(BINDIR) -t $(CSI_IMAGE):latest-$(ARCH) -f csidriver/Dockerfile.$(ARCH) .
+ 	$(MAKE) retag-build-images-with-registries VALIDARCHES=$(ARCH) IMAGETAG=latest BUILD_IMAGES=$(CSI_IMAGE)
+ 	touch $@
+ 
+@@ -188,8 +192,8 @@ $(CSI_CONTAINER_FIPS_CREATED): csidriver/Dockerfile.$(ARCH) $(BINDIR)/csi-driver
+ 
+ $(REGISTRAR_IMAGE): $(REGISTRAR_CONTAINER_MARKER)
+ $(REGISTRAR_CONTAINER_CREATED): node-driver-registrar-docker/Dockerfile.$(ARCH) $(BINDIR)/node-driver-registrar-$(ARCH)
+-	$(DOCKER_BUILD) --build-arg BIN_DIR=$(BINDIR) -t $(REGISTRAR_IMAGE):latest-$(ARCH) -f node-driver-registrar-docker/Dockerfile.$(ARCH) . --load
+-	$(MAKE) retag-build-images-with-registries VALIDARCHES=$(ARCH) IMAGETAG=latest BUILD_IMAGES=$(REGISTRAR_IMAGE)
++	$(DOCKER_BUILD) --build-arg BIN_DIR=$(BINDIR) -t $(IMAGE_NAME) -f node-driver-registrar-docker/Dockerfile.$(ARCH) . 
++	# $(MAKE) retag-build-images-with-registries VALIDARCHES=$(ARCH) IMAGETAG=latest BUILD_IMAGES=$(REGISTRAR_IMAGE)
+ 	touch $@
+ 
+ $(REGISTRAR_CONTAINER_FIPS_CREATED): node-driver-registrar-docker/Dockerfile.$(ARCH) $(BINDIR)/node-driver-registrar-$(ARCH)
+diff --git a/pod2daemon/csidriver/Dockerfile.loong64 b/pod2daemon/csidriver/Dockerfile.loong64
+new file mode 100644
+index 000000000..5805981c9
+--- /dev/null
++++ b/pod2daemon/csidriver/Dockerfile.loong64
+@@ -0,0 +1,5 @@
++FROM cr.loongnix.cn/library/alpine:3.11
++
++ADD bin/csi-driver-loong64 /usr/local/bin/csi-driver
++
++ENTRYPOINT ["/usr/local/bin/csi-driver"]
+diff --git a/pod2daemon/node-driver-registrar-docker/Dockerfile.loong64 b/pod2daemon/node-driver-registrar-docker/Dockerfile.loong64
+new file mode 100644
+index 000000000..a72d7cadd
+--- /dev/null
++++ b/pod2daemon/node-driver-registrar-docker/Dockerfile.loong64
+@@ -0,0 +1,5 @@
++FROM cr.loongnix.cn/library/alpine:3.11
++
++ADD bin/node-driver-registrar-loong64 /usr/local/bin/node-driver-registrar
++
++ENTRYPOINT ["/usr/local/bin/node-driver-registrar"]
+diff --git a/typha/Makefile b/typha/Makefile
+index 35e96d40b..f109f9ce0 100644
+--- a/typha/Makefile
++++ b/typha/Makefile
+@@ -6,6 +6,7 @@ PACKAGE_NAME = github.com/projectcalico/calico/typha
+ # e.g., <registry>/<name>:<tag>
+ TYPHA_IMAGE    ?=typha
+ BUILD_IMAGES   ?=$(TYPHA_IMAGE)
++IMAGE_NAME     ?= $(TYPHA_IMAGE):latest-$(ARCH)
+ 
+ ###############################################################################
+ # Download and include ../lib.Makefile
+@@ -148,8 +149,8 @@ $(TYPHA_CONTAINER_CREATED): $(BINDIR)/calico-typha-$(ARCH) \
+ 	mkdir -p docker-image/bin
+ 	cp $(BINDIR)/calico-typha-$(ARCH) docker-image/bin/
+ 	cp LICENSE docker-image/
+-	$(DOCKER_BUILD) --build-arg BIN_DIR=$(BINDIR) -t $(TYPHA_IMAGE):latest-$(ARCH) --file ./docker-image/Dockerfile.$(ARCH) docker-image --load
+-	$(MAKE) retag-build-images-with-registries VALIDARCHES=$(ARCH) IMAGETAG=latest
++	$(DOCKER_BUILD) --build-arg BIN_DIR=$(BINDIR) -t $(IMAGE_NAME) --file ./docker-image/Dockerfile.$(ARCH) docker-image 
++	# $(MAKE) retag-build-images-with-registries VALIDARCHES=$(ARCH) IMAGETAG=latest
+ 	touch $(TYPHA_CONTAINER_CREATED)
+ 
+ $(TYPHA_CONTAINER_FIPS_CREATED): $(BINDIR)/calico-typha-$(ARCH) \
+diff --git a/typha/docker-image/Dockerfile.loong64 b/typha/docker-image/Dockerfile.loong64
+new file mode 100644
+index 000000000..fb90ca33e
+--- /dev/null
++++ b/typha/docker-image/Dockerfile.loong64
+@@ -0,0 +1,21 @@
++FROM cr.loongnix.cn/library/alpine:3.11 as base
++LABEL MAINTAINER Shaun Crampton <shaun@tigera.io>
++
++ADD https://github.com/Loongson-Cloud-Community/tini/releases/download/v0.19.0/tini-static /sbin/tini
++RUN chmod +x /sbin/tini
++
++FROM scratch
++COPY --from=base /sbin/tini /sbin/tini
++
++# Put our binary in /code rather than directly in /usr/bin.  This allows the downstream builds
++# to more easily extract the build artefacts from the container.
++ADD bin/calico-typha-loong64 /code/calico-typha
++ADD typha.cfg /etc/calico/typha.cfg
++
++WORKDIR /code
++ENV PATH "$PATH:/code"
++
++USER 999
++# Run Typha by default
++ENTRYPOINT ["/sbin/tini", "--"]
++CMD ["calico-typha"]
+-- 
+2.25.1
+
