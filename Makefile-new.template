@@ -24,7 +24,7 @@ image: src/$(SOURCE)
 	$(MAKE) -C src/$(SOURCE) 
 
 src/$(SOURCE):
-	git clone -b $(TAG) --depth=1 $(SOURCE_URL) $@
+	git clone -q -b $(TAG) --depth=1 $(SOURCE_URL) $@
 	cd $@ && \
 		git apply ../../$(PATCH)
 
