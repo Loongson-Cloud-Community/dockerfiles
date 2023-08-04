@@ -9,15 +9,17 @@ RUN [ ! -e /etc/nsswitch.conf ] && echo 'hosts: files dns' > /etc/nsswitch.conf
 
 ENV PATH /usr/local/go/bin:$PATH
 
-ENV GOLANG_VERSION 1.19.0
+ENV GOLANG_VERSION 1.19.7
 
 RUN set -eux; \
 	build=1; \
 # https://github.com/golang/go/issues/38536#issuecomment-616897960
-	url='https://github.com/Loongson-Cloud-Community/go/releases/download/go1.19/go1.19.src.tar.gz'; \
+	url='http://ftp.loongnix.cn/toolchain/golang/go-1.19/abi1.0/go1.19.7.src.tar.gz'; \
+	sha256='3b423c46d1ed679520bb8af7bf28594f93b2a81854d7fd22320f569f7dc4715d'; \
 	export GOARCH='loong64' GOOS='linux'; \
 	\
 	wget -O go.tgz "$url"; \
+	echo "$sha256 *go.tgz" | sha256sum -c -; \
 	\
 	tar -C /usr/local -xzf go.tgz; \
 	rm go.tgz; \
