@@ -15,11 +15,11 @@ RUN set -eux; \
 
 ENV PATH /usr/local/go/bin:$PATH
 
-ENV GOLANG_VERSION 1.19.7
+ENV GOLANG_VERSION 1.20.2
 
 RUN set -eux; \
-	url='http://ftp.loongnix.cn/toolchain/golang/go-1.19/abi1.0/go1.19.7.linux-loong64.tar.gz'; \
-	sha256='914757535cd4cabf8e644bf1e3d07deb2235754c72297b1cc4369f874c15e30b'; \
+	url='http://ftp.loongnix.cn/toolchain/golang/go-1.20/abi1.0/go1.20.2.linux-loong64.tar.gz'; \
+	sha256='7a90da4dbea62d31834380adf78b0cf23bda61830830582080d8e54e5a85f498'; \
 	wget -O go.tgz "$url" --progress=dot:giga; \
 	echo "$sha256 *go.tgz" | sha256sum -c -; \
 	tar -C /usr/local -xzf go.tgz; \
