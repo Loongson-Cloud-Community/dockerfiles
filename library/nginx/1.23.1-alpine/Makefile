@@ -15,5 +15,6 @@ image:
 		-t $(IMAGE) \
 		.
 
+
 push:
 	docker push $(IMAGE)
