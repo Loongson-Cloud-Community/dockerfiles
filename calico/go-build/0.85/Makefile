@@ -2,17 +2,14 @@
 
 REGISTRY?=cr.loongnix.cn
 ORGANIZATION?=calico
-
-TAG?=v1.30.4
-LATEST?=true
-
-GO_IMG?=cr.loongnix.cn/library/golang:1.19
-GOPROXY?=https://goproxy.cn,https://mirrors.aliyun.com/goproxy/,https://goproxy.io,direct
+REPOSITORY?=go-build
+TAG?=v0.85
+LATEST?=false
 
 IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):$(patsubst v%,%,$(TAG))
 LATEST_IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):latest
 
-SOURCE_URL=https://github.com/tigera/operator.git
+SOURCE_URL=https://github.com/projectcalico/go-build.git
 SOURCE=$(shell echo $(SOURCE_URL) | awk -F '/' '{print $$NF}' | awk -F '.' '{print $$1}')
 PATCH=0001-support-loong64.patch
 
@@ -24,10 +21,8 @@ src/$(SOURCE):
 		git apply ../../$(PATCH)
 
 image: src/$(SOURCE)
-	
-	GO_PROXY=$(GOPROXY) BUILDARCH=loong64 \
-	UBI_IMAGE=cr.loongnix.cn/library/centos:8.3 \
-		CALICO_BUILD=$(GO_IMG) make -C src/$(SOURCE) image
+	make -C src/$(SOURCE) image ARCHIMAGE=$(IMAGE) BUILDARCH=loong64 \
+		DOCKER_BUILD_ARGS="--build-arg HTTPS_PROXY=$(http_proxy) --build-arg HTTP_PROXY=$(http_proxy)"
 
 push:
 	docker push $(IMAGE)

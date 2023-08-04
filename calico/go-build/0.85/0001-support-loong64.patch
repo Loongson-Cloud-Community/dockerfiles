@@ -1,0 +1,165 @@
+From e067d728b44752bbe14ed76cd0b7a1d24a121dba Mon Sep 17 00:00:00 2001
+From: zhangguanzhang <zhangguanzhang@qq.com>
+Date: Fri, 4 Aug 2023 10:01:48 +0800
+Subject: [PATCH] support loong64
+
+---
+ Dockerfile.loong64 | 131 +++++++++++++++++++++++++++++++++++++++++++++
+ Makefile           |   3 ++
+ 2 files changed, 134 insertions(+)
+ create mode 100644 Dockerfile.loong64
+
+diff --git a/Dockerfile.loong64 b/Dockerfile.loong64
+new file mode 100644
+index 0000000..7abebd1
+--- /dev/null
++++ b/Dockerfile.loong64
+@@ -0,0 +1,131 @@
++FROM cr.loongnix.cn/calico/bpftool:5.19 as bpftool
++
++FROM cr.loongnix.cn/library/golang:1.19
++ENV GOPROXY=https://goproxy.cn,https://mirrors.aliyun.com/goproxy/,https://goproxy.io,direct
++LABEL maintainer="Shaun Crampton <shaun@projectcalico.org>"
++
++ARG GO_LINT_VERSION=v1.52.2
++ARG K8S_VERSION=v1.26.3
++ARG LLVM_VERSION=12
++ARG MANIFEST_TOOL_VERSION=v1.0.3
++ARG MOCKERY_VER=2.14.0
++ARG MODSEC_VERSION=v3.0.8
++ARG QEMU_ARCHS="arm aarch64 ppc64le s390x"
++# ARG QEMU_VERSION=7.2.0-1
++ARG SU_EXEC_VER=212b75144bbc06722fbd7661f651390dc47a43d1
++
++# Install su-exec for use in the entrypoint.sh (so processes run as the right user)
++# Install bash for the entry script (and because it's generally useful)
++# Install curl
++# Install git for fetching Go dependencies
++# Install ssh for fetching Go dependencies
++# Install wget since it's useful for fetching
++# Install make for building things
++# Install util-linux for column command (used for output formatting).
++# Install grep, sed, zip, and jq for use in some Makefiles
++# Install gcc for cgo.
++# Install lsb-release software-properties-common for llvm upgrade script
++# Install clang, libbpf and newer kernel headers for building BPF binaries.
++# Install apt-utils, libpcre++-dev and libraries for ModSecurity dependencies.
++RUN apt clean && \
++    apt update -y && \
++    apt upgrade -y  && \
++    apt-get install --no-install-recommends -y \
++        curl git ssh mercurial make wget util-linux grep sed jq zip \
++        binutils file iproute2 autoconf automake strace libpcap-dev \
++        liblua5.3-dev libcurl4-openssl-dev libpcre3-dev \
++        libtool libxml2-dev libgeoip-dev libelf-dev libelf1 \
++        pkgconf zlib1g-dev clang-13 llvm-13 && \
++    apt-get autoclean && apt-get clean && \
++    rm -rf /var/cache/apt/archives /var/lib/apt/lists/*;
++
++# su-exec is used by the entrypoint script to execute the user's command with the right UID/GID.
++# (sudo doesn't work easily in a container.)  The version was current master at the time of writing.
++RUN  set -ex; \
++    curl -o /sbin/su-exec.c https://raw.githubusercontent.com/ncopa/su-exec/${SU_EXEC_VER}/su-exec.c; \
++    gcc -Wall /sbin/su-exec.c -o/sbin/su-exec; \
++    chown root:root /sbin/su-exec; \
++    chmod 0755 /sbin/su-exec; \
++    rm /sbin/su-exec.c
++
++# Disable ssh host key checking
++RUN echo 'Host *' >> /etc/ssh/ssh_config \
++    && echo '    StrictHostKeyChecking no' >> /etc/ssh/ssh_config
++
++# Install go programs that we rely on
++# Install ginkgo v2 as ginkgo2 and keep ginkgo v1 as ginkgo
++RUN set -ex && \
++    go install github.com/vektra/mockery/v2@v${MOCKERY_VER} && \
++    go install github.com/onsi/ginkgo/v2/ginkgo@v2.9.7 && \
++        mv /go/bin/ginkgo /go/bin/ginkgo2 && \
++    git clone -b v1.16.5 https://github.com/onsi/ginkgo && \
++        cd ginkgo && \
++        go get -u golang.org/x/sys golang.org/x/tools && \
++        go mod tidy && \
++        cd ginkgo && \
++        go install . && \
++        cd ../../ && \
++        rm -rf ginkgo && \
++    go install golang.org/x/tools/cmd/goimports@v0.8.0 && \
++    curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin $GO_LINT_VERSION && \
++    go install github.com/pmezard/licenses@master && \
++    go install github.com/wadey/gocovmerge@master && \
++    #go install github.com/mikefarah/yq/v3@3.4.1 && \
++    go install github.com/jstemmer/go-junit-report@v1.0.0 && \
++    go install golang.org/x/tools/cmd/stringer@v0.8.0 && \
++    go install k8s.io/code-generator/cmd/openapi-gen@v0.26.3 && \
++    go install k8s.io/code-generator/cmd/deepcopy-gen@v0.26.3 && \
++    go install k8s.io/code-generator/cmd/client-gen@v0.26.3 && \
++    go install k8s.io/code-generator/cmd/lister-gen@v0.26.3 && \
++    go install k8s.io/code-generator/cmd/informer-gen@v0.26.3 && \
++    go install k8s.io/code-generator/cmd/defaulter-gen@v0.26.3 && \
++    go install k8s.io/code-generator/cmd/conversion-gen@v0.26.3 && \
++    go install github.com/swaggo/swag/cmd/swag@v1.8.7 && \
++    go install gotest.tools/gotestsum@latest && \
++    go clean -modcache && go clean -cache
++
++# Install necessary Kubernetes binaries used in tests.
++# RUN wget https://dl.k8s.io/${K8S_VERSION}/bin/linux/amd64/kube-apiserver -O /usr/local/bin/kube-apiserver && chmod +x /usr/local/bin/kube-apiserver && \
++#     wget https://dl.k8s.io/release/${K8S_VERSION}/bin/linux/amd64/kubectl -O /usr/local/bin/kubectl && chmod +x /usr/local/bin/kubectl && \
++#     wget https://dl.k8s.io/${K8S_VERSION}/bin/linux/amd64/kube-controller-manager -O /usr/local/bin/kube-controller-manager && chmod +x /usr/local/bin/kube-controller-manager
++# Used for generating CRD files.
++# Download a version of controller-gen that has been hacked to support additional types (e.g., float).
++# We can remove this once we update the Calico v3 APIs to use only types which are supported by the upstream controller-gen
++# tooling. Example: float, all the types in the numorstring package, etc.
++RUN git clone -b calico-0.1 https://github.com/projectcalico/controller-tools && \
++    cd controller-tools/cmd/controller-gen && \
++    go get -u golang.org/x/sys && \
++    go install . && \
++    cd - && \
++    rm -rf controller-tools && \
++        go clean -modcache && go clean -cache
++
++# Ensure that everything under the GOPATH is writable by everyone
++RUN chmod -R 777 $GOPATH
++
++RUN git clone -b ${MANIFEST_TOOL_VERSION} https://github.com/estesp/manifest-tool && \
++    cd manifest-tool && \
++    go mod init github.com/estesp/manifest-tool && \
++    go mod tidy && \
++    go mod vendor && \
++    go install . && \
++    cd .. && \
++    rm -rf manifest-tool && \
++    go clean -modcache && go clean -cache
++
++# crane is needed for our release targets to copy images from the dev registries to the release registries.
++RUN go install github.com/google/go-containerregistry/cmd/crane@v0.4.1 && \
++    go clean -modcache && go clean -cache
++
++# Add bpftool for Felix UT/FV.
++COPY --from=bpftool /bpftool /usr/bin
++
++# Build ModSecurity for Dikastes.
++RUN git clone -b ${MODSEC_VERSION} --depth 1 --recurse-submodules --shallow-submodules https://github.com/SpiderLabs/ModSecurity.git build && \
++    cd build && ./build.sh && ./configure && \
++    make && make install && \
++    cd - && \
++    rm -fr build
++
++COPY entrypoint.sh /usr/local/bin/entrypoint.sh
++ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+diff --git a/Makefile b/Makefile
+index 940cb8e..3784cf3 100644
+--- a/Makefile
++++ b/Makefile
+@@ -25,6 +25,9 @@ endif
+ ifeq ($(BUILDARCH),armv7l)
+         BUILDARCH=armv7
+ endif
++ifeq ($(BUILDARCH),loongarch64)
++        BUILDARCH=loong64
++endif
+ 
+ # unless otherwise set, I am building for my own architecture, i.e. not cross-compiling
+ ARCH ?= $(BUILDARCH)
+-- 
+2.25.1
+
