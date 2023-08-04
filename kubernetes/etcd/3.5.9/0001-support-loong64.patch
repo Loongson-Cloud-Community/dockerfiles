@@ -1,0 +1,73 @@
+From e103746121dd2a28f5eda42eeb0d45fccb1a33d6 Mon Sep 17 00:00:00 2001
+From: zhangguanzhang <zhangguanzhang@qq.com>
+Date: Tue, 1 Aug 2023 17:31:00 +0800
+Subject: [PATCH] support loong64
+
+---
+ Dockerfile-release.loong64 | 15 +++++++++++++++
+ Makefile                   | 10 +++++++---
+ 2 files changed, 22 insertions(+), 3 deletions(-)
+ create mode 100644 Dockerfile-release.loong64
+
+diff --git a/Dockerfile-release.loong64 b/Dockerfile-release.loong64
+new file mode 100644
+index 000000000..fbfe68090
+--- /dev/null
++++ b/Dockerfile-release.loong64
+@@ -0,0 +1,15 @@
++ARG BASE_IMG=cr.loongnix.cn/prometheus/busybox:glibc
++FROM ${BASE_IMG}
++ENV ETCD_UNSUPPORTED_ARCH=loong64
++
++ADD etcd /usr/local/bin/
++ADD etcdctl /usr/local/bin/
++ADD etcdutl /usr/local/bin/
++
++WORKDIR /var/etcd/
++WORKDIR /var/lib/etcd/
++
++EXPOSE 2379 2380
++
++# Define default command.
++CMD ["/usr/local/bin/etcd"]
+diff --git a/Makefile b/Makefile
+index 3af91a190..24d56e258 100644
+--- a/Makefile
++++ b/Makefile
+@@ -58,6 +58,9 @@ docker-remove:
+ GO_VERSION ?= 1.19.9
+ ETCD_VERSION ?= $(shell git rev-parse --short HEAD || echo "GitNotFound")
+ 
++IMAGE ?= gcr.io/etcd-development/etcd:$(ETCD_VERSION)
++BASE_IMG ?= cr.loongnix.cn/prometheus/busybox:glibc
++
+ TEST_SUFFIX = $(shell date +%s | base64 | head -c 15)
+ TEST_OPTS ?= PASSES='unit'
+ 
+@@ -206,19 +209,20 @@ build-docker-release-main:
+ 	cp ./Dockerfile-release.$(ARCH) ./bin/Dockerfile-release.$(ARCH)
+ 	docker build \
+ 	  --network=host \
+-	  --tag gcr.io/etcd-development/etcd:$(ETCD_VERSION) \
++	  --build-arg BASE_IMG=cr.loongnix.cn/prometheus/busybox:glibc \
++	  --tag $(IMAGE) \
+ 	  --file ./bin/Dockerfile-release.$(ARCH) \
+ 	  ./bin
+ 	rm -f ./bin/Dockerfile-release.$(ARCH)
+ 
+ 	docker run \
+ 	  --rm \
+-	  gcr.io/etcd-development/etcd:$(ETCD_VERSION) \
++	  $(IMAGE) \
+ 	  /bin/sh -c "/usr/local/bin/etcd --version && /usr/local/bin/etcdctl version && /usr/local/bin/etcdutl version"
+ 
+ push-docker-release-main:
+ 	$(info ETCD_VERSION: $(ETCD_VERSION))
+-	docker push gcr.io/etcd-development/etcd:$(ETCD_VERSION)
++	docker push $(IMAGE)
+ 
+ 
+ 
+-- 
+2.25.1
+
