@@ -6,6 +6,7 @@ REPOSITORY?=node
 TAG?=16.17.1-debian
 
 IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):$(TAG)
+ALIAS = $(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):16.17.1
 
 
 default: image
@@ -15,5 +16,9 @@ image:
 		-t $(IMAGE) \
 		.
 
-push:
+push: alias
 	docker push $(IMAGE)
+	docker push $(ALIAS)
+
+alias:
+	docker tag $(IMAGE) $(ALIAS)
