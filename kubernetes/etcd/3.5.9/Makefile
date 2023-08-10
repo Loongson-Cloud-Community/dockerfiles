@@ -28,6 +28,7 @@ build: src/$(SOURCE)
 		-e GOARCH=loong64 \
 		-e ETCD_UNSUPPORTED_ARCH=loong64 \
 		-e GOPROXY=$(GOPROXY) \
+		-e HTTPS_PROXY=$(http_proxy) -e HTTP_PROXY=$(http_proxy) \
 		-v `pwd`/src/$(SOURCE):/v -w /v \
 		$(GO_IMG) make build
 
