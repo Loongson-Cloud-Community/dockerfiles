@@ -3,11 +3,11 @@
 REGISTRY?=cr.loongnix.cn
 ORGANIZATION?=library
 REPOSITORY?=buildpack-deps
-TAG?=curl
+TAG?=buster-curl
 
 IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):$(TAG)
 
-ALIAS=cr.loongnix.cn/library/buildpack-deps:buster-curl
+ALIAS=cr.loongnix.cn/library/buildpack-deps:curl
 
 default: image
 
@@ -20,5 +20,5 @@ push: alias
 	docker push $(IMAGE)
 	docker push $(ALIAS)
 
-alias: image
+alias:
 	docker tag $(IMAGE) $(ALIAS)
