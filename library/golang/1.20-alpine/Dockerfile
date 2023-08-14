@@ -9,7 +9,7 @@ RUN [ ! -e /etc/nsswitch.conf ] && echo 'hosts: files dns' > /etc/nsswitch.conf
 
 ENV PATH /usr/local/go/bin:$PATH
 
-ENV GOLANG_VERSION 1.20.2
+ENV GOLANG_VERSION 1.20.6
 
 # Bootstrap for Go1.20 requires minimum Go1.17, now build Go1.19 as bootstrap for Go1.20.x
 RUN set -eux; \
@@ -40,8 +40,8 @@ RUN set -eux; \
 RUN set -eux; \
 	build=1; \
 # https://github.com/golang/go/issues/38536#issuecomment-616897960
-	url='http://ftp.loongnix.cn/toolchain/golang/go-1.20/abi1.0/go1.20.2.src.tar.gz'; \
-	sha256='c38a0543b3420e0efd8a91da7e585d95e05144aaace706a8e545c0e59b10e265'; \
+	url='http://ftp.loongnix.cn/toolchain/golang/go-1.20/abi1.0/go1.20.6.src.tar.gz'; \
+	sha256='e1543072bad7696bce60715ef7a15cf22634cd5c330accdeced4df7d81d6395b'; \
 	export GOARCH='loong64' GOOS='linux'; \
 	\
 	wget -O go.tgz "$url"; \
