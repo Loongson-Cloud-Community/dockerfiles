@@ -19,6 +19,9 @@ PATCH=0001-port-to-loong64.patch
 
 default: image
 
+rpm:
+	./build.sh --package
+
 image: src/$(SOURCE)
 # Commands for building.
 	$(MAKE) -C src/$(SOURCE) 
