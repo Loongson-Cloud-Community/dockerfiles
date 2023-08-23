@@ -1,5 +1,7 @@
 name: push
 # 指定此工作流程的触发器
+env:
+  PR_NUMBER: ${{ github.event.number }}
 on: 
   push:
     branches: [ci_run]
@@ -16,4 +18,5 @@ jobs:
           fetch-depth: 2
 #      - run: lmake lint
       - run: echo $GITHUB_REF
+      - run: echo $PR_NUMBER
       - run: lmake image
