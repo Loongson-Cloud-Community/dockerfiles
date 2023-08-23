@@ -1,4 +1,6 @@
 name: pull request merge
+env:
+  PR_NUMBER: ${{ github.event.number }}
 on:
   pull_request:
     types:
@@ -11,5 +13,6 @@ jobs:
     - uses: actions/checkout@v3
       with:
         fetch-depth: 2
+    - run: echo $PR_NUMBER
     - run: lmake image
     - run: lmake push
