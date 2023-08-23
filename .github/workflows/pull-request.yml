@@ -1,4 +1,6 @@
 name: pull request merge
+env:
+  PR_NUMBER: ${{ github.event.number }}
 on:
   pull_request:
     types:
