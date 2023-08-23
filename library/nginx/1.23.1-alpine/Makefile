@@ -11,7 +11,7 @@ IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):$(TAG)
 default: image
 
 image:
-	echo "test 0821"
+	echo "test 0823 nginx"
 	docker build \
 		-t $(IMAGE) \
 		.
