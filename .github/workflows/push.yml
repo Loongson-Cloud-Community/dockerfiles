@@ -17,6 +17,5 @@ jobs:
         with:
           fetch-depth: 2
 #      - run: lmake lint
-      - run: echo $GITHUB_REF
       - run: echo $PR_NUMBER
       - run: lmake image
