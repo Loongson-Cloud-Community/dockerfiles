@@ -11,6 +11,7 @@ IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):$(TAG)
 default: image
 
 image:
+	echo "0823 haproxy test"
 	docker build \
 		-t $(IMAGE) \
 		.
