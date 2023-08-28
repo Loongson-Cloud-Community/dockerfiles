@@ -49,14 +49,15 @@ image: src/$(SOURCE)
 			FLANNEL_IMAGE_NAME=$(REGISTRY)/$(ORGANIZATION)/flannel-migration-controller:$(IMG_TAG) \
 			GOMOD_CACHE=$(THIS_DIR)src/go-mod make -C src/$(SOURCE)/$(value) image IMAGETAG=$(TAG) VALIDARCHES=loong64; \
 	)
+	chmod -R +w src
 
 push:
 	@$(foreach value, $(PUSH_IMG), \
-		echo docker push $(REGISTRY)/$(ORGANIZATION)/$(value):$(IMG_TAG); \
+		docker push $(REGISTRY)/$(ORGANIZATION)/$(value):$(IMG_TAG); \
 		if [ $(LATEST) = "true" ]; then \
 			$(eval LATEST_IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(value):latest) \
-			echo docker tag $(REGISTRY)/$(ORGANIZATION)/$(value):$(IMG_TAG) ${LATEST_IMAGE}; \
-			echo docker push $(LATEST_IMAGE); \
+			docker tag $(REGISTRY)/$(ORGANIZATION)/$(value):$(IMG_TAG) ${LATEST_IMAGE}; \
+			docker push $(LATEST_IMAGE); \
 		fi; \
 	)
 
