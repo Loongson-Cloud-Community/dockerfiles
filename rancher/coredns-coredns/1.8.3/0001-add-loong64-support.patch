@@ -32,7 +32,7 @@ index b57e6312..62255e98 100644
  	rm -f coredns
 +
 +image: coredns
-+	docker build -t cr.loongnix.cn/rancher/coredns-coredns:1.8.3 .
++	docker build -t cr.loongnix.cn/rancher/coredns:1.8.3 .
 diff --git a/go.mod b/go.mod
 index dfa5a80c..c24f1220 100644
 --- a/go.mod

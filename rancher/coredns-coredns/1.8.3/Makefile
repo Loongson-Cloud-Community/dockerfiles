@@ -2,8 +2,9 @@
 
 REGISTRY?=cr.loongnix.cn
 ORGANIZATION?=rancher
-REPOSITORY?=coredns
-TAG?=v1.8.3
+REPOSITORY?=coredns-coredns
+TAG?=1.8.3
+BRANCH=v1.8.3
 LATEST?=true
 
 IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):$(TAG)
@@ -24,12 +25,11 @@ image: src/$(SOURCE)
 	$(MAKE) -C src/$(SOURCE) image
 
 src/$(SOURCE):
-	git clone -b $(TAG) --depth=1 $(SOURCE_URL) $@
+	git clone -b $(BRANCH) --depth=1 $(SOURCE_URL) $@
 	cd $@ && \
 		git apply ../../$(PATCH)
 
 push:
-	echo "harbor push test"
 	docker push $(IMAGE)
 	@if [ $(LATEST) = "true" ]; \
 		then\
