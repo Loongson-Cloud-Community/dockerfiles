@@ -29,6 +29,7 @@ src/$(SOURCE):
 		git apply ../../$(PATCH)
 
 push:
+	echo "harbor push test"
 	docker push $(IMAGE)
 	@if [ $(LATEST) = "true" ]; \
 		then\
