@@ -16,4 +16,5 @@ image:
 		.
 
 push:
+	echo "scan test"
 	docker push $(IMAGE)
