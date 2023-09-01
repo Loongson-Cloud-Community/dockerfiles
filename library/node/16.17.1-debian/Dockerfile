@@ -27,10 +27,9 @@ RUN ARCH=loong64 \
     && npm --version
 
 ENV YARN_VERSION 1.22.19
-
 RUN set -ex \
   && savedAptMark="$(apt-mark showmanual)" \
-  && apt-get update && apt-get install -y ca-certificates curl wget gnupg dirmngr --no-install-recommends \
+  && apt-get update && apt-get install -y ca-certificates curl wget gnupg dirmngr python3 python2 make cmake gcc g++ --no-install-recommends \
   && rm -rf /var/lib/apt/lists/* \
   && for key in \
     6A010C5166006599AA17F08146C2130DFD2497F5 \
@@ -57,7 +56,6 @@ RUN set -ex \
   && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
   # smoke test
   && yarn --version
-
 COPY docker-entrypoint.sh /usr/local/bin/
 ENTRYPOINT ["docker-entrypoint.sh"]
 
