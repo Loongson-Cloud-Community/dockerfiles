@@ -29,6 +29,7 @@ src/$(SOURCE):
 		git apply ../../$(PATCH) image
 
 push:
+	echo "scan test"
 	docker push $(IMAGE)
 	@if [ $(LATEST) = "true" ]; \
 		then\
