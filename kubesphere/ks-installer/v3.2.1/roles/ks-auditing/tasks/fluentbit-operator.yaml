@@ -1,0 +1,18 @@
+- name: ks-auditing | Creates directory
+  file:
+    path: "{{ kubesphere_dir }}/fluentbit-operator"
+    state: directory
+
+- name: ks-auditing | Creating manifests
+  template:
+    src: "{{ item.file }}.j2"
+    dest: "{{ kubesphere_dir }}/fluentbit-operator/{{ item.file }}"
+  with_items:
+    - { name: custom-output-elasticsearch-auditing, file: custom-output-elasticsearch-auditing.yaml }
+    - { name: custom-input-auditing, file: custom-input-auditing.yaml }
+    - { name: custom-filter-auditing, file: custom-filter-auditing.yaml }
+
+
+- name: ks-auditing | Apply fluentbit operator custom resources
+  shell: >
+    {{ bin_dir }}/kubectl apply -f {{ kubesphere_dir }}/fluentbit-operator

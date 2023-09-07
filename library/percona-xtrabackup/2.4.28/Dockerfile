@@ -25,7 +25,7 @@ ENV PS_VERSION=5.7.41-44.1
 
 
 RUN yum install -y findutils nmap-ncat glibc openssl-devel libaio \
-    libaio-devel automake autoconf libcrypt* wget nmap-ncat\
+    libaio-devel automake autoconf libcrypt* wget nmap-ncat mysql\
     bison libtool ncurses-devel libgcrypt-devel libev-devel libcurl-devel zlib-devel \
     zstd vim-common procps-ng-devel; 
 
