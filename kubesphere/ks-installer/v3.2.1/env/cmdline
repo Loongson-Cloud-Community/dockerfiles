@@ -1,0 +1,1 @@
+-e @/kubesphere/config/ks-config.json -e @/kubesphere/config/ks-status.json

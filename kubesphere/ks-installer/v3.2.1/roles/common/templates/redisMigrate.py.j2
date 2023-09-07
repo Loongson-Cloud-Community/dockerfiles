@@ -1,0 +1,68 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+from redis import StrictRedis
+
+
+def redis_data_migration():
+
+    src_redis = StrictRedis(host='{{ redis_podIp.stdout }}')
+    dst_redis = StrictRedis(host='{{ ks_redis_svc }}')
+
+    print("Begin data migration:")
+
+    try:
+        for key in src_redis.keys():
+
+            key_type = str(src_redis.type(key))
+
+            if key_type == 'string':
+                src_value = str(src_redis.get(key))
+                dst_redis.set(key, src_value)
+                dst_value = dst_redis.get(key)
+                print('Migrate source {} type data{}={} to destination value {}'
+                      .format(key_type, key, src_value, dst_value))
+
+            elif key_type == 'hash':
+                src_value = src_redis.hgetall(key)
+                for son_key in src_value:
+                    son_key = str(son_key)
+                    son_value = str(src_redis.hget(key, son_key))
+                    dst_redis.hset(key, son_key, son_value)
+                dst_value = dst_redis.hgetall(key)
+                print('Migrate source {} type data{}={} to destination value {}'
+                      .format(key_type, key, src_value, dst_value))
+
+            elif key_type == 'list':
+                src_value = src_redis.lrange(key, 0, src_redis.llen(key))
+                for value in src_value:
+                    dst_redis.rpush(key, str(value))
+                dst_value = dst_redis.lrange(key, 0, src_redis.llen(key))
+                print('Migrate source {} type data{}={} to destination value {}'
+                      .format(key_type, key, src_value, dst_value))
+
+            elif key_type == 'set':
+                src_value = src_redis.scard(key)
+                for value in src_redis.smembers(key):
+                    dst_redis.sadd(key, str(value))
+                dst_value = dst_redis.scard(key)
+                print('Migrate source {} type data{}={} to destination value {}'
+                      .format(key_type, key, src_value, dst_value))
+
+            elif key_type == 'zset':
+                src_value = src_redis.zcard(key)
+                for value in src_redis.zrange(key, 0, 100):
+                    value = str(value)
+                    score = int(src_redis.zscore(key, value))
+                    dst_redis.zadd(key, score, value)
+                dst_value = dst_redis.zcard(key)
+                print('Migrate source {} type data{}={} to destination value {}'
+                      .format(key_type, key, src_value, dst_value))
+
+    except Exception as e:
+        print("Something wrong happened！")
+        print(e)
+
+
+if __name__ == '__main__':
+    redis_data_migration()

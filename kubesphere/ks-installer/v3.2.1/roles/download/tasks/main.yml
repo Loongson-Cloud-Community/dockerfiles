@@ -1,0 +1,18 @@
+---
+- name: Generating images list
+  include_tasks: "generate_images_list.yml"
+  tags:
+  - images_list
+  when:
+    - not skip_sync|default(false)
+
+- name: Synchronizing images
+  include_tasks: "sync_images.yml"
+  vars:
+    image: "{{ image_default | combine(item.value) }}"
+  with_dict: "{{ images }}"
+  tags:
+  - sync_images
+  when:
+    - not skip_sync|default(false)
+

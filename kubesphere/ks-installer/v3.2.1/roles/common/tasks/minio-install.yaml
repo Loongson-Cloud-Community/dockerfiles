@@ -1,0 +1,64 @@
+- name: KubeSphere | Getting minio installation files
+  copy:
+    src: "{{ item }}"
+    dest: "{{ kubesphere_dir }}/"
+  loop:
+    - "minio-ha"
+
+
+- name: KubeSphere | Creating manifests
+  template:
+    src: "{{ item.file }}.j2"
+    dest: "{{ kubesphere_dir }}/{{ item.file }}"
+  with_items:
+    - { name: custom-values-minio, file: custom-values-minio.yaml }
+
+
+- name: KubeSphere | Checking minio
+  shell: >
+    {{ bin_dir }}/helm list -n kubesphere-system | grep "ks-minio"
+  register: minio_check
+  failed_when: false
+
+
+- block:
+    - name: KubeSphere | Deploying minio
+      shell: >
+        {{ bin_dir }}/helm upgrade --install ks-minio
+        {{ kubesphere_dir }}/minio-ha
+        -f {{ kubesphere_dir }}/custom-values-minio.yaml
+        --set fullnameOverride=minio
+        --namespace kubesphere-system
+        --wait --timeout 1800s
+      register: minio_status
+      failed_when: false
+
+
+    - debug:
+        msg:
+         - 1. check the storage configuration and storage server
+         - 2. make sure the DNS address in /etc/resolv.conf is available
+         - 3. execute 'kubectl logs -n kubesphere-system -l job-name=minio-make-bucket-job' to watch logs
+         - 4. execute 'helm -n kubesphere-system uninstall ks-minio && kubectl -n kubesphere-system delete job minio-make-bucket-job'
+         - 5. Restart the installer pod in kubesphere-system namespace
+      when: minio_status.rc != 0
+
+
+    - fail:
+        msg: "It is suggested to refer to the above methods for troubleshooting problems ."
+      when: minio_status.rc != 0
+  when:
+    - (minio_check.stdout.find("deployed") == -1) or (minio_check.stdout.find("RELEASE.2019-08-07T01-59-21Z") == -1)
+
+
+- name: KubeSphere | Importing minio status
+  shell: >
+    {{ bin_dir }}/kubectl patch cc ks-installer
+    --type merge
+    -p '{"status": {"minio": {"status": "enabled", "enabledTime": "{{ lookup('pipe','date  +%Y-%m-%dT%H:%M:%S%Z') }}"}}}'
+    -n kubesphere-system
+  register: cc_result
+  failed_when: "cc_result.stderr and 'Warning' not in cc_result.stderr"
+  until: cc_result is succeeded
+  retries: 5
+  delay: 3

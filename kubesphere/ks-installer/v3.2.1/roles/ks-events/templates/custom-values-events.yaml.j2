@@ -1,0 +1,159 @@
+operator:
+  enabled: true
+  image:
+    repository: {{ kube_events_operator_repo }}
+    tag: {{ kube_events_operator_tag }}
+    pullPolicy: IfNotPresent
+  configReloader:
+    image: {{ configmap_reload_repo }}:{{ configmap_reload_tag }}
+{% if events.nodeSelector is defined and events.nodeSelector is not none %}
+  nodeSelector:
+    {{ events.nodeSelector | to_nice_yaml(indent=2) | indent(4) }}
+{% elif nodeSelector is defined and nodeSelector is not none %}
+  nodeSelector:
+    {{ nodeSelector | to_nice_yaml(indent=2) | indent(4) }}
+{% else %}
+  nodeSelector: {}
+{% endif %}
+{% if events.tolerations is defined and events.tolerations is not none %}
+  tolerations:
+    {{ events.tolerations | to_nice_yaml(indent=2) | indent(4) }}
+{% elif tolerations is defined and tolerations is not none %}
+  tolerations:
+    {{ tolerations | to_nice_yaml(indent=2) | indent(4) }}
+{% else %}
+  tolerations: []
+{% endif %}
+{% if events.affinity is defined and events.affinity is not none %}
+  affinity:
+    {{ events.affinity | to_nice_yaml(indent=2) | indent(4) }}
+{% elif affinity is defined and affinity is not none %}
+  affinity:
+    {{ affinity | to_nice_yaml(indent=2) | indent(4) }}
+{% else %}
+  affinity: {}
+{% endif %}
+  resources:
+    limits:
+      cpu: {{ events.operator.resources.limits.cpu | default("200m") }}
+      memory: {{ events.operator.resources.limits.cpu | default("200Mi") }}
+    requests:
+      cpu: {{ events.operator.resources.requests.cpu | default("20m") }}
+      memory: {{ events.operator.resources.requests.cpu | default("20Mi") }}
+  serviceAccount:
+    create: true
+    name: ""
+  # If true, just clean up cr but not crd
+  cleanupAllCustomResources: false
+  kubectlImage: {{ ks_kubectl_repo }}:{{ ks_kubectl_tag }}
+
+exporter:
+  enabled: true
+  image:
+    repository: {{ kube_events_exporter_repo }}
+    tag: {{ kube_events_exporter_tag }}
+    pullPolicy: IfNotPresent
+{% if events.nodeSelector is defined and events.nodeSelector is not none %}
+  nodeSelector:
+    {{ events.nodeSelector | to_nice_yaml(indent=2) | indent(4) }}
+{% elif nodeSelector is defined and nodeSelector is not none %}
+  nodeSelector:
+    {{ nodeSelector | to_nice_yaml(indent=2) | indent(4) }}
+{% else %}
+  nodeSelector: {}
+{% endif %}
+{% if events.tolerations is defined and events.tolerations is not none %}
+  tolerations:
+    {{ events.tolerations | to_nice_yaml(indent=2) | indent(4) }}
+{% elif tolerations is defined and tolerations is not none %}
+  tolerations:
+    {{ tolerations | to_nice_yaml(indent=2) | indent(4) }}
+{% else %}
+  tolerations: []
+{% endif %}
+{% if events.affinity is defined and events.affinity is not none %}
+  affinity:
+    {{ events.affinity | to_nice_yaml(indent=2) | indent(4) }}
+{% elif affinity is defined and affinity is not none %}
+  affinity:
+    {{ affinity | to_nice_yaml(indent=2) | indent(4) }}
+{% else %}
+  affinity: {}
+{% endif %}
+  resources:
+    limits:
+      cpu: {{ events.exporter.resources.limits.cpu | default("200m") }}
+      memory: {{ events.exporter.resources.limits.memory | default("500Mi") }}
+    requests:
+      cpu: {{ events.exporter.resources.requests.cpu | default("20m") }}
+      memory: {{ events.exporter.resources.requests.memory | default("50Mi") }}
+  sinks:
+    stdout:
+      enabled: true
+    additionalWebhooks: []
+    # - url:
+    #   service:
+    #     namespace:
+    #     name:
+    #     port:
+    #     path:
+
+ruler:
+  enabled: {{ events.ruler.enabled | default(true) }}
+  replicas: {{ events.ruler.replicas | default(2) }}
+  image:
+    repository: {{ kube_events_ruler_repo }}
+    tag: {{ kube_events_ruler_tag }}
+    pullPolicy: IfNotPresent
+{% if events.nodeSelector is defined and events.nodeSelector is not none %}
+  nodeSelector:
+    {{ events.nodeSelector | to_nice_yaml(indent=2) | indent(4) }}
+{% elif nodeSelector is defined and nodeSelector is not none %}
+  nodeSelector:
+    {{ nodeSelector | to_nice_yaml(indent=2) | indent(4) }}
+{% else %}
+  nodeSelector: {}
+{% endif %}
+{% if events.tolerations is defined and events.tolerations is not none %}
+  tolerations:
+    {{ events.tolerations | to_nice_yaml(indent=2) | indent(4) }}
+{% elif tolerations is defined and tolerations is not none %}
+  tolerations:
+    {{ tolerations | to_nice_yaml(indent=2) | indent(4) }}
+{% else %}
+  tolerations: []
+{% endif %}
+{% if events.affinity is defined and events.affinity is not none %}
+  affinity:
+    {{ events.affinity | to_nice_yaml(indent=2) | indent(4) }}
+{% elif affinity is defined and affinity is not none %}
+  affinity:
+    {{ affinity | to_nice_yaml(indent=2) | indent(4) }}
+{% else %}
+  affinity: {}
+{% endif %}
+  resources:
+    limits:
+      cpu: {{ events.ruler.resources.limits.cpu | default("500m") }}
+      memory: {{ events.ruler.resources.limits.memory | default("500Mi") }}
+    requests:
+      cpu: {{ events.ruler.resources.requests.cpu | default("50m") }}
+      memory: {{ events.ruler.resources.requests.memory | default("50Mi") }}
+  ruleNamespaceSelector: {}
+  ruleSelector: {}
+  sinks:
+    alertmanager:
+      namespace: kubesphere-monitoring-system
+      name: alertmanager-main
+    webhooks: []
+    # - type:
+    #   url:
+    #   service:
+    #     namespace:
+    #     name:
+    #     port:
+    #     path:
+
+rule:
+  createDefaults: true
+  overrideDefaults: false
