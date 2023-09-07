@@ -14,7 +14,7 @@ RUN rm -rf /var/log/*
 
 LABEL release=994
 
-ADD ubi8-minimal-container-8.6-994.json /root/buildinfo/content_manifests/ubi8-minimal-container-8.6-994.json
+COPY ubi8-minimal-container-8.6-994.json /root/buildinfo/content_manifests/ubi8-minimal-container-8.6-994.json
 
 
 RUN yum -y update && yum -y install glibc-langpack-en
