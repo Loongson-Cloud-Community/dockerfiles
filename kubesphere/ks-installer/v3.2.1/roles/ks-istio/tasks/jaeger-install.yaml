@@ -1,0 +1,46 @@
+- name: servicemesh | Checking jaeger-operator
+  shell: >
+    {{ bin_dir }}/helm list -n istio-system | grep "jaeger-operator"
+  register: jaeger_check
+  failed_when: false
+
+- name: servicemesh | Deleting jaeger-operator deployment
+  shell: >
+    {{ bin_dir }}/kubectl -n istio-system delete deployment jaeger-operator
+  when:
+    - (jaeger_check.stdout.find("deployed") != -1) and (jaeger_check.stdout.find("1.27.0") == -1)
+  ignore_errors: True
+
+- name: servicemesh | Deploying jaeger-operator
+  shell: >
+    {{ bin_dir }}/helm upgrade --install jaeger-operator {{ kubesphere_dir }}/servicemesh/jaeger/jaeger-operator-2.26.0.tgz
+    -f {{ kubesphere_dir }}/servicemesh/jaeger/custom-values-jaeger.yaml
+    --namespace istio-system
+  when:
+    - (jaeger_check.stdout.find("deployed") == -1) or (jaeger_check.stdout.find("1.27.0") == -1)
+
+- name: servicemesh | Deploying jaeger-secret
+  shell: >
+    {{ bin_dir }}/kubectl create secret generic jaeger-secret
+    --from-literal=ES_PASSWORD={{ common.es.basicAuth.password }}
+    --from-literal=ES_USERNAME={{ common.es.basicAuth.username }}
+    --namespace istio-system
+    --dry-run=client -oyaml | {{ bin_dir }}/kubectl apply -f -
+  register: jaeger_result
+  until: jaeger_result is succeeded
+  retries: 5
+  delay: 10
+  when:
+    - "common.es.basicAuth.enabled is defined"
+    - "common.es.basicAuth.enabled == true"
+    - "common.es.basicAuth.password is defined and common.es.basicAuth.password != ''"
+    - "common.es.basicAuth.username is defined and common.es.basicAuth.username != ''"
+
+- name: servicemesh | Deploying jaeger-cr
+  shell: "{{ bin_dir }}/kubectl apply -f {{ kubesphere_dir }}/servicemesh/jaeger/jaeger-cr.yaml --namespace istio-system"
+  register: jaeger_cr_result
+  until: jaeger_cr_result is succeeded
+  retries: 5
+  delay: 10
+  when:
+    - (jaeger_check.stdout.find("deployed") == -1) or (jaeger_check.stdout.find("1.27.0") == -1)

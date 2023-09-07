@@ -1,0 +1,91 @@
+---
+
+- name: Kubefed | Getting kubefed installation files
+  copy:
+    src: "{{ item }}"
+    dest: "{{ kubesphere_dir }}/"
+  loop:
+    - "kubefed"
+
+- debug:
+    msg: Current Kubernetes version is {{ kubernetes_version }}
+
+# Get the matched kubectl image
+- name: KubeSphere | Setting kubectl image version
+  set_fact:
+    ks_kubectl_tag: "{{ item.value }}"
+    kubectl_break: true
+  loop: "{{ query('dict', ks_kubectl_versions) }}"
+  when:
+    - kubectl_break is undefined and kubernetes_version is defined and kubernetes_version is version(item.key, '>=')
+
+- debug:
+    msg: Current kubectl image version is {{ ks_kubectl_tag }}
+
+- name: Kubefed | Creating manifests
+  template:
+    src: "{{ item.file }}.j2"
+    dest: "{{ kubesphere_dir }}/{{ item.path }}/{{ item.file }}"
+  with_items:
+    - { path: kubefed, file: custom-values-kubefed.yaml }
+    - { path: kubefed, file: tower.yaml }
+
+- name: Kubefed | Checking kubefed
+  shell: >
+    {{ bin_dir }}/helm list --namespace kube-federation-system | grep "kubefed"
+  register: kubefed_check
+  failed_when: false
+
+- block:
+    - name: Tower | Installing tower
+      shell: >
+        {{ bin_dir }}/kubectl -n kubesphere-system apply -f {{ kubesphere_dir }}/kubefed/tower.yaml
+      register: tower_result
+      failed_when: false
+
+    - name: Kubefed | Upgrade crd manually #see https://helm.sh/docs/chart_best_practices/custom_resource_definitions/
+      shell: >
+        {{ bin_dir }}/kubectl apply -f {{ kubesphere_dir }}/kubefed/kubefed/charts/controllermanager/crds/
+      ignore_errors: true
+
+    - name: Kubefed | Initing kube-federation-system
+      shell: >
+        {{ bin_dir }}/helm upgrade --install kubefed {{ kubesphere_dir }}/kubefed/kubefed
+        -f {{ kubesphere_dir }}/kubefed/custom-values-kubefed.yaml
+        --namespace kube-federation-system --wait --timeout 1800s
+      register: kubefed_result
+      until: kubefed_result is succeeded
+      retries: 10
+      delay: 60
+
+    - name: Kubfed | Labeling kube-federation-system namespace
+      shell: >
+        {{ bin_dir }}/kubectl label namespace kube-federation-system kubesphere.io/workspace=system-workspace --overwrite
+
+
+- name: KubeSphere | Checking kubefed-admission-webhook status
+  wait_for:
+    host: "kubefed-admission-webhook.kube-federation-system.svc"
+    port: 443
+    delay: 5
+    timeout: 1800
+
+
+- name: Kubefed | Creating MultiCluster crds
+  shell: "{{ bin_dir }}/kubectl apply -f {{ item }} -n kube-federation-system"
+  ignore_errors: true
+  with_fileglob:
+    - "{{ kubesphere_dir }}/kubefed/federatedcrds/*"
+
+
+- name: Kubefed | Importing multicluster status
+  shell: >
+    {{ bin_dir }}/kubectl patch cc ks-installer
+    --type merge
+    -p '{"status": {"multicluster": {"status": "enabled", "enabledTime": "{{ lookup('pipe','date  +%Y-%m-%dT%H:%M:%S%Z') }}"}}}'
+    -n kubesphere-system
+  register: cc_result
+  failed_when: "cc_result.stderr and 'Warning' not in cc_result.stderr"
+  until: cc_result is succeeded
+  retries: 5
+  delay: 3

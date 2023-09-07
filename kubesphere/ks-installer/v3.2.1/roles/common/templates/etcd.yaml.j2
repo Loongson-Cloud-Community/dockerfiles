@@ -1,0 +1,80 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: etcd
+  namespace: kubesphere-system
+  labels:
+    app: kubesphere
+    tier: etcd
+spec:
+  selector:
+    app: kubesphere
+    tier: etcd
+  ports:
+  - name: tcp
+    protocol: TCP
+    port: 2379
+    targetPort: 2379
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: etcd-pvc
+  namespace: kubesphere-system
+  labels:
+    app: kubesphere
+    tier: etcd
+spec:
+  accessModes:
+    - ReadWriteOnce
+{% if persistence.storageClass is defined and persistence.storageClass != "" %}
+  storageClassName: {{ persistence.storageClass }}
+{% endif %}
+  resources:
+    requests:
+      storage: {% if etcd_db_pv_size is defined %}{{ etcd_db_pv_size }}{% else %}{{ common.etcdVolumeSize }}{% endif %}
+
+{% if etcd_pv_name is defined and etcd_pv_name != None %}
+  volumeName: {{ etcd_pv_name }}
+{% endif %}
+
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: etcd
+  namespace: kubesphere-system
+  labels:
+    app: kubesphere
+    tier: etcd
+spec:
+  selector:
+    matchLabels:
+      app: kubesphere
+      tier: etcd
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: kubesphere
+        tier: etcd
+    spec:
+      containers:
+      - name: etcd
+        image: {{ etcd_image_repo }}:{{ etcd_image_tag }}
+        imagePullPolicy: IfNotPresent
+        command: ["etcd", "--data-dir=/data", "--listen-client-urls=http://0.0.0.0:2379", "--advertise-client-urls=http://etcd.kubesphere-system.svc:2379", "--max-snapshots=5", "--max-wals=5", "--auto-compaction-retention=168"]
+        ports:
+        - containerPort: 2379
+          name: etcd
+        volumeMounts:
+        - name: etcd-persistent-storage
+          mountPath: /data
+      volumes:
+      - name: etcd-persistent-storage
+        persistentVolumeClaim:
+          claimName: etcd-pvc

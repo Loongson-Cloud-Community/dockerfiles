@@ -1,0 +1,235 @@
+apiVersion: v1
+data:
+  kubesphere.yaml: |
+    authentication:
+      authenticateRateLimiterMaxTries: {{ authentication.authenticateRateLimiterMaxTries | default(10) }}
+      authenticateRateLimiterDuration: {{ authentication.authenticationRateLimiterDuration | default("10m0s") }}
+      loginHistoryRetentionPeriod: {{ authentication.loginHistoryRetentionPeriod | default("168h") }}
+      maximumClockSkew: {{ authentication.maximumClockSkew | default("10s") }}
+      multipleLogin: {{ common.core.console.enableMultiLogin | default(true) }}
+      kubectlImage: {{ ks_kubectl_repo }}:{{ ks_kubectl_tag }}
+      jwtSecret: "{{ ks_secret_str.stdout }}"
+      oauthOptions:
+{% if multicluster.clusterRole is defined and multicluster.clusterRole == "member" %}
+        accessTokenMaxAge: 0
+{% elif authentication.oauthOptions is defined %}
+        {{ authentication.oauthOptions |  to_nice_yaml(indent=2) | trim | indent(8) }}
+{% if authentication.oauthOptions.clients is not defined %}
+        clients:
+        - name: kubesphere
+          secret: kubesphere
+          redirectURIs:
+          - '*'
+{% endif %}
+{% else %}
+        clients:
+        - name: kubesphere
+          secret: kubesphere
+          redirectURIs:
+          - '*'
+{% endif %}
+
+{% if (common.openldap is defined and common.openldap.enabled is defined and common.openldap.enabled) or devops.enabled %}
+    ldap:
+      host: openldap.kubesphere-system.svc:389
+      managerDN: cn=admin,dc=kubesphere,dc=io
+      managerPassword: admin
+      userSearchBase: ou=Users,dc=kubesphere,dc=io
+      groupSearchBase: ou=Groups,dc=kubesphere,dc=io
+{% endif %}
+
+{% if (common.redis is defined and common.redis.enabled is defined and common.redis.enabled) or enableHA %}
+    redis:
+      host: redis.kubesphere-system.svc
+      port: 6379
+      password: KUBESPHERE_REDIS_PASSWORD
+      db: 0
+{% endif %}
+
+{% if OPMigrate is defined and OPMigrate %}
+    mysql:
+      host: mysql.kubesphere-system.svc:3306
+      username: {{ common.mysqlUsername | default("root") }}
+      password: {{ common.mysqlPassword | default("password") }}
+      maxIdleConnections: 100
+      maxOpenConnections: 100
+      maxConnectionLifeTime: 10s
+{% endif %}
+
+{% if devops.enabled %}
+    s3:
+      endpoint: {{ common.s3.endpoint | default('http://minio.kubesphere-system.svc:9000') }}
+      region: {{ common.s3.region | default('us-east-1') }}
+      disableSSL: {{ common.s3.disableSSL | default(true) }}
+      forcePathStyle: {{ common.s3.forcePathStyle | default(true) }}
+      accessKeyID: {{ common.s3.accessKeyID | default('openpitrixminioaccesskey') }}
+      secretAccessKey: {{ common.s3.secretAccessKey | default('openpitrixminiosecretkey') }}
+      bucket: s2i-binaries
+{% endif %}
+
+{% if network is defined or networkpolicy is defined %}
+    network:
+{% if ((networkpolicy is defined and networkpolicy.enabled is defined and networkpolicy.enabled) or
+       (network.networkpolicy is defined and network.networkpolicy.enabled is defined and network.networkpolicy.enabled)) %}
+      enableNetworkPolicy: true
+{% endif %}
+{% if network.ippool is defined and network.ippool.type is defined %}
+      ippoolType: {{ network.ippool.type }}
+{% endif %}
+{% if network.topology is defined and network.topology.type is defined and network.topology.type == "weave-scope"  %}
+      weaveScopeHost: weave-scope-app.weave
+{% endif %}
+{% endif %}
+{% if devops.enabled is defined and devops.enabled == true %}
+    devops:
+      host: http://devops-jenkins.kubesphere-devops-system.svc/
+      username: admin
+      password: {{ ks_token_str.stdout }}
+      maxConnections: 100
+      endpoint: http://devops-apiserver.kubesphere-devops-system:9090
+{% if sonarQubeHost is defined and sonarQubeToken is defined %}
+    sonarQube:
+      host: {{ sonarQubeHost }}
+      token: {{ sonarQubeToken }}
+{% endif %}
+{% endif %}
+{% if servicemesh.enabled is defined and servicemesh.enabled == true %}
+    servicemesh:
+      istioPilotHost: http://istiod.istio-system.svc:8080/version
+      jaegerQueryHost: http://jaeger-query.istio-system.svc:16686
+      servicemeshPrometheusHost: http://prometheus-k8s.kubesphere-monitoring-system.svc:9090
+      kialiQueryHost: http://kiali.istio-system:20001
+{% endif %}
+{% if openpitrix.store is defined and openpitrix.store.enabled is defined and openpitrix.store.enabled %}
+    openpitrix:
+      s3:
+        endpoint: {{ common.s3.endpoint | default('http://minio.kubesphere-system.svc:9000') }}
+        region: {{ common.s3.region | default('us-east-1') }}
+        disableSSL: {{ common.s3.disableSSL | default(true) }}
+        forcePathStyle: {{ common.s3.forcePathStyle | default(true) }}
+        accessKeyID: {{ common.s3.accessKeyID | default('openpitrixminioaccesskey') }}
+        secretAccessKey: {{ common.s3.secretAccessKey | default('openpitrixminiosecretkey') }}
+        bucket: {{ common.s3.openpitrixBucket | default('app-store') }}
+{% endif %}
+{% if multicluster.clusterRole is defined and multicluster.clusterRole == "host" %}
+    multicluster:
+      enable: true
+      agentImage: {{ tower_repo }}/{{ tower_image }}:{{ tower_image_tag }}
+      proxyPublishService: tower.kubesphere-system.svc
+{% if multicluster.proxyPublishAddress is defined and multicluster.proxyPublishAddress != "" %}
+      proxyPublishAddress: {{ multicluster.proxyPublishAddress }}
+{% endif %}
+{% if multicluster.clusterControllerResyncPeriod is defined and multicluster.clusterControllerResyncPeriod != "" %}
+      clusterControllerResyncPeriod: {{ multicluster.clusterControllerResyncPeriod }}
+{% endif %}
+{% if multicluster.hostClusterName is defined and multicluster.hostClusterName != "" %}
+      hostClusterName: {{ multicluster.hostClusterName }}
+{% endif %}
+{% endif %}
+    monitoring:
+{% if common.monitoring is defined and common.monitoring.endpoint is defined %}
+      endpoint: {{ common.monitoring.endpoint }}
+{% else %}
+      endpoint: http://prometheus-operated.kubesphere-monitoring-system.svc:9090
+{% endif %}
+{% if common.monitoring.GPUMonitoring is defined and common.monitoring.GPUMonitoring.enabled == true %}
+      enableGPUMonitoring: true
+{% else %}
+      enableGPUMonitoring: false
+{% endif %}
+{% if common.gpu is defined and common.gpu.kinds is defined %}
+    gpu:
+      kinds:
+{% for kind in common.gpu.kinds %}
+      - resourceName: {{ kind.resourceName }}
+        resourceType: {{ kind.resourceType }}
+{% if kind.default is defined %}
+        default: {{ kind.default }}
+{% endif %}
+{% endfor %}
+{% endif %}
+    notification:
+{% if common.notification is defined and common.notification.endpoint is defined %}
+      endpoint: {{ common.notification.endpoint }}
+{% else %}
+      endpoint: http://notification-manager-svc.kubesphere-monitoring-system.svc:19093
+{% endif %}
+{% if logging.enabled is defined and logging.enabled == true %}
+    logging:
+{% if common.es.externalElasticsearchUrl is defined and common.es.externalElasticsearchPort is defined and common.es.externalElasticsearchUrl != "" and common.es.externalElasticsearchPort != "" %}
+      host: {{ common.es.externalElasticsearchProtocol | default('http') }}://{{ common.es.externalElasticsearchUrl }}:{{ common.es.externalElasticsearchPort }}
+{% else %}
+      host: http://elasticsearch-logging-data.kubesphere-logging-system.svc:9200
+{% endif %}
+{% if common.es.basicAuth is defined and common.es.basicAuth.enabled == true %}
+      basicAuth: {{ common.es.basicAuth.enabled }}
+      username: "{{ common.es.basicAuth.username | default("") }}"
+      password: "{{ common.es.basicAuth.password | default("") }}"
+{% endif %}
+{% if esIndexPrefix is defined %}
+      indexPrefix: {{ esIndexPrefix }}
+{% else %}
+      indexPrefix: ks-{{ common.es.elkPrefix }}-log
+{% endif %}
+{% endif %}
+{% if events.enabled is defined and events.enabled == true %}
+    events:
+{% if common.es.externalElasticsearchUrl is defined and common.es.externalElasticsearchPort is defined and common.es.externalElasticsearchUrl != "" and common.es.externalElasticsearchPort != "" %}
+      host: {{ common.es.externalElasticsearchProtocol | default('http') }}://{{ common.es.externalElasticsearchUrl }}:{{ common.es.externalElasticsearchPort }}
+{% else %}
+      host: http://elasticsearch-logging-data.kubesphere-logging-system.svc:9200
+{% endif %}
+{% if common.es.basicAuth is defined and common.es.basicAuth.enabled == true %}
+      basicAuth: {{ common.es.basicAuth.enabled }}
+      username: "{{ common.es.basicAuth.username | default("") }}"
+      password: "{{ common.es.basicAuth.password | default("") }}"
+{% endif %}
+      indexPrefix: ks-{{ common.es.elkPrefix }}-events
+{% endif %}
+{% if auditing.enabled is defined and auditing.enabled == true %}
+    auditing:
+      enable: true
+      webhookURL: https://kube-auditing-webhook-svc.kubesphere-logging-system.svc:6443/audit/webhook/event
+{% if common.es.externalElasticsearchUrl is defined and common.es.externalElasticsearchPort is defined and common.es.externalElasticsearchUrl != "" and common.es.externalElasticsearchPort != "" %}
+      host: {{ common.es.externalElasticsearchProtocol | default('http') }}://{{ common.es.externalElasticsearchUrl }}:{{ common.es.externalElasticsearchPort }}
+{% else %}
+      host: http://elasticsearch-logging-data.kubesphere-logging-system.svc:9200
+{% endif %}
+{% if common.es.basicAuth is defined and common.es.basicAuth.enabled == true %}
+      basicAuth: {{ common.es.basicAuth.enabled }}
+      username: "{{ common.es.basicAuth.username | default("") }}"
+      password: "{{ common.es.basicAuth.password | default("") }}"
+{% endif %}
+      indexPrefix: ks-{{ common.es.elkPrefix }}-auditing
+{% endif %}
+
+{% if alerting.enabled is defined and alerting.enabled == true %}
+    alerting:
+{% if common.monitoring is defined and common.monitoring.endpoint is defined %}
+      prometheusEndpoint: {{ common.monitoring.endpoint }}
+{% else %}
+      prometheusEndpoint: http://prometheus-operated.kubesphere-monitoring-system.svc:9090
+{% endif %}
+      thanosRulerEndpoint: http://thanos-ruler-operated.kubesphere-monitoring-system.svc:10902
+      thanosRuleResourceLabels: thanosruler=thanos-ruler,role=thanos-alerting-rules
+{% endif %}
+
+{% if kubeedge.enabled is defined and kubeedge.enabled == true %}
+    kubeedge:
+      endpoint: http://edge-watcher.kubeedge.svc/api/
+{% endif %}
+
+    gateway:
+      watchesPath: /var/helm-charts/watches.yaml
+      repository: {{ nginx_ingress_controller_repo }}
+      tag: {{ nginx_ingress_controller_tag }}
+{% if gateway is defined and gateway.namespace is defined %}
+      namespace: {{ gateway.namespace }}
+{% else %}
+      namespace: kubesphere-controls-system
+{% endif %}
+
+kind: ConfigMap
+metadata:
+  name: kubesphere-config
+  namespace: kubesphere-system

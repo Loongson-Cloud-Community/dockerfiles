@@ -1,0 +1,70 @@
+{{- if .Values.operator.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ template "kube-events.operator.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+{{ include "kube-events.labels" . | indent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ template "kube-events.operator.fullname" . }}
+{{ include "kube-events.labels" . | indent 6 }}
+  template:
+    metadata:
+      labels:
+        app: {{ template "kube-events.operator.fullname" . }}
+{{ include "kube-events.labels" . | indent 8 }}
+    spec:
+      {{- with .Values.operator.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.operator.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.operator.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+      - name: events-operator
+        image: {{ .Values.operator.image.repository }}:{{ .Values.operator.image.tag }}
+        imagePullPolicy: {{ .Values.operator.image.pullPolicy }}
+        args:
+        - --config-reloader-image={{ .Values.operator.configReloader.image }}
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        ports:
+        - containerPort: 9443
+          name: webhook-server
+          protocol: TCP
+        {{- if .Values.operator.resources }}
+        resources:
+{{ toYaml .Values.operator.resources | indent 10 }}
+        {{- end }}
+        volumeMounts:
+        - mountPath: /tmp/k8s-webhook-server/serving-certs
+          name: cert
+          readOnly: true
+        - mountPath: /etc/localtime
+          name: host-time
+          readOnly: true
+      serviceAccountName: {{ template "kube-events.operator.fullname" . }}
+      terminationGracePeriodSeconds: 10
+      volumes:
+      - name: cert
+        secret:
+          defaultMode: 420
+          secretName: {{ template "kube-events.admission.fullname" . }}
+      - hostPath:
+          path: /etc/localtime
+        name: host-time
+
+{{- end }}

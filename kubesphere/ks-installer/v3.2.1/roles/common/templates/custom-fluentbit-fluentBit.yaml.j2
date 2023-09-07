@@ -1,0 +1,28 @@
+apiVersion: logging.kubesphere.io/v1alpha2
+kind: FluentBit
+metadata:
+  name: fluent-bit
+  namespace: kubesphere-logging-system
+  labels:
+    app.kubernetes.io/name: fluent-bit
+spec:
+  image: {{ ks_fluent_bit_repo }}:{{ ks_fluent_bit_tag }}
+  positionDB:
+    emptyDir: {}
+  resources:
+    limits:
+      cpu: 500m
+      memory: 200Mi
+    requests:
+      cpu: 10m
+      memory: 25Mi
+  fluentBitConfigName: fluent-bit-config
+  tolerations:
+    - operator: Exists
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: node-role.kubernetes.io/edge
+            operator: DoesNotExist
