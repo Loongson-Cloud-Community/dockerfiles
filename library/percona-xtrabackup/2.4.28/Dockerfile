@@ -14,7 +14,7 @@ RUN rm -rf /var/log/*
 
 LABEL release=994
 
-ADD ubi8-minimal-container-8.6-994.json /root/buildinfo/content_manifests/ubi8-minimal-container-8.6-994.json
+COPY ubi8-minimal-container-8.6-994.json /root/buildinfo/content_manifests/ubi8-minimal-container-8.6-994.json
 
 
 RUN yum -y update && yum -y install glibc-langpack-en
@@ -29,11 +29,9 @@ RUN yum install -y findutils nmap-ncat glibc openssl-devel libaio \
     bison libtool ncurses-devel libgcrypt-devel libev-devel libcurl-devel zlib-devel \
     zstd vim-common procps-ng-devel; 
 
-ENV https_proxy=http://10.130.0.20:7890
 
 RUN wget https://github.com/Loongson-Cloud-Community/percona-xtrabackup/releases/download/percona-xtrabackup-2.4.8/percona-xtrabackup-2.4.28-linux-loongarch64.tar.gz
 
-ENV unset https_proxy
 
 RUN tar -zxvf percona-xtrabackup-2.4.28-linux-loongarch64.tar.gz -C /usr/local && ln -sn /usr/local/percona-xtrabackup-2.4.28-linux-loongarch64/bin/xtrabackup /usr/bin/xtrabackup
 
