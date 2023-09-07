@@ -19,7 +19,7 @@ RUN apk --no-cache add jq bash curl unzip openssl && \
     mkdir -p /hooks/kubesphere /kubesphere/installer/roles /kubesphere/results/env /kubesphere/playbooks /kubesphere/config &&\
     adduser -D -g kubesphere -u 1002 kubesphere
 
-ADD controller/* /hooks/kubesphere/
+COPY controller/* /hooks/kubesphere/
 RUN chown -R kubesphere:kubesphere /shell-operator && \
     chown -R kubesphere:kubesphere /hooks && \
     chown -R kubesphere:kubesphere /kubesphere && \
@@ -32,11 +32,11 @@ ENV ANSIBLE_ROLES_PATH /kubesphere/installer/roles
 
 WORKDIR /kubesphere
 
-ADD roles /kubesphere/installer/roles
+COPY roles /kubesphere/installer/roles
 
-ADD env /kubesphere/results/env
+COPY env /kubesphere/results/env
 
-ADD playbooks /kubesphere/playbooks
+COPY playbooks /kubesphere/playbooks
 
 ENTRYPOINT ["/shell-operator"]
 
