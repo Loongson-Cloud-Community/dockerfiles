@@ -23,16 +23,14 @@ default: image
 
 image: src/$(SOURCE)
 # Commands for building.
-	wget http://ftp.loongnix.cn/Java/openjdk17/loongson17.2.0-jdk17.0.3_7-linux-loongarch64.tar.gz; \
-	tar -zxvf loongson17.2.0-jdk17.0.3_7-linux-loongarch64.tar.gz -C /usr/local ; \
-	export PATH=/usr/local/jdk-17.0.3/bin:$(PATH);  \
-	cd src/pulsar && mvn install -Pcore-modules,-main -DskipTests; \
-	wget https://github.com/Loongson-Cloud-Community/pulsar/releases/download/v3.0.0/apache-pulsar-io-connectors-3.0.0-bin.tar.gz \
-	tar -zxvf apache-pulsar-io-connectors-3.0.0-bin.tar.gz  -C ./target/ \
-	#cp ./distribution/io/target/apache-pulsar-io-connectors-3.0.0-bin target/ ;
+	wget http://ftp.loongnix.cn/Java/openjdk17/loongson17.2.0-jdk17.0.3_7-linux-loongarch64.tar.gz && tar -zxvf loongson17.2.0-jdk17.0.3_7-linux-loongarch64.tar.gz -C /usr/local ; \
+	export PATH=/usr/local/jdk-17.0.3/bin:$(PATH) && wget https://github.com/Loongson-Cloud-Community/netty-incubator-transport-io_uring/releases/download/0.0.18/netty-incubator-transport-native-io_uring-0.0.18.Final-linux-loongarch_64.jar && mv netty-incubator-transport-native-io_uring-0.0.18.Final-linux-loongarch_64.jar ~/.m2/repository/io/netty/incubator/netty-incubator-transport-native-io_uring/0.0.18.Final ;\
+	#cd src/pulsar && mvn install -Pcore-modules,-main -DskipTests;
+	cd src/pulsar && mvn install -DskipTests;
+	wget https://github.com/Loongson-Cloud-Community/pulsar/releases/download/v3.0.0/apache-pulsar-io-connectors-3.0.0-bin.tar.gz ; \
+	tar -zxvf apache-pulsar-io-connectors-3.0.0-bin.tar.gz  -C  ./target/ ;\
 	mvn package -Pdocker,-main -am -pl docker/pulsar-all -DskipTests; \
-	#cd docker && ./build.sh \
-#	$(MAKE) -C src/$(SOURCE) 
+	export PATH=$(echo $PATH | sed 's|:/usr/local/jdk-17.0.3/bin||') ;
 
 src/$(SOURCE):
 	git clone -q -b $(LTAG) --depth=1 $(SOURCE_URL) $@
@@ -54,3 +52,5 @@ clean:
 	rm -rf src
 	rm -rf loongson17.2.0-jdk17.0.3_7-linux-loongarch64.tar.gz
 	rm -rf /usr/local//usr/local/jdk-17.0.3
+	rm -rf netty-incubator-transport-native-io_uring-0.0.18.Final-linux-loongarch_64.jar
+	rm -rf apache-pulsar-io-connectors-3.0.0-bin.tar.gz
