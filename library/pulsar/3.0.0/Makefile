@@ -23,10 +23,13 @@ default: image
 
 image: src/$(SOURCE)
 # Commands for building.
-	#cd src/pulsar && mvn install -DskipTests; \
-
+	wget http://ftp.loongnix.cn/Java/openjdk17/loongson17.2.0-jdk17.0.3_7-linux-loongarch64.tar.gz; \
+	tar -zxvf loongson17.2.0-jdk17.0.3_7-linux-loongarch64.tar.gz -C /usr/local ; \
+	export PATH=/usr/local/jdk-17.0.3/bin:$(PATH);  \
 	cd src/pulsar && mvn install -Pcore-modules,-main -DskipTests; \
-	cp ./distribution/io/target/apache-pulsar-io-connectors-3.0.0-bin target/ ;\
+	wget https://github.com/Loongson-Cloud-Community/pulsar/releases/download/v3.0.0/apache-pulsar-io-connectors-3.0.0-bin.tar.gz \
+	tar -zxvf apache-pulsar-io-connectors-3.0.0-bin.tar.gz  -C ./target/ \
+	#cp ./distribution/io/target/apache-pulsar-io-connectors-3.0.0-bin target/ ;
 	mvn package -Pdocker,-main -am -pl docker/pulsar-all -DskipTests; \
 	#cd docker && ./build.sh \
 #	$(MAKE) -C src/$(SOURCE) 
@@ -49,3 +52,5 @@ push:
 
 clean:
 	rm -rf src
+	rm -rf loongson17.2.0-jdk17.0.3_7-linux-loongarch64.tar.gz
+	rm -rf /usr/local//usr/local/jdk-17.0.3
