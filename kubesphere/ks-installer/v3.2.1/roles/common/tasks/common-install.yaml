@@ -1,0 +1,24 @@
+- import_tasks: redis-install.yaml
+  when:
+    - (common.redis is defined and common.redis.enabled is defined and common.redis.enabled) or enableHA
+    - "status.redis is not defined or status.redis.status is not defined or status.redis.status != 'enabled'"
+
+- import_tasks: openldap-install.yaml
+  when:
+    - (common.openldap is defined and common.openldap.enabled is defined and common.openldap.enabled) or devops.enabled
+    - "status.openldap is not defined or status.openldap.status is not defined or status.openldap.status != 'enabled'"
+
+- import_tasks: minio-install.yaml
+  when:
+    - (devops.enabled or (openpitrix.store is defined and openpitrix.store.enabled is defined and openpitrix.store.enabled)) and common.s3 is not defined
+    - "status.minio is not defined or status.minio.status is not defined or status.minio.status != 'enabled'"
+
+- import_tasks: es-install.yaml
+  when:
+    - logging.enabled or events.enabled or auditing.enabled or servicemesh.enabled
+    - "status.es is not defined or status.es.status is not defined or status.es.status != 'enabled'"
+
+- import_tasks: fluentbit-install.yaml
+  when:
+    - logging.enabled or events.enabled or auditing.enabled
+    - "status.fluentbit is not defined or status.fluentbit.status is not defined or status.fluentbit.status != 'enabled'"

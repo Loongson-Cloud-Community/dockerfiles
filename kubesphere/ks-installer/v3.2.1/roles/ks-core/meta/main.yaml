@@ -1,0 +1,11 @@
+---
+
+dependencies:
+  - role: ks-core/init-token
+
+  - role: ks-core/ks-core
+
+# data should be initialed after ks-core installed
+  - role: ks-core/prepare
+    when:
+      - "status.core is not defined or status.core.status is not defined or status.core.status != 'enabled'"

@@ -1,0 +1,87 @@
+operator:
+  enabled: true
+  image:
+    repository: kubesphere/kube-events-operator
+    tag: latest
+    pullPolicy: IfNotPresent
+  configReloader:
+    image: jimmidyson/configmap-reload:v0.3.0
+  affinity: {}
+  nodeSelector: {}
+  tolerations: {}
+  resources: {}
+#    limits:
+#      cpu: 200m
+#      memory: 200Mi
+#    requests:
+#      cpu: 20m
+#      memory: 20Mi
+  serviceAccount:
+    create: true
+    name: ""
+  # If true, just clean up cr but not crd
+  cleanupAllCustomResources: false
+  kubectlImage: docker.io/bitnami/kubectl:1.14.1
+
+exporter:
+  enabled: true
+  image:
+    repository: kubesphere/kube-events-exporter
+    tag: latest
+    pullPolicy: IfNotPresent
+  affinity: {}
+  nodeSelector: {}
+  tolerations: {}
+  resources: {}
+#    limits:
+#      cpu: 200m
+#      memory: 500Mi
+#    requests:
+#      cpu: 20m
+#      memory: 50Mi
+  sinks:
+    stdout:
+      enabled: true
+    additionalWebhooks: []
+    # - url:
+    #   service:
+    #     namespace:
+    #     name:
+    #     port:
+    #     path:
+
+ruler:
+  enabled: true
+  replicas: 2
+  image:
+    repository: kubesphere/kube-events-ruler
+    tag: latest
+    pullPolicy: IfNotPresent
+  affinity: {}
+  nodeSelector: {}
+  tolerations: {}
+  resources: {}
+#    limits:
+#      cpu: 500m
+#      memory: 500Mi
+#    requests:
+#      cpu: 50m
+#      memory: 50Mi
+  ruleNamespaceSelector: {}
+  ruleSelector: {}
+  sinks:
+    alertmanager:
+      namespace: kubesphere-monitoring-system
+      name: alertmanager-main
+    webhooks: []
+    # - type:
+    #   url:
+    #   service:
+    #     namespace:
+    #     name:
+    #     port:
+    #     path:
+
+rule:
+  createDefaults: true
+  overrideDefaults: false

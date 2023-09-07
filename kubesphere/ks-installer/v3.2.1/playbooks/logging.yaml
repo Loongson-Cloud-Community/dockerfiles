@@ -1,0 +1,9 @@
+---
+
+- hosts: localhost
+  gather_facts: false
+  roles:
+    - kubesphere-defaults
+    - role: ks-logging
+      when:
+        - "status.logging is not defined or status.logging.status is not defined or status.logging.status != 'enabled'"

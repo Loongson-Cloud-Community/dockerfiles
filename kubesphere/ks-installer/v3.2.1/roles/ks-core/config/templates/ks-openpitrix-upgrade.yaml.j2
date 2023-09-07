@@ -1,0 +1,36 @@
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  labels:
+    app: openpitrix
+    component: openpitrix-upgrade-job
+    version: v3.2.0
+  name: openpitrix-upgrade-job
+  namespace: kubesphere-system
+spec:
+  backoffLimit: 100
+  template:
+    metadata:
+      labels:
+        app: openpitrix
+        component: openpitrix-upgrade-job
+        version: v3.2.0
+    spec:
+      serviceAccountName: kubesphere
+      restartPolicy: OnFailure
+      containers:
+        - name: upgrade
+          command:
+            - sh
+            - -c
+            - upgrade && import-app import
+          image: {{ openpitrix_job_repo }}:{{ openpitrix_job_tag }}
+          imagePullPolicy: IfNotPresent
+          volumeMounts:
+            - mountPath: /etc/kubesphere
+              name: kubesphere-config
+      volumes:
+        - name: kubesphere-config
+          configMap:
+            name: kubesphere-config
