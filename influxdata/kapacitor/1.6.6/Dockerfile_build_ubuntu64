@@ -31,7 +31,6 @@ RUN rm go1.19.4.linux-loong64.tar.gz
 
 RUN update-alternatives --install /usr/bin/python python /usr/bin/python3 10
 RUN gem install fpm
-ENV GOPROXY="https://goproxy.cn,direct"
 ENV GOPATH /go
 ENV PATH $GOPATH/bin:/usr/local/go/bin:$PATH
 #RUN go install github.com/influxdata/pkg-config@latest
@@ -41,8 +40,6 @@ ENV PATH $GOPATH/bin:/usr/local/go/bin:$PATH
 # NOTE: PROTO_VERSION env var is inherited from the cross-builder image.
 # PROTOBUF_VERSION 3.17.3
 # RUN wget -q https://github.com/google/protobuf/releases/download/v${PROTO_VERSION}/protobuf-python-${PROTO_VERSION}.tar.gz \
-ENV http_proxy=http://10.130.0.20:7890
-ENV https_proxy=http://10.130.0.20:7890
 
 RUN wget -q https://github.com/yzewei/protobuf/releases/download/v3.17.3/protobuf-3.17.3.tar.gz \
     && tar -xf protobuf-3.17.3.tar.gz \
@@ -69,8 +66,6 @@ ENV LD_LIBRARY_PATH="/usr/local/lib/"
 RUN which -a pkg-config
 #COPY /usr/local/bin/fluxc /usr/local/bin/fluxc
 #COPY /usr/local/lib64/libflux.so /usr/local/lib/libflux.so
-RUN unset http_proxy
-RUN unset https_proxy
 
 ENV PROJECT_DIR /kapacitor
 RUN mkdir -p $PROJECT_DIR

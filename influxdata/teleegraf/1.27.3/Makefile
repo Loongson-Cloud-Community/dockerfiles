@@ -21,7 +21,9 @@ default: image
 
 image: src/$(SOURCE)
 	#make docker-image
-	$(MAKE) -C src/$(SOURCE) 
+	mkdir /usr/local/go-19 && wget http://ftp.loongnix.cn/toolchain/golang/go-1.19/go1.19.4.linux-loong64.tar.gz && tar -zxvf go1.19.4.linux-loong64.tar.gz -C /usr/local/go-19 --strip-components=1 && export PATH=/usr/local/go-19/bin:$(PATH) ; \
+	$(MAKE) -C src/$(SOURCE)
+	export PATH=$(echo $PATH | tr ':' '\n' | grep -v "/usr/local/tmp/bin" | tr '\n' ':') ; \
 
 src/$(SOURCE):
 	git clone -q -b v$(TAG) --depth=1 $(SOURCE_URL) $@
