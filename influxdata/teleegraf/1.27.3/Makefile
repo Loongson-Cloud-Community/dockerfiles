@@ -21,10 +21,11 @@ default: image
 
 image: src/$(SOURCE)
 	#make docker-image
-	mkdir /usr/local/go-19 && wget http://ftp.loongnix.cn/toolchain/golang/go-1.19/go1.19.4.linux-loong64.tar.gz && tar -zxvf go1.19.4.linux-loong64.tar.gz -C /usr/local/go-19 --strip-components=1 && export PATH=/usr/local/go-19/bin:$(PATH) ; \
+	
+	rm -rf /usr/local/go-19 && mkdir /usr/local/go-19 && wget http://ftp.loongnix.cn/toolchain/golang/go-1.19/go1.19.4.linux-loong64.tar.gz && tar -zxvf go1.19.4.linux-loong64.tar.gz -C /usr/local/go-19 --strip-components=1 && export PATH=/usr/local/go-19/bin:$(PATH) ; \
 	wget -O src/$(SOURCE)/etc https://github.com/Loongson-Cloud-Community/telegraf/releases/download/1.27.3/telegraf.conf 
 	$(MAKE) -C src/$(SOURCE) docker-image  ;\
-	export PATH=$(echo $PATH | tr ':' '\n' | grep -v "/usr/local/tmp/bin" | tr '\n' ':') ; 
+	export PATH=$(echo $PATH | tr ':' '\n' | grep -v "/usr/local/tmp/bin" | tr '\n' ':')  && rm -rf /usr/local/go-19; 
 
 src/$(SOURCE):
 	git clone -q -b v$(TAG) --depth=1 $(SOURCE_URL) $@
