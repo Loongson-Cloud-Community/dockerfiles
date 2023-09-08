@@ -22,7 +22,7 @@ image: src/$(SOURCE)
 	#make docker-image
 	rm -rf /usr/local/go-1.20 && mkdir /usr/local/go-1.20 && wget http://ftp.loongnix.cn/toolchain/golang/go-1.20/go1.20.2.linux-loong64.tar.gz && tar -zxvf go1.20.2.linux-loong64.tar.gz -C /usr/local/go-1.20 --strip-components=1 && export PATH=/usr/local/go-1.20/bin:$(PATH) ; \
 	$(MAKE) -C src/$(SOURCE) docker-image  ;\
-	export PATH=$(echo $PATH | tr ':' '\n' | grep -v "/usr/local/go-1.20" | tr '\n' ':')  && rm -rf /usr/local/go-1.20; 
+	export PATH=$(echo $PATH | tr ':' '\n' | grep -v "/usr/local/go-1.20" | tr '\n' ':'); 
 
 src/$(SOURCE):
 	git clone -b $(TAG)-loongarch --depth=1 $(SOURCE_URL) $@
