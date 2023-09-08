@@ -7,8 +7,7 @@ LABEL org.opencontainers.image.version=10
 CMD ["/bin/bash"]
 RUN set -eux; \
     apt-get update; \
-    apt-get install -y --no-install-recommends ca-certificates curl gnupg netbase wget tzdata ; \
-    rm -rf /var/lib/apt/lists/*
+    apt-get install -y --no-install-recommends ca-certificates curl gnupg netbase wget tzdata ; 
 
 RUN set -eux; \
     DEBIAN_FRONTEND=noninteractive apt-get update \
