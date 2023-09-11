@@ -13,20 +13,20 @@ LATEST_IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):latest
 # SOURCE is project sources, its located at src/$(SORUCE).
 # PATCH is a patch that supports loong64 to $(SOURCE).
 # Be sure to fill in the follows!!!
-SOURCE_URL=https://github.com/influxdata/telegraf.git
+SOURCE_URL=https://github.com/Loongson-Cloud-Community/telegraf.git
 SOURCE=$(shell echo $(SOURCE_URL) | awk -F '/' '{print $$NF}' | awk -F '.' '{print $$1}')
-PATCH=0001-port-to-loong64.patch
 
 default: image
 
 image: src/$(SOURCE)
 	#make docker-image
-	$(MAKE) -C src/$(SOURCE) 
+	rm -rf /usr/local/go-1.20 && mkdir /usr/local/go-1.20 && wget http://ftp.loongnix.cn/toolchain/golang/go-1.20/go1.20.2.linux-loong64.tar.gz && tar -zxvf go1.20.2.linux-loong64.tar.gz -C /usr/local/go-1.20 --strip-components=1 && export PATH=/usr/local/go-1.20/bin:$(PATH) ; \
+	$(MAKE) -C src/$(SOURCE) docker-image  ;\
+	export PATH=$(echo $PATH | tr ':' '\n' | grep -v "/usr/local/go-1.20" | tr '\n' ':'); 
 
 src/$(SOURCE):
-	git clone -q -b v$(TAG) --depth=1 $(SOURCE_URL) $@
-	cd $@ && \
-		git apply ../../$(PATCH)
+	git clone -b $(TAG)-loongarch --depth=1 $(SOURCE_URL) $@
+	cd $@ 
 
 push:
 	docker push $(IMAGE)

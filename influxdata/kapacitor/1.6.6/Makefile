@@ -22,14 +22,8 @@ default: image
 rpm:
 	./build.sh --package
 
-image: src/$(SOURCE)
-# Commands for building.
-	$(MAKE) -C src/$(SOURCE) 
-
-src/$(SOURCE):
-	git clone -q -b $(TAG) --depth=1 $(SOURCE_URL) $@
-	cd $@ && \
-		git apply ../../$(PATCH)
+image:
+	docker build -f Dockerfile -t $(IMAGE) .
 
 push:
 	docker push $(IMAGE)
