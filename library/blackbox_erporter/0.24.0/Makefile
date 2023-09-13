@@ -20,7 +20,7 @@ image:  blackbox_erporter
 	docker build -t "$(IMAGE)" . \
 
 blackbox_erporter:
-	wget https://github.com/Loongson-Cloud-Community/promu/releases/download/v0.14.0/promu-0.14.0.linux-loong64.tar.gz && tar -zxvf promu-0.14.0.linux-loong64.tar.gz
+	wget https://github.com/Loongson-Cloud-Community/blackbox_exporter/releases/download/v0.24.0/blackbox_exporter.linux-loong64.tar.gz && tar -zxvf blackbox_exporter.linux-loong64.tar.gz
 
 push:
 	docker push $(IMAGE)
