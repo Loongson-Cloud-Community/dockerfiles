@@ -9,6 +9,7 @@ LATEST?=true
 IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):$(TAG)
 LATEST_IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):latest
 
+SOURCE_URL=https://github.com/Loongson-Cloud-Community/etcdkeeper.git
 # SOURCE_URL is a url to download source, such as https://github.com/merore/merore.git.
 # SOURCE is project sources, its located at src/$(SORUCE).
 # PATCH is a patch that supports loong64 to $(SOURCE).
@@ -16,9 +17,11 @@ LATEST_IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):latest
 
 default: image
 
-image: 
-	docker build -t "$(IMAGE)" . \
-
+image:  cmd
+	cd etcdkeeper;\
+	docker build -t "$(IMAGE)" . 
+cmd:
+	git clone --branch loong64-0.7.6 --depth=1 $(SOURCE_URL);\
 
 push:
 	docker push $(IMAGE)
@@ -29,4 +32,4 @@ push:
 	fi
 
 clean:
-	rm -rf src
+	rm -rf etcdkeeper
