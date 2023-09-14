@@ -28,7 +28,7 @@ class GithubApi:
 
         self._headers = {
             "Accept": "application/vnd.github+json",
-            "Authorization": "Bearer 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",
+            "Authorization": "",
             "X-GitHub-Api-Version": "2022-11-28"
         }
 
