@@ -23,7 +23,7 @@ rpm:
 	./build.sh --package
 
 image:
-	docker build -f Dockerfile -t $(IMAGE) .
+	docker build --build-arg https_proxy=${https_proxy} --build-arg http_proxy=${http_proxy} -f Dockerfile -t $(IMAGE) .
 
 push:
 	docker push $(IMAGE)
