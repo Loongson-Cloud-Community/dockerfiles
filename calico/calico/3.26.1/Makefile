@@ -26,7 +26,15 @@ BUILD_TG ?= \
     typha \
     node
 
-PUSH_IMG ?= $(BUILD_TG) flannel-migration-controller
+PUSH_IMG ?= pod2daemon \
+    calicoctl \
+    cni \
+    apiserver \
+    kube-controllers \
+    app-policy \
+    typha \
+    node \
+    flannel-migration-controller
 
 THIS_DIR := $(dir $(realpath $(lastword $(MAKEFILE_LIST))))
 
@@ -49,6 +57,8 @@ image: src/$(SOURCE)
 			FLANNEL_IMAGE_NAME=$(REGISTRY)/$(ORGANIZATION)/flannel-migration-controller:$(IMG_TAG) \
 			GOMOD_CACHE=$(THIS_DIR)src/go-mod make -C src/$(SOURCE)/$(value) image IMAGETAG=$(TAG) VALIDARCHES=loong64; \
 	)
+	docker tag $(REGISTRY)/$(ORGANIZATION)/cni-plugin:$(IMG_TAG) \
+		$(REGISTRY)/$(ORGANIZATION)/cni:$(IMG_TAG)
 	chmod -R +w src
 
 push:
@@ -60,7 +70,6 @@ push:
 			docker push $(LATEST_IMAGE); \
 		fi; \
 	)
-
 
 clean:
 	rm -rf src
