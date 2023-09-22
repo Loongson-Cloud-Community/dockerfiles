@@ -1,4 +1,4 @@
-From 2d5fdd8f71caa6d0c146c79bfac423b8d5864bd4 Mon Sep 17 00:00:00 2001
+From 057725023c77b7f08ff680f7335220db0cf7afd5 Mon Sep 17 00:00:00 2001
 From: zhangguanzhang <zhangguanzhang@qq.com>
 Date: Fri, 4 Aug 2023 17:02:21 +0800
 Subject: [PATCH] support loong64
@@ -418,7 +418,7 @@ index 000000000..fba4d11cc
 +ADD bin/check-status-linux-loong64 /usr/bin/check-status
 +ENTRYPOINT ["/usr/bin/kube-controllers"]
 diff --git a/kube-controllers/Makefile b/kube-controllers/Makefile
-index 1718edd09..0fae78b57 100644
+index 1718edd09..840d6ebc6 100644
 --- a/kube-controllers/Makefile
 +++ b/kube-controllers/Makefile
 @@ -5,7 +5,9 @@ PACKAGE_NAME = github.com/projectcalico/calico/kube-controllers
@@ -436,7 +436,7 @@ index 1718edd09..0fae78b57 100644
  
  $(BINDIR)/kubectl-$(ARCH):
 -	wget https://storage.googleapis.com/kubernetes-release/release/$(KUBECTL_VERSION)/bin/linux/$(subst armv7,arm,$(ARCH))/kubectl -O $@
-+	wget https://github.com/Loongson-Cloud-Community/kubectl/releases/download/kubernetes-$(KUBECTL_VERSION)/kubectl -O $@
++	wget https://github.com/Loongson-Cloud-Community/kubectl/releases/download/kubernetes-$(patsubst v%,%,$(KUBECTL_VERSION))/kubectl -O $@
 +	# wget https://storage.googleapis.com/kubernetes-release/release/$(KUBECTL_VERSION)/bin/linux/$(subst armv7,arm,$(ARCH))/kubectl -O $@
  	chmod +x $@
  
