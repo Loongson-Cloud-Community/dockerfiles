@@ -1,0 +1,112 @@
+From 1e87a12fd85602cc932bed9ad5d0e2f14b54008b Mon Sep 17 00:00:00 2001
+From: zhangguanzhang <zhangguanzhang@qq.com>
+Date: Mon, 25 Sep 2023 10:03:42 +0800
+Subject: [PATCH] support loong64
+
+---
+ Dockerfile | 35 ++++++++---------------------------
+ Makefile   |  7 ++++---
+ 2 files changed, 12 insertions(+), 30 deletions(-)
+
+diff --git a/Dockerfile b/Dockerfile
+index d2a8abea77..75cf07aa1d 100644
+--- a/Dockerfile
++++ b/Dockerfile
+@@ -10,25 +10,6 @@ ARG JS_SRC=js-builder
+ 
+ FROM --platform=${JS_PLATFORM} ${JS_IMAGE} as js-builder
+ 
+-ENV NODE_OPTIONS=--max_old_space_size=8000
+-
+-WORKDIR /tmp/grafana
+-
+-COPY package.json yarn.lock .yarnrc.yml ./
+-COPY .yarn .yarn
+-COPY packages packages
+-COPY plugins-bundled plugins-bundled
+-
+-RUN yarn install --immutable
+-
+-COPY tsconfig.json .eslintrc .editorconfig .browserslistrc .prettierrc.js babel.config.json .linguirc ./
+-COPY public public
+-COPY scripts scripts
+-COPY emails emails
+-
+-ENV NODE_ENV production
+-RUN yarn build
+-
+ FROM ${GO_IMAGE} as go-builder
+ 
+ ARG COMMIT_SHA=""
+@@ -48,7 +29,7 @@ COPY go.* ./
+ COPY .bingo .bingo
+ 
+ RUN go mod download
+-RUN if [[ "$BINGO" = "true" ]]; then \
++RUN if [ "$BINGO" = "true" ]; then \
+       go install github.com/bwplotka/bingo@latest && \
+       bingo get -v; \
+     fi
+@@ -71,16 +52,16 @@ ENV BUILD_BRANCH=${BUILD_BRANCH}
+ 
+ RUN make build-go GO_BUILD_TAGS=${GO_BUILD_TAGS} WIRE_TAGS=${WIRE_TAGS}
+ 
+-FROM ${BASE_IMAGE} as tgz-builder
++# FROM ${BASE_IMAGE} as tgz-builder
+ 
+-WORKDIR /tmp/grafana
++# WORKDIR /tmp/grafana
+ 
+-ARG GRAFANA_TGZ="grafana-latest.linux-x64-musl.tar.gz"
++# ARG GRAFANA_TGZ="grafana-latest.linux-x64-musl.tar.gz"
+ 
+-COPY ${GRAFANA_TGZ} /tmp/grafana.tar.gz
++# COPY ${GRAFANA_TGZ} /tmp/grafana.tar.gz
+ 
+-# add -v to make tar print every file it extracts
+-RUN tar x -z -f /tmp/grafana.tar.gz --strip-components=1
++# # add -v to make tar print every file it extracts
++# RUN tar x -z -f /tmp/grafana.tar.gz --strip-components=1
+ 
+ # helpers for COPY --from
+ FROM ${GO_SRC} as go-src
+@@ -165,7 +146,7 @@ RUN if [ ! $(getent group "$GF_GID") ]; then \
+     chmod -R 777 "$GF_PATHS_DATA" "$GF_PATHS_HOME/.aws" "$GF_PATHS_LOGS" "$GF_PATHS_PLUGINS" "$GF_PATHS_PROVISIONING"
+ 
+ COPY --from=go-src /tmp/grafana/bin/grafana* /tmp/grafana/bin/*/grafana* ./bin/
+-COPY --from=js-src /tmp/grafana/public ./public
++COPY --from=js-src $GF_PATHS_HOME/public ./public
+ COPY --from=go-src /tmp/grafana/LICENSE ./
+ 
+ EXPOSE 3000
+diff --git a/Makefile b/Makefile
+index 8bf9419c7e..9a776a9368 100644
+--- a/Makefile
++++ b/Makefile
+@@ -181,19 +181,20 @@ shellcheck: $(SH_FILES) ## Run checks for shell scripts.
+ ##@ Docker
+ 
+ TAG_SUFFIX=$(if $(WIRE_TAGS)!=oss,-$(WIRE_TAGS))
+-PLATFORM=linux/amd64
++PLATFORM ?= linux/amd64
++IMG_NAME ?= grafana/grafana$(TAG_SUFFIX):dev
+ 
+ build-docker-full: ## Build Docker image for development.
+ 	@echo "build docker container"
+ 	tar -ch . | \
+-	docker buildx build - \
++	docker build - \
+ 	--platform $(PLATFORM) \
+ 	--build-arg BINGO=false \
+ 	--build-arg GO_BUILD_TAGS=$(GO_BUILD_TAGS) \
+ 	--build-arg WIRE_TAGS=$(WIRE_TAGS) \
+ 	--build-arg COMMIT_SHA=$$(git rev-parse --short HEAD) \
+ 	--build-arg BUILD_BRANCH=$$(git rev-parse --abbrev-ref HEAD) \
+-	--tag grafana/grafana$(TAG_SUFFIX):dev \
++	--tag $(IMG_NAME) \
+ 	$(DOCKER_BUILD_ARGS)
+ 
+ build-docker-full-ubuntu: ## Build Docker image based on Ubuntu for development.
+-- 
+2.25.1
+
