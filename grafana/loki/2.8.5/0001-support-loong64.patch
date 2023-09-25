@@ -1,0 +1,63 @@
+From bf8a246daf77b8df65bcacf81fc2c064e15b2a80 Mon Sep 17 00:00:00 2001
+From: zhangguanzhang <zhangguanzhang@qq.com>
+Date: Mon, 25 Sep 2023 15:24:29 +0800
+Subject: [PATCH] support loong64
+
+---
+ Makefile                                |  2 +-
+ cmd/loki/Dockerfile                     |  6 ++++--
+ vendor/go.etcd.io/bbolt/bolt_loong64.go | 10 ++++++++++
+ 3 files changed, 15 insertions(+), 3 deletions(-)
+ create mode 100644 vendor/go.etcd.io/bbolt/bolt_loong64.go
+
+diff --git a/Makefile b/Makefile
+index 6a0950ed7..bc7d813ba 100644
+--- a/Makefile
++++ b/Makefile
+@@ -549,7 +549,7 @@ promtail-push: promtail-image-cross
+ 
+ # loki
+ loki-image:
+-	$(SUDO) docker build -t $(IMAGE_PREFIX)/loki:$(IMAGE_TAG) -f cmd/loki/Dockerfile .
++	$(SUDO) docker build $(DOCKER_BUILD_ARGS) -t $(IMAGE_PREFIX)/loki:$(IMAGE_TAG) -f cmd/loki/Dockerfile .
+ loki-image-cross:
+ 	$(SUDO) $(BUILD_OCI) -t $(IMAGE_PREFIX)/loki:$(IMAGE_TAG) -f cmd/loki/Dockerfile.cross .
+ 
+diff --git a/cmd/loki/Dockerfile b/cmd/loki/Dockerfile
+index dad23df2f..59ea87127 100644
+--- a/cmd/loki/Dockerfile
++++ b/cmd/loki/Dockerfile
+@@ -1,10 +1,12 @@
+-FROM golang:1.20.7 as build
++ARG GO_IMG=golang:1.20.7
++ARG BASE_IMG=alpine:3.18.3
++FROM ${GO_IMG} as build
+ 
+ COPY . /src/loki
+ WORKDIR /src/loki
+ RUN make clean && make BUILD_IN_CONTAINER=false loki
+ 
+-FROM alpine:3.18.3
++FROM ${BASE_IMG}
+ 
+ RUN apk add --no-cache ca-certificates libcap
+ 
+diff --git a/vendor/go.etcd.io/bbolt/bolt_loong64.go b/vendor/go.etcd.io/bbolt/bolt_loong64.go
+new file mode 100644
+index 000000000..31c17c1d0
+--- /dev/null
++++ b/vendor/go.etcd.io/bbolt/bolt_loong64.go
+@@ -0,0 +1,10 @@
++//go:build loong64
++// +build loong64
++
++package bbolt
++
++// maxMapSize represents the largest mmap size supported by Bolt.
++const maxMapSize = 0xFFFFFFFFFFFF // 256TB
++
++// maxAllocSize is the size used when creating array pointers.
++const maxAllocSize = 0x7FFFFFFF
+-- 
+2.25.1
+
