@@ -20,8 +20,8 @@ PATCH=0001-port-to-loong64.patch
 default: image
 
 image: src/$(SOURCE)
-	cd src/$(SOURCE) && docker build --target telepresence --tag telepresence --tag cr.loongnix.cn/library/telepresence:2.15.1 -f build-aux/docker/images/Dockerfile.client .;\
-	docker build --target tel2 --tag tel2 --tag cr.loongnix.cn/library/tel2:2.15.1 -f build-aux/docker/images/Dockerfile.traffic .
+	cd src/$(SOURCE) && docker build --build-arg https_proxy=${https_proxy}  --build-arg http_proxy=${http_proxy} --target telepresence --tag telepresence --tag cr.loongnix.cn/library/telepresence:2.15.1 -f build-aux/docker/images/Dockerfile.client .;\
+	docker build  --build-arg https_proxy=${https_proxy} --build-arg http_proxy=${http_proxy} --target tel2 --tag tel2 --tag cr.loongnix.cn/library/tel2:2.15.1 -f build-aux/docker/images/Dockerfile.traffic .
   
 
 src/$(SOURCE):
