@@ -1,0 +1,140 @@
+From 71a3123f63fe2b9ca4383ff5f44fb4cfbb0728de Mon Sep 17 00:00:00 2001
+From: zhangguanzhang <zhangguanzhang@qq.com>
+Date: Mon, 25 Sep 2023 16:11:38 +0800
+Subject: [PATCH] support loong64
+
+---
+ Dockerfile                     | 14 ++++++++------
+ Makefile                       |  4 ++--
+ Makefile.common                |  9 ++++++---
+ util/runtime/limits_default.go | 12 +++++++-----
+ 4 files changed, 23 insertions(+), 16 deletions(-)
+
+diff --git a/Dockerfile b/Dockerfile
+index b47f77dcd..3ea066aa8 100644
+--- a/Dockerfile
++++ b/Dockerfile
+@@ -1,18 +1,20 @@
+ ARG ARCH="amd64"
+ ARG OS="linux"
+-FROM quay.io/prometheus/busybox-${OS}-${ARCH}:latest
++ARG WEB_IMG=prom/prometheus:v2.42.0
++FROM --platform=linux/amd64 ${WEB_IMG} as web
++FROM cr.loongnix.cn/prometheus/busybox:glibc
+ LABEL maintainer="The Prometheus Authors <prometheus-developers@googlegroups.com>"
+ 
+ ARG ARCH="amd64"
+ ARG OS="linux"
+-COPY .build/${OS}-${ARCH}/prometheus        /bin/prometheus
+-COPY .build/${OS}-${ARCH}/promtool          /bin/promtool
++COPY ./prometheus        /bin/prometheus
++COPY ./promtool          /bin/promtool
+ COPY documentation/examples/prometheus.yml  /etc/prometheus/prometheus.yml
+-COPY console_libraries/                     /usr/share/prometheus/console_libraries/
+-COPY consoles/                              /usr/share/prometheus/consoles/
++COPY --from=web /usr/share/prometheus/console_libraries    /usr/share/prometheus/console_libraries/
++COPY --from=web /usr/share/prometheus/consoles                        /usr/share/prometheus/consoles/
+ COPY LICENSE                                /LICENSE
+ COPY NOTICE                                 /NOTICE
+-COPY npm_licenses.tar.bz2                   /npm_licenses.tar.bz2
++COPY --from=web /npm_licenses.tar.bz2       /npm_licenses.tar.bz2
+ 
+ WORKDIR /prometheus
+ RUN ln -s /usr/share/prometheus/console_libraries /usr/share/prometheus/consoles/ /etc/prometheus/ && \
+diff --git a/Makefile b/Makefile
+index dd51d5817..ea143c5a0 100644
+--- a/Makefile
++++ b/Makefile
+@@ -99,7 +99,7 @@ npm_licenses: ui-install
+ tarball: npm_licenses common-tarball
+ 
+ .PHONY: docker
+-docker: npm_licenses common-docker
++docker: common-docker
+ 
+ plugins/plugins.go: plugins.yml plugins/generate.go
+ 	@echo ">> creating plugins list"
+@@ -109,7 +109,7 @@ plugins/plugins.go: plugins.yml plugins/generate.go
+ plugins: plugins/plugins.go
+ 
+ .PHONY: build
+-build: assets npm_licenses assets-compress plugins common-build
++build: plugins common-build
+ 
+ .PHONY: bench_tsdb
+ bench_tsdb: $(PROMU)
+diff --git a/Makefile.common b/Makefile.common
+index 1985fcdeb..85cb475f5 100644
+--- a/Makefile.common
++++ b/Makefile.common
+@@ -56,7 +56,7 @@ endif
+ endif
+ 
+ PROMU_VERSION ?= 0.14.0
+-PROMU_URL     := https://github.com/prometheus/promu/releases/download/v$(PROMU_VERSION)/promu-$(PROMU_VERSION).$(GO_BUILD_PLATFORM).tar.gz
++PROMU_URL     ?= https://github.com/Loongson-Cloud-Community/promu/releases/download/v$(PROMU_VERSION)/promu-$(PROMU_VERSION).$(GO_BUILD_PLATFORM).tar.gz
+ 
+ SKIP_GOLANGCI_LINT :=
+ GOLANGCI_LINT :=
+@@ -87,6 +87,8 @@ DOCKER_REPO             ?= prom
+ 
+ DOCKER_ARCHS            ?= amd64
+ 
++DOCKER_IMG              ?= $(DOCKER_REPO)/$(DOCKER_IMAGE_NAME):$(DOCKER_IMAGE_TAG)
++
+ BUILD_DOCKER_ARCHS = $(addprefix common-docker-,$(DOCKER_ARCHS))
+ PUBLISH_DOCKER_ARCHS = $(addprefix common-docker-publish-,$(DOCKER_ARCHS))
+ TAG_DOCKER_ARCHS = $(addprefix common-docker-tag-latest-,$(DOCKER_ARCHS))
+@@ -205,10 +207,11 @@ common-tarball: promu
+ .PHONY: common-docker $(BUILD_DOCKER_ARCHS)
+ common-docker: $(BUILD_DOCKER_ARCHS)
+ $(BUILD_DOCKER_ARCHS): common-docker-%:
+-	docker build -t "$(DOCKER_REPO)/$(DOCKER_IMAGE_NAME)-linux-$*:$(DOCKER_IMAGE_TAG)" \
++	docker build -t "$(DOCKER_IMG)" \
+ 		-f $(DOCKERFILE_PATH) \
+ 		--build-arg ARCH="$*" \
+ 		--build-arg OS="linux" \
++		$(DOCKER_BUILD_ARGS) \
+ 		$(DOCKERBUILD_CONTEXT)
+ 
+ .PHONY: common-docker-publish $(PUBLISH_DOCKER_ARCHS)
+@@ -235,7 +238,7 @@ $(PROMU):
+ 	$(eval PROMU_TMP := $(shell mktemp -d))
+ 	curl -s -L $(PROMU_URL) | tar -xvzf - -C $(PROMU_TMP)
+ 	mkdir -p $(FIRST_GOPATH)/bin
+-	cp $(PROMU_TMP)/promu-$(PROMU_VERSION).$(GO_BUILD_PLATFORM)/promu $(FIRST_GOPATH)/bin/promu
++	find $(PROMU_TMP)/ -type f -name promu -exec mv {} $(FIRST_GOPATH)/bin/promu \;
+ 	rm -r $(PROMU_TMP)
+ 
+ .PHONY: proto
+diff --git a/util/runtime/limits_default.go b/util/runtime/limits_default.go
+index c3e0b4701..d49b3bc1e 100644
+--- a/util/runtime/limits_default.go
++++ b/util/runtime/limits_default.go
+@@ -18,16 +18,18 @@ package runtime
+ 
+ import (
+ 	"fmt"
++	"math"
+ 	"syscall"
+ )
+ 
+-// syscall.RLIM_INFINITY is a constant and its default type is int.
+-// It needs to be converted to an int64 variable to be compared with uint64 values.
+-// See https://golang.org/ref/spec#Conversions
+-var unlimited int64 = syscall.RLIM_INFINITY
++// syscall.RLIM_INFINITY is a constant.
++// Its type is int on most architectures but there are exceptions such as loong64.
++// Uniform it to uint accorind to the standard.
++// https://pubs.opengroup.org/onlinepubs/9699919799/basedefs/sys_resource.h.html
++var unlimited uint64 = syscall.RLIM_INFINITY & math.MaxUint64
+ 
+ func limitToString(v uint64, unit string) string {
+-	if v == uint64(unlimited) {
++	if v == unlimited {
+ 		return "unlimited"
+ 	}
+ 	return fmt.Sprintf("%d%s", v, unit)
+-- 
+2.25.1
+
