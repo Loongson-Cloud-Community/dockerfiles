@@ -1,18 +1,18 @@
-From 1e87a12fd85602cc932bed9ad5d0e2f14b54008b Mon Sep 17 00:00:00 2001
+From 7981cac905a4ed29c4843ff06d2b4796a4f79ef8 Mon Sep 17 00:00:00 2001
 From: zhangguanzhang <zhangguanzhang@qq.com>
 Date: Mon, 25 Sep 2023 10:03:42 +0800
 Subject: [PATCH] support loong64
 
 ---
- Dockerfile | 35 ++++++++---------------------------
+ Dockerfile | 39 ++++++++++-----------------------------
  Makefile   |  7 ++++---
- 2 files changed, 12 insertions(+), 30 deletions(-)
+ 2 files changed, 14 insertions(+), 32 deletions(-)
 
 diff --git a/Dockerfile b/Dockerfile
-index d2a8abea77..75cf07aa1d 100644
+index d2a8abea77..419937039a 100644
 --- a/Dockerfile
 +++ b/Dockerfile
-@@ -10,25 +10,6 @@ ARG JS_SRC=js-builder
+@@ -10,33 +10,14 @@ ARG JS_SRC=js-builder
  
  FROM --platform=${JS_PLATFORM} ${JS_IMAGE} as js-builder
  
@@ -36,8 +36,18 @@ index d2a8abea77..75cf07aa1d 100644
 -RUN yarn build
 -
  FROM ${GO_IMAGE} as go-builder
- 
+-
++ARG GOPROXY
  ARG COMMIT_SHA=""
+ ARG BUILD_BRANCH=""
+ ARG GO_BUILD_TAGS="oss"
+ ARG WIRE_TAGS="oss"
+ ARG BINGO="true"
+-
++ENV GOPROXY=${GOPROXY}
+ # Install build dependencies
+ RUN if grep -i -q alpine /etc/issue; then \
+       apk add --no-cache gcc g++ make git; \
 @@ -48,7 +29,7 @@ COPY go.* ./
  COPY .bingo .bingo
  
