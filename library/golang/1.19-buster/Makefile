@@ -16,7 +16,7 @@ image:
 		-t $(ALIAS) \
 		.
 
-push: alias
+push:
 	docker push $(IMAGE)
 	docker push $(ALIAS)
 
