@@ -22,6 +22,7 @@ GOPROXY ?= https://goproxy.cn,https://mirrors.aliyun.com/goproxy/,https://goprox
 default: image
 
 src/$(SOURCE):
+	echo "0928 test"
 	git clone -b v$(TAG) --depth=1 $(SOURCE_URL) $@
 	cd $@ && \
 		git apply ../../$(PATCH)
