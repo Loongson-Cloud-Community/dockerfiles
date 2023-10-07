@@ -25,7 +25,7 @@ github_auth = ""
 
 
 # 配置
-DB_PATH = "/docker/cidb/docker_image.db"
+DB_PATH = ""
 # 常量
 STR_CR_SITE = "cr.loongnix.cn"
 # 字符串
@@ -363,7 +363,7 @@ class DependencyVO:
         res = []
         print(len(self.dependencies))
         for dep in self.dependencies:
-            print("shot_sha:", dep.short_sha())
+            print("short_sha:", dep.short_sha())
             res.append((self.target.fit_name(), dep.fit_name()))
         return res
 
@@ -479,6 +479,8 @@ class BuildOperation:
             DependencyPO.delete().where(DependencyPO.repo_name == repo.cr_name()).execute()
             for dependency in parser.dependencies():
                 for t, d in dependency.get_dependency_pair():
+                    if len(d) == 0 or len(t) == 0:
+                        continue
                     DependencyPO.create(
                         repo_id=repo_obj.id,
                         repo_name=repo.cr_name(),
@@ -499,7 +501,8 @@ class BuildOperation:
 
     def _check_image(self, repo: Repo):
         dockle = DockleApi()
-        dependencies = DependencyPO.select().where(DependencyPO.repo_name==repo.cr_name())
+        # dependencies = DependencyPO.select().where(DependencyPO.repo_name==repo.cr_name())
+        dependencies = DependencyPO.select(DependencyPO.image).distinct().where(DependencyPO.repo_name==repo.cr_name())
         github_api = GithubApi()
         comment_url = self._get_comment_url()
         for dependency in dependencies:
@@ -522,6 +525,26 @@ class BuildOperation:
             sys.exit(0)
         comment_url = pr_info["_links"]["comments"]["href"]
         return comment_url
+
+    def _update_warning(self, image_name: str, cur_repo: Repo):
+        # select distinct repo_name from dependency where dependency='cr.loongnix.cn/library/golang:1.19' and repo_name != 'cr.loongnix.cn/library/golang:1.19'
+        dependencies = DependencyPO.select(DependencyPO.repo_name).distinct().where(
+            (DependencyPO.dependency==image_name) & (DependencyPO.repo_name!=cur_repo.cr_name()))
+        repo_names = [dependency.name for dependency in dependencies]
+        str_names = ",".join(repo_names)
+        md_str = "-" + image_name + ": " + str_names
+        # github api
+        github_api = GithubApi()
+        comment_url = self._get_comment_url()
+        github_api.comment_on_pr(comment_url, md_str)
+
+    def _update_warnings(self, repo: Repo):
+        # 找出生产的镜像
+        # select distinct image from dependency where repo_name="cr.loongnix.cn/calico/go-build:0.73"
+        dependencies = DependencyPO.select(DependencyPO.image).distinct().where(DependencyPO.repo_name == repo.cr_name())
+        for dependency in dependencies:
+            if STR_CR_SITE in dependency.image:
+                self._update_warning(dependency.image, repo)
 
     def run_build(self, repo: Repo):
         self._build(repo)
