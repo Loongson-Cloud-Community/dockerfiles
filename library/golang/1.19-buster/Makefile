@@ -13,11 +13,10 @@ default: image
 image:
 	docker build \
 		-t $(IMAGE) \
+		-t $(ALIAS) \
 		.
 
 push: alias
 	docker push $(IMAGE)
 	docker push $(ALIAS)
 
-alias:
-	docker tag $(IMAGE) $(ALIAS)
