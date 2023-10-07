@@ -3,10 +3,10 @@
 REGISTRY?=cr.loongnix.cn
 ORGANIZATION?=coredns
 REPOSITORY?=coredns
-TAG?=v1.10.1
+TAG?=1.10.1
 LATEST?=true
 
-GO_IMG?=cr.loongnix.cn/library/golang:1.19
+GO_IMG?=cr.loongnix.cn/library/golang:1.20
 GOPROXY?=https://goproxy.cn,https://mirrors.aliyun.com/goproxy/,https://goproxy.io,direct
 
 IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):$(TAG)
@@ -18,12 +18,12 @@ LATEST_IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):latest
 # Be sure to fill in the follows!!!
 SOURCE_URL=https://github.com/coredns/coredns.git
 SOURCE=$(shell echo $(SOURCE_URL) | awk -F '/' '{print $$NF}' | awk -F '.' '{print $$1}')
-PATCH=0001-Introduces-the-ARG-in-Dockerfile.patch
+PATCH=0001-support-loong64.patch
 
 default: image
 
 src/$(SOURCE):
-	git clone -b $(TAG) --depth=1 $(SOURCE_URL) $@
+	git clone -b v$(TAG) --depth=1 $(SOURCE_URL) $@
 	cd $@ && \
 		git apply ../../$(PATCH)
 
@@ -40,6 +40,7 @@ image: src/$(SOURCE) build
 		-t $(IMAGE) \
 		--build-arg=DEBIAN_IMAGE=$(REGISTRY)/library/debian:buster \
 		--build-arg=BASE=$(REGISTRY)/library/debian:buster \
+		--build-arg=USER=nobody \
 		src/$(SOURCE)
 
 push:
