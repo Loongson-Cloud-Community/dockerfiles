@@ -160,6 +160,15 @@ class Repo:
             raise ValueError("cr_name's format must like 'cr.loongnix.cn/library/golang:1.19-alpine'")
         return Repo(*res[0])
 
+    def get_cr_names(self):
+        pass
+
+
+class DockerApi:
+
+    def get_tags(self, sha_or_name: str) -> t.List[str]:
+        return docker_client.inspect_image(sha_or_name)['RepoTags']
+
 
 class HarborApi:
 
@@ -509,7 +518,7 @@ class BuildOperation:
             # 镜像名称必须包含“cr.loongnix.cn”
             if STR_CR_SITE in dependency.image:
                 md_table = dockle.scan2markdown(dependency.image)
-                res = '- ' + repo.cr_name() + '\n\n' + md_table
+                res = '- ' + dependency.image + '\n\n' + md_table
                 github_api.comment_on_pr(comment_url, res)
 
     def _get_comment_url(self) -> str:
@@ -527,12 +536,17 @@ class BuildOperation:
         return comment_url
 
     def _update_warning(self, image_name: str, cur_repo: Repo):
-        # select distinct repo_name from dependency where dependency='cr.loongnix.cn/library/golang:1.19' and repo_name != 'cr.loongnix.cn/library/golang:1.19'
+        # repo_name 表示项目， image表示具体的镜像
+        # select distinct reoi_name from dependency where dependency='cr.loongnix.cn/library/golang:1.19' and repo_name != 'cr.loongnix.cn/library/golang:1.19'
         dependencies = DependencyPO.select(DependencyPO.repo_name).distinct().where(
             (DependencyPO.dependency==image_name) & (DependencyPO.repo_name!=cur_repo.cr_name()))
-        repo_names = [dependency.name for dependency in dependencies]
-        str_names = ",".join(repo_names)
-        md_str = "-" + image_name + ": " + str_names
+        repo_names = [dependency.repo_name for dependency in dependencies]
+        if len(repo_names) == 0:
+            return
+        users = "\n@zhaixiaojuan @znley "
+        md_str = "- " + image_name + "本次镜像更新会涉及如下项目" + ": \n"
+        content = "\n```\n" + json.dumps(repo_names, indent=2) + "\n```\n"
+        md_str = md_str + content + users
         # github api
         github_api = GithubApi()
         comment_url = self._get_comment_url()
@@ -542,15 +556,18 @@ class BuildOperation:
         # 找出生产的镜像
         # select distinct image from dependency where repo_name="cr.loongnix.cn/calico/go-build:0.73"
         dependencies = DependencyPO.select(DependencyPO.image).distinct().where(DependencyPO.repo_name == repo.cr_name())
+        docker_api = DockerApi()
         for dependency in dependencies:
-            if STR_CR_SITE in dependency.image:
-                self._update_warning(dependency.image, repo)
+            for image_name in docker_api.get_tags(dependency.image):
+                if STR_CR_SITE in image_name:
+                    self._update_warning(image_name, repo)
 
     def run_build(self, repo: Repo):
         self._build(repo)
         self._save_build_info(repo)
         self._parse_log(repo)
         self._check_image(repo)
+        self._update_warnings(repo)
 
     def run_multi_build(self):
         for repo in self._repos():
@@ -583,13 +600,20 @@ class MergeOperation:
         # 3. 进行harbor镜像扫描
         harbor_api.scan(repo)
 
-    def _update_other_dependency(self, repo: Repo):
+    def _cve_scan_all(self, repo: Repo):
+        # 1. 从数据库当中获取所有的构建成功的镜像
+        dependencies = DependencyPO.select().where(DependencyPO.repo_name==repo.cr_name())
+        for dependency in dependencies:
+            if STR_CR_SITE in dependency.image:
+                self._cve_scan(Repo.from_cr_name(dependency.image))
+
+    def _update_children_repo(self, repo: Repo):
         pass
 
     def run_push(self, repo: Repo):
         self._push(repo)
         self._cve_scan(repo)
-        self._update_other_dependency(repo)
+        self._update_children_repo(repo)
 
     def run_multi_push(self):
         for repo in self._repos():

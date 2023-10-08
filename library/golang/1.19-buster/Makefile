@@ -11,7 +11,6 @@ ALIAS = $(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):1.19
 default: image
 
 image:
-	echo "10 08 test"
 	docker build \
 		-t $(IMAGE) \
 		-t $(ALIAS) \
