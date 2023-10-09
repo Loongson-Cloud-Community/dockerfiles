@@ -25,7 +25,7 @@ image: src/$(SOURCE)
   
 
 src/$(SOURCE):
-	git clone -q -b loong64-$(TAG) --depth=1 $(SOURCE_URL) $@
+	git clone -q -b loongarch64-$(TAG) --depth=1 $(SOURCE_URL) $@
 
 push:
 	docker push $(IMAGE)
