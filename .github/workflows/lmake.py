@@ -25,7 +25,7 @@ github_auth = ""
 
 
 # 配置
-DB_PATH = ""
+DB_PATH = "/docker/cidb/docker_image.db"
 # 常量
 STR_CR_SITE = "cr.loongnix.cn"
 # 字符串
@@ -543,7 +543,7 @@ class BuildOperation:
         repo_names = [dependency.repo_name for dependency in dependencies]
         if len(repo_names) == 0:
             return
-        users = "\n@zhaixiaojuan @znley "
+        users = "\n@zhaixiaojuan @znley \n"
         md_str = "- " + image_name + "本次镜像更新会涉及如下项目" + ": \n"
         content = "\n```\n" + json.dumps(repo_names, indent=2) + "\n```\n"
         md_str = md_str + content + users
@@ -572,6 +572,62 @@ class BuildOperation:
     def run_multi_build(self):
         for repo in self._repos():
             self.run_build(repo)
+
+
+class MultiUpdate:
+
+    def repos_to_update(self, repo: Repo) -> t.List[Repo]:
+        # 1. 获取构建的项目，产生的镜像， 一个或者多个
+        dependencies_for_image = DependencyPO.select(DependencyPO.image).distinct().where(DependencyPO.repo_name == repo.cr_name())
+        # 2. 获取镜像所有的tag，这里获取的tag需要包含"cr.loongnix.cn"
+        res = []
+        for dependency in dependencies_for_image:
+            # res = res + self._all_loongnix_tag(dependency.image)
+            tags = self._all_loongnix_tag(dependency.image)
+            res = res + self._get_images_by_tags(tags, repo)
+        return [Repo.from_cr_name(name) for name in res]
+
+    def _all_loongnix_tag(self, tag: str) -> t.List[str]:
+        docker_api = DockerApi()
+        res = []
+        for tag in docker_api.get_tags(tag):
+            if STR_CR_SITE in tag:
+                res.append(tag)
+        return res
+
+    def _get_images_by_tags(self, tags: t.List[str], cur_repo: Repo) -> t.List[str]:
+        '''
+        一个镜像会存在多个tag, 比如"cr.loongnix.cn/library/golang:1.19"和"cr.loongnix.cn/library/golang:1.19-buster"
+        '''
+        res = []
+        for tag in tags:
+            res = res + self._get_image_by_dependency(tag, cur_repo)
+        return res
+
+    def _get_image_by_dependency(self, image_name: str, cur_repo: Repo) -> t.List[str]:
+        # 查询依赖"image_name"的项目
+        dependencies = DependencyPO.select(DependencyPO.repo_name).distinct().where(
+            (DependencyPO.dependency==image_name) & (DependencyPO.repo_name!=cur_repo.cr_name()))
+        res = []
+        for dependency in dependencies:
+            if STR_CR_SITE in dependency.repo_name:
+                res.append(dependency.repo_name)
+        return res
+
+    def _image_build(self, repo: Repo):
+        process = subprocess.run(["make", "image", "-C", repo.build_dir()])
+        if process.returncode != 0:
+            print("{name}升级失败".format(name=repo.cr_name()))
+        else:
+            print("{name}升级成功".format(name=repo.cr_name()))
+
+    def _image_push(self, repo):
+        subprocess.run(["make", "push", "-C", repo.build_dir()])
+
+    def run(self, repo):
+        for repo_ in self.repos_to_update(repo):
+            self._image_build(repo_)
+            self._image_push(repo_)
 
 
 class MergeOperation:
@@ -607,17 +663,16 @@ class MergeOperation:
             if STR_CR_SITE in dependency.image:
                 self._cve_scan(Repo.from_cr_name(dependency.image))
 
-    def _update_children_repo(self, repo: Repo):
-        pass
-
     def run_push(self, repo: Repo):
         self._push(repo)
         self._cve_scan(repo)
-        self._update_children_repo(repo)
 
     def run_multi_push(self):
         for repo in self._repos():
             self.run_push(repo)
+            # 触发级联更新
+            multi_update = MultiUpdate()
+            multi_update.run(repo)
 
 
 if __name__ == '__main__':
