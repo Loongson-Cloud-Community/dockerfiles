@@ -7,7 +7,7 @@ TAG?=buster-slim
 
 IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):$(TAG)
 
-ROOTFS=rootfs.tar.gz
+ROOTFS=rootfs.tar.xz
 
 default: image
 
@@ -21,9 +21,8 @@ push:
 	docker push $(IMAGE)
 
 $(ROOTFS):
-	docker run -it --rm \
+	docker run --rm \
 		-v `pwd`:/wk \
-		--env https_proxy=$(https_proxy) \
-		--env http_proxy=$(http_proxy) \
+		--privileged \
 		cr.loongnix.cn/library/debian:buster \
-		/bin/bash -c "/wk/make_rootfs.sh /wk"
+		/bin/bash -c "/wk/make_rootfs.sh"
