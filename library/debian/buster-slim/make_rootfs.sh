@@ -43,12 +43,6 @@ slimExcludes=( $(sed '/^#/d;/^$/d' .slimify-excludes | sort -u) )
 pkgExcludes='loongnix-gpu-driver-service,loonggpu-compiler,loonggl-dev'
 pkgIncludes='libncursesw6,libseccomp2,sysvinit-utils'
 
-userExcludes=(
-  systemd-timesync
-  systemd-network
-  systemd-resolve
-)
-
 chroot $TMPDIR bash -c '
   apt-get -o apt-get -o Acquire::Check-Valid-Until=false update -qq
   if apt-mark --help &> /dev/null; then
@@ -68,11 +62,6 @@ chroot $TMPDIR bash -c '
       fi
   done
 ' -- $pkgIncludes $pkgExcludes
-
-for user in ${userExcludes[@]}; do
-    chroot $TMPDIR userdel --force --remove "${user}" \
-        || echo "${user} not found"
-done
 
 findMatchIncludes=()
 for slimInclude in "${slimIncludes[@]}"; do
@@ -104,5 +93,27 @@ while [ "$(
                 | wc -c
         )" -gt 0 ]; do true; done
 
+# remove slimify files
+rm $TMPDIR/.slimify-excludes
+rm $TMPDIR/.slimify-includes
+
 chroot $TMPDIR rm -rf /tmp/* /var/cache/apt/* /var/lib/apt/lists/*
-tar -cJf $ROOTFS -C $TMPDIR .
+
+# tar
+tarArgs=(
+	--create
+	--file "rootfs.tar"
+	--auto-compress
+	--directory "$TMPDIR"
+	--exclude-from ".tar-excludes"
+)
+
+tarArgs+=(
+	--numeric-owner
+	--transform 's,^./,,'
+	--sort name
+	.
+)
+
+tar "${tarArgs[@]}"
+xz -z rootfs.tar
