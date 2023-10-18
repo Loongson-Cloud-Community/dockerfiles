@@ -1,0 +1,62 @@
+From f2d3d3a50993b8409437442a3b76b942d34b75f7 Mon Sep 17 00:00:00 2001
+From: zhangguanzhang <zhangguanzhang@qq.com>
+Date: Mon, 16 Oct 2023 16:33:49 +0800
+Subject: [PATCH] support loong64
+
+---
+ Dockerfile-release | 8 +++++---
+ Makefile           | 8 ++++++--
+ 2 files changed, 11 insertions(+), 5 deletions(-)
+
+diff --git a/Dockerfile-release b/Dockerfile-release
+index c14fdd773..0e2cfcf63 100644
+--- a/Dockerfile-release
++++ b/Dockerfile-release
+@@ -1,7 +1,9 @@
+-FROM --platform=linux/amd64 gcr.io/distroless/static-debian11
++ARG BASE_IMG=cr.loongnix.cn/prometheus/busybox:glibc
++FROM ${BASE_IMG}
++ENV ETCD_UNSUPPORTED_ARCH=loong64
+ 
+-ADD etcd /usr/local/bin/
+-ADD etcdctl /usr/local/bin/
++COPY etcd /usr/local/bin/
++COPY etcdctl /usr/local/bin/
+ 
+ WORKDIR /var/etcd/
+ WORKDIR /var/lib/etcd/
+diff --git a/Makefile b/Makefile
+index 802201dce..00eb61d25 100644
+--- a/Makefile
++++ b/Makefile
+@@ -54,6 +54,9 @@ docker-remove:
+ GO_VERSION ?= 1.19.9
+ ETCD_VERSION ?= $(shell git rev-parse --short HEAD || echo "GitNotFound")
+ 
++IMAGE ?= gcr.io/etcd-development/etcd:$(ETCD_VERSION)
++BASE_IMG ?= cr.loongnix.cn/prometheus/busybox:glibc
++
+ TEST_SUFFIX = $(shell date +%s | base64 | head -c 15)
+ TEST_OPTS ?= PASSES='unit'
+ 
+@@ -189,14 +192,15 @@ build-docker-release-master:
+ 	$(info ETCD_VERSION: $(ETCD_VERSION))
+ 	cp ./Dockerfile-release ./bin/Dockerfile-release
+ 	docker build \
+-	  --tag gcr.io/etcd-development/etcd:$(ETCD_VERSION) \
++	  --build-arg BASE_IMG=$(BASE_IMG) \
++	  --tag $(IMAGE) \
+ 	  --file ./bin/Dockerfile-release \
+ 	  ./bin
+ 	rm -f ./bin/Dockerfile-release
+ 
+ 	docker run \
+ 	  --rm \
+-	  gcr.io/etcd-development/etcd:$(ETCD_VERSION) \
++	  $(IMAGE) \
+ 	  /bin/sh -c "/usr/local/bin/etcd --version && /usr/local/bin/etcdctl version"
+ 
+ push-docker-release-master:
+-- 
+2.25.1
+
