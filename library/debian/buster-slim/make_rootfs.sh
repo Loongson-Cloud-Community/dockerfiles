@@ -16,6 +16,12 @@ if [ ! -f /usr/share/debootstrap/scripts/$RELEASE ]; then
 	ln -s /usr/share/debootstrap/scripts/sid /usr/share/debootstrap/scripts/$RELEASE
 fi
 
+TMPDIR=$(mktemp -d)
+
+# install packages
+debootstrap --no-check-gpg --variant=minbase --components=main,non-free,contrib --arch=loongarch64 --foreign $RELEASE $TMPDIR $MIRROR_ADDRESS
+chroot $TMPDIR debootstrap/debootstrap --second-stage
+
 # https://github.com/GoogleContainerTools/base-images-docker/tree/master/debian/reproducible/overlay/etc/apt/apt.conf.d
 apt_conf=(
     apt-retry
@@ -28,14 +34,10 @@ for apt_file in ${apt_conf[@]};do
     curl -o $TMPDIR/etc/apt/apt.conf.d/${apt_file} -sSL ${APT_CONF_URL}/${apt_file}
 done
 
-TMPDIR=`mktemp -d`
+# slimify
 cp .slimify-includes $TMPDIR/.slimify-includes
 cp .slimify-excludes $TMPDIR/.slimify-excludes
-# install packages
-debootstrap --no-check-gpg --variant=minbase --components=main,non-free,contrib --arch=loongarch64 --foreign $RELEASE $TMPDIR $MIRROR_ADDRESS
-chroot $TMPDIR debootstrap/debootstrap --second-stage
 
-# slimify
 slimIncludes=( $(sed '/^#/d;/^$/d' .slimify-includes | sort -u) )
 slimExcludes=( $(sed '/^#/d;/^$/d' .slimify-excludes | sort -u) )
 
