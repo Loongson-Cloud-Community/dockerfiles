@@ -16,6 +16,7 @@ download:
 image: download
 	docker build \
 		-t $(IMAGE) \
+		-t $(IMAGE)-slim-buster \
 		.
 
 push:
