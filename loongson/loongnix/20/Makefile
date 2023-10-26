@@ -24,7 +24,7 @@ push:
 	docker push $(ALIAS)
 
 $(ROOTFS):
-	docker run -it --rm \
+	docker run --rm \
 		-v `pwd`:/work \
 		cr.loongnix.cn/library/debian:buster \
 		/bin/bash -c "/work/make_rootfs.sh /work"
