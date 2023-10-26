@@ -3,7 +3,7 @@
 REGISTRY?=cr.loongnix.cn
 ORGANIZATION?=library
 REPOSITORY?=haproxy
-TAG?=2.7-dev6
+TAG?=2.8
 
 IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):$(TAG)
 
@@ -11,10 +11,10 @@ IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):$(TAG)
 default: image
 
 image:
-	echo "0823 haproxy test"
 	docker build \
 		-t $(IMAGE) \
 		.
 
 push:
 	docker push $(IMAGE)
+	docker push $(IMAGE)-buster
