@@ -2,7 +2,7 @@ name: contab
 # 指定此工作流程的触发器
 on: 
   schedule:
-    - cron: '*/20 * * * *'
+    - cron: '0 2 * * 0'
 jobs:
   # 定义名称为"image-build"的job
   debian-build:
