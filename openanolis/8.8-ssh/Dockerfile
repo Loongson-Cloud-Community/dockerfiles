@@ -2,7 +2,7 @@ From cr.loongnix.cn/openanolis/anolisos:8.8
 MAINTAINER ligang@loongson.cn
 
 RUN yum install systemd -y
-RUN yum install openssh-server openssh-clients openssh vim-minimal sudo net-tools iputils iproute lsof telnet passwd vim initscripts -y
+RUN yum install openssh-server openssh-clients openssh vim-minimal net-tools iputils iproute lsof telnet passwd vim initscripts -y
 RUN mkdir /var/run/sshd
 #修改root用户密码
 RUN echo "root:Loongson@123" | chpasswd
@@ -25,7 +25,7 @@ rm -f /lib/systemd/system/anaconda.target.wants/*;
 #创建卷，便于挂载到host
 #VOLUME ["/sys/fs/cgroup"]
 #RUN service ssh start
-ADD run.sh /run.sh
+COPY run.sh /run.sh
 RUN chmod 777 /run.sh
 
 #暴露端口
