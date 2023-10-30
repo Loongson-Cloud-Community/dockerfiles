@@ -9,7 +9,8 @@ ADD ${ROOTFS} /
 
 LABEL images.build-time="${BUILD_TIME}"
 RUN apt update || apt update && apt install init -y
-RUN apt update || apt update && apt install openssh-server sudo net-tools bridge-utils iputils-ping iproute2 lsof telnet passwd vim initscripts -y
+RUN apt update || apt update && apt install openssh-server net-tools bridge-utils iputils-ping iproute2 lsof telnet passwd vim initscripts -y
+RUN rm -rf /var/lib/apt/lists
 RUN mkdir /var/run/sshd
 #修改root用户密码
 RUN echo "root:Loongson@123" | chpasswd
@@ -30,7 +31,7 @@ rm -f /lib/systemd/system/sockets.target.wants/*initctl*; \
 rm -f /lib/systemd/system/basic.target.wants/*; \
 rm -f /lib/systemd/system/anaconda.target.wants/*;
 
-ADD run.sh /run.sh
+COPY run.sh /run.sh
 RUN chmod 777 /run.sh
 
 #暴露端口
