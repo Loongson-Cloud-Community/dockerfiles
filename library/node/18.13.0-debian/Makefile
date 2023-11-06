@@ -12,12 +12,24 @@ default: image
 
 image:
 	docker build \
+		--build-arg http_proxy=$(http_proxy) \
+		--build-arg https_proxy=$(https_proxy) \
 		-t $(IMAGE) \
 		.
+	docker build \
+		--build-arg http_proxy=$(http_proxy) \
+		--build-arg https_proxy=$(https_proxy) \
+		--build-arg=TAG=buster-slim \
+		-t $(IMAGE)-slim \
+		.	
+	docker images | grep $(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY)
 
 push: alias
 	docker push $(IMAGE)
 	docker push $(ALIAS)
+	docker push $(IMAGE)-slim
+	docker push $(ALIAS)-slim
 
 alias:
 	docker tag $(IMAGE) $(ALIAS)
+	docker tag $(IMAGE)-slim $(ALIAS)-slim
