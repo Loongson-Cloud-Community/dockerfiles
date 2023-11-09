@@ -1,4 +1,5 @@
 #!/bin/bash
+set -o nounset
 
 ORGANIZATION=$1
 REPOSITORY=$2

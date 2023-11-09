@@ -8,7 +8,7 @@ TAG?=20
 IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):$(TAG)
 ALIAS=cr.loongnix.cn/library/debian:buster
 
-ROOTFS=rootfs.tar.gz
+ROOTFS=rootfs.tar.xz
 
 default: image
 
@@ -27,4 +27,4 @@ $(ROOTFS):
 	docker run --rm \
 		-v `pwd`:/work \
 		cr.loongnix.cn/library/debian:buster \
-		/bin/bash -c "/work/make_rootfs.sh /work"
+		/bin/bash -c "/work/make_rootfs.sh"
