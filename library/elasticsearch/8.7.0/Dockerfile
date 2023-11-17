@@ -33,9 +33,12 @@ RUN set -eux ; \
 RUN mkdir /usr/share/elasticsearch
 WORKDIR /usr/share/elasticsearch
 
-RUN curl --retry 10 -S -L --output /tmp/elasticsearch.tar.gz https://github.com/Loongson-Cloud-Community/elasticsearch/releases/download/v8.7.0/elasticsearch-8.7.0-SNAPSHOT-loongarch64_jdk11.tar.gz
-
+RUN curl --retry 10 -S -L --output /tmp/elasticsearch.tar.gz https://github.com/Loongson-Cloud-Community/elasticsearch/releases/download/v8.7.0/elasticsearch-8.7.0-SNAPSHOT-loongarch64_jdk17.tar.gz
 RUN tar -zxf /tmp/elasticsearch.tar.gz --strip-components=1
+
+#In order to prevent the cache files in the elasticsearch-8.7.0-SNAPSHOT-loongarch64_jdk17.tar.gz from not being deleted and causing build errors.
+RUN rm -rf config/elasticsearch.keystore config/certs config/*.orig && \
+    rm -rf logs/*
 
 # The distribution includes a `config` directory, no need to create it
 COPY config/elasticsearch.yml config/
@@ -52,7 +55,7 @@ COPY config/log4j2.properties config/log4j2.docker.properties
 #     plugins can install their own CLI utilities.
 #  9. Make some files writable
 RUN sed -i -e 's/ES_DISTRIBUTION_TYPE=tar/ES_DISTRIBUTION_TYPE=docker/' bin/elasticsearch-env && \
-#    mkdir data && \
+    mkdir data && \
     mv config/log4j2.properties config/log4j2.file.properties && \
     mv config/log4j2.docker.properties config/log4j2.properties && \
     find . -type d -exec chmod 0555 {} + && \

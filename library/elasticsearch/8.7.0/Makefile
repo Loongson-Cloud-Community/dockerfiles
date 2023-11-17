@@ -11,7 +11,7 @@ LATEST_IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):latest
 
 default: image
 
-image:
+image: setmap
 	docker build \
 		--build-arg http_proxy=$(http_proxy) \
 		--build-arg https_proxy=$(https_proxy) \
@@ -26,3 +26,7 @@ push:
 		docker tag $(IMAGE) $(LATEST_IMAGE); \
 		docker push $(LATEST_IMAGE); \
 	fi
+
+count:=$(shell sysctl -w vm.max_map_count=262144)
+setmap:
+	@echo $(count)
