@@ -13,6 +13,7 @@ default: image
 image:
 	docker build \
 		-t $(IMAGE) \
+		-t $(IMAGE)-buster \
 		.
 
 push:
