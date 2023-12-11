@@ -21,6 +21,7 @@ default: image
 
 image: src/$(SOURCE)
 # Commands for building.
+	GOPROXY="https://goproxy.cn,direct" \
 	DF_VERSION=$(TAG) $(MAKE) -C src/$(SOURCE) docker-build-supernode 
 
 src/$(SOURCE):
