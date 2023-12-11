@@ -1,0 +1,295 @@
+From 2abe74e5c7bb09595579bb7afaef5fb4511c39bd Mon Sep 17 00:00:00 2001
+From: Weijie Wang <wangweijie@loongson.cn>
+Date: Mon, 11 Dec 2023 09:01:59 +0000
+Subject: [PATCH] port to loong64
+
+---
+ Dockerfile                     |  4 +--
+ Dockerfile.supernode           |  4 +--
+ go.mod                         | 62 +++++++++++++++++++++++-----------
+ go.sum                         | 12 ++-----
+ hack/docker-build.sh           |  4 +--
+ pkg/stat/stat_linux_loong64.go | 42 +++++++++++++++++++++++
+ 6 files changed, 92 insertions(+), 36 deletions(-)
+ create mode 100644 pkg/stat/stat_linux_loong64.go
+
+diff --git a/Dockerfile b/Dockerfile
+index a3f57c4..15eed67 100644
+--- a/Dockerfile
++++ b/Dockerfile
+@@ -1,4 +1,4 @@
+-FROM golang:1.13.15-alpine as builder
++FROM cr.loongnix.cn/library/golang:1.20-alpine as builder
+ 
+ WORKDIR /go/src/github.com/dragonflyoss/Dragonfly
+ RUN apk --no-cache add bash make gcc libc-dev git
+@@ -10,7 +10,7 @@ COPY . /go/src/github.com/dragonflyoss/Dragonfly
+ ARG GOPROXY
+ RUN make build-client && make install-client
+ 
+-FROM alpine:3.8
++FROM cr.loongnix.cn/library/alpine:3.11
+ 
+ RUN apk --no-cache add ca-certificates bash
+ 
+diff --git a/Dockerfile.supernode b/Dockerfile.supernode
+index 7621e09..e0e775e 100644
+--- a/Dockerfile.supernode
++++ b/Dockerfile.supernode
+@@ -1,4 +1,4 @@
+-FROM golang:1.13.15-alpine as builder
++FROM cr.loongnix.cn/library/golang:1.20-alpine as builder
+ 
+ WORKDIR /go/src/github.com/dragonflyoss/Dragonfly
+ RUN apk --no-cache add bash make gcc libc-dev git
+@@ -11,7 +11,7 @@ ARG GOPROXY
+ RUN make build-supernode && make install-supernode
+ RUN make build-client && make install-client
+ 
+-FROM dragonflyoss/nginx:apline
++FROM cr.loongnix.cn/dragonflyoss/nginx:alpine
+ 
+ RUN apk --no-cache add ca-certificates bash
+ 
+diff --git a/go.mod b/go.mod
+index 75f7372..13886c8 100644
+--- a/go.mod
++++ b/go.mod
+@@ -1,53 +1,75 @@
+ module github.com/dragonflyoss/Dragonfly
+ 
+-go 1.12
++go 1.20
+ 
+ require (
+ 	github.com/HuKeping/rbtree v0.0.0-20200208030951-29f0b79e84ed
+-	github.com/PuerkitoBio/purell v0.0.0-20170829232023-f619812e3caf // indirect
+-	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
+-	github.com/asaskevich/govalidator v0.0.0-20170903095215-73945b6115bf // indirect
+-	github.com/cpuguy83/go-md2man v1.0.7 // indirect
+ 	github.com/emirpasic/gods v1.12.0
+ 	github.com/go-check/check v0.0.0-20161208181325-20d25e280405
+-	github.com/go-openapi/analysis v0.0.0-20170813233457-8ed83f2ea9f0 // indirect
+ 	github.com/go-openapi/errors v0.0.0-20170426151106-03cfca65330d
+-	github.com/go-openapi/jsonpointer v0.0.0-20170102174223-779f45308c19 // indirect
+-	github.com/go-openapi/jsonreference v0.0.0-20161105162150-36d33bfe519e // indirect
+-	github.com/go-openapi/loads v0.0.0-20170520182102-a80dea3052f0 // indirect
+-	github.com/go-openapi/runtime v0.0.0-20170901133030-bf2ff8f71507 // indirect
+-	github.com/go-openapi/spec v0.0.0-20170811033243-3faa0055dbbf // indirect
+ 	github.com/go-openapi/strfmt v0.0.0-20171222154016-4dd3d302e100
+ 	github.com/go-openapi/swag v0.0.0-20170606142751-f3f9494671f9
+ 	github.com/go-openapi/validate v0.0.0-20170705144413-8a82927c942c
+ 	github.com/golang/groupcache v0.0.0-20190129154638-5b532d6fd5ef
+ 	github.com/golang/mock v1.4.0
+-	github.com/gorilla/context v0.0.0-20181012153548-51ce91d2eadd // indirect
+ 	github.com/gorilla/mux v1.5.0
+ 	github.com/gorilla/schema v1.1.0
+-	github.com/inconshreveable/mousetrap v1.0.0 // indirect
+-	github.com/magiconair/properties v1.8.1 // indirect
+-	github.com/mailru/easyjson v0.0.0-20170902151237-2a92e673c9a6 // indirect
+ 	github.com/mitchellh/mapstructure v1.1.2
+ 	github.com/openacid/low v0.1.10
+ 	github.com/pborman/uuid v0.0.0-20180122190007-c65b2f87fee3
+ 	github.com/pkg/errors v0.8.0
+ 	github.com/prashantv/gostub v1.0.0
+ 	github.com/prometheus/client_golang v0.9.3
+-	github.com/russross/blackfriday v0.0.0-20171011182219-6d1ef893fcb0 // indirect
+ 	github.com/sirupsen/logrus v1.2.0
+ 	github.com/spf13/afero v1.2.2
+ 	github.com/spf13/cobra v0.0.0-20181021141114-fe5e611709b0
+-	github.com/spf13/jwalterweatherman v1.1.0 // indirect
+ 	github.com/spf13/viper v1.4.0
+ 	github.com/stretchr/testify v1.3.0
+ 	github.com/valyala/fasthttp v1.3.0
+ 	github.com/willf/bitset v0.0.0-20190228212526-18bd95f470f9
+-	golang.org/x/crypto v0.0.0-20191011191535-87dc89f01550 // indirect
+-	golang.org/x/net v0.0.0-20190620200207-3b0461eec859 // indirect
+ 	gopkg.in/gcfg.v1 v1.2.3
+-	gopkg.in/mgo.v2 v2.0.0-20160818020120-3f83fa500528 // indirect
+ 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
+ 	gopkg.in/warnings.v0 v0.1.2
+ 	gopkg.in/yaml.v2 v2.2.2
+ )
++
++require (
++	github.com/PuerkitoBio/purell v0.0.0-20170829232023-f619812e3caf // indirect
++	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
++	github.com/asaskevich/govalidator v0.0.0-20170903095215-73945b6115bf // indirect
++	github.com/beorn7/perks v1.0.0 // indirect
++	github.com/cpuguy83/go-md2man v1.0.7 // indirect
++	github.com/davecgh/go-spew v1.1.1 // indirect
++	github.com/fsnotify/fsnotify v1.4.7 // indirect
++	github.com/go-openapi/analysis v0.0.0-20170813233457-8ed83f2ea9f0 // indirect
++	github.com/go-openapi/jsonpointer v0.0.0-20170102174223-779f45308c19 // indirect
++	github.com/go-openapi/jsonreference v0.0.0-20161105162150-36d33bfe519e // indirect
++	github.com/go-openapi/loads v0.0.0-20170520182102-a80dea3052f0 // indirect
++	github.com/go-openapi/runtime v0.0.0-20170901133030-bf2ff8f71507 // indirect
++	github.com/go-openapi/spec v0.0.0-20170811033243-3faa0055dbbf // indirect
++	github.com/golang/protobuf v1.3.1 // indirect
++	github.com/gorilla/context v0.0.0-20181012153548-51ce91d2eadd // indirect
++	github.com/hashicorp/hcl v1.0.0 // indirect
++	github.com/inconshreveable/mousetrap v1.0.0 // indirect
++	github.com/klauspost/compress v1.4.0 // indirect
++	github.com/klauspost/cpuid v0.0.0-20180405133222-e7e905edc00e // indirect
++	github.com/konsorten/go-windows-terminal-sequences v1.0.1 // indirect
++	github.com/magiconair/properties v1.8.1 // indirect
++	github.com/mailru/easyjson v0.0.0-20170902151237-2a92e673c9a6 // indirect
++	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
++	github.com/pelletier/go-toml v1.2.0 // indirect
++	github.com/pmezard/go-difflib v1.0.0 // indirect
++	github.com/prometheus/client_model v0.0.0-20190129233127-fd36f4220a90 // indirect
++	github.com/prometheus/common v0.4.0 // indirect
++	github.com/prometheus/procfs v0.0.0-20190507164030-5867b95ac084 // indirect
++	github.com/russross/blackfriday v0.0.0-20171011182219-6d1ef893fcb0 // indirect
++	github.com/spf13/cast v1.3.0 // indirect
++	github.com/spf13/jwalterweatherman v1.1.0 // indirect
++	github.com/spf13/pflag v1.0.3 // indirect
++	github.com/valyala/bytebufferpool v1.0.0 // indirect
++	golang.org/x/crypto v0.0.0-20191011191535-87dc89f01550 // indirect
++	golang.org/x/net v0.0.0-20190620200207-3b0461eec859 // indirect
++	golang.org/x/sys v0.15.0 // indirect
++	golang.org/x/text v0.3.0 // indirect
++	gopkg.in/mgo.v2 v2.0.0-20160818020120-3f83fa500528 // indirect
++)
+diff --git a/go.sum b/go.sum
+index a653380..90bb361 100644
+--- a/go.sum
++++ b/go.sum
+@@ -8,9 +8,7 @@ github.com/PuerkitoBio/purell v0.0.0-20170829232023-f619812e3caf h1:ePmEKucT6HqN
+ github.com/PuerkitoBio/purell v0.0.0-20170829232023-f619812e3caf/go.mod h1:c11w/QuzBsJSee3cPx9rAFu61PvFxuPbtSwDGJws/X0=
+ github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 h1:d+Bc7a5rLufV/sSk/8dngufqelfh6jnri85riMAaF/M=
+ github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578/go.mod h1:uGdkoq3SwY9Y+13GIhn11/XLaGBb4BfwItxLd5jeuXE=
+-github.com/alecthomas/template v0.0.0-20160405071501-a0175ee3bccc h1:cAKDfWh5VpdgMhJosfJnn5/FoN2SRZ4p7fJNX58YPaU=
+ github.com/alecthomas/template v0.0.0-20160405071501-a0175ee3bccc/go.mod h1:LOuyumcjzFXgccqObfd/Ljyb9UuFJ6TxHnclSeseNhc=
+-github.com/alecthomas/units v0.0.0-20151022065526-2efee857e7cf h1:qet1QNfXsQxTZqLG4oE62mJzwPIB8+Tee4RNCL9ulrY=
+ github.com/alecthomas/units v0.0.0-20151022065526-2efee857e7cf/go.mod h1:ybxpYRFXyAe+OPACYpWeL0wqObRcbAqCMya13uyzqw0=
+ github.com/armon/consul-api v0.0.0-20180202201655-eb2c6b5be1b6/go.mod h1:grANhF5doyWs3UAsr3K4I6qtAmlQcZDesFNEHPZAzj8=
+ github.com/asaskevich/govalidator v0.0.0-20170903095215-73945b6115bf h1:wXq5VXJjLole37O6oWZwqBRbKZw6VmC+wuAe8j/w2ZA=
+@@ -69,7 +67,6 @@ github.com/gogo/protobuf v1.2.1/go.mod h1:hp+jE20tsWTFYpLwKvXlhS1hjn+gTNwPg2I6zV
+ github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b/go.mod h1:SBH7ygxi8pfUlaOkMMuAQtPIUF8ecWP5IEl/CR7VP2Q=
+ github.com/golang/groupcache v0.0.0-20190129154638-5b532d6fd5ef h1:veQD95Isof8w9/WXiA+pa3tz3fJXkt5B7QaRBrM62gk=
+ github.com/golang/groupcache v0.0.0-20190129154638-5b532d6fd5ef/go.mod h1:cIg4eruTrX1D+g88fzRXU5OdNfaM+9IcxsU14FzY7Hc=
+-github.com/golang/mock v1.1.1 h1:G5FRp8JnTd7RQH5kemVNlMeyXQAztQ3mOWV95KxsXH8=
+ github.com/golang/mock v1.1.1/go.mod h1:oTYuIxOrZwtPieC+H1uAHpcLFnEyAGVDL/k47Jfbm0A=
+ github.com/golang/mock v1.4.0 h1:Rd1kQnQu0Hq3qvJppYSG0HtP+f5LPPUiDswTLiEegLg=
+ github.com/golang/mock v1.4.0/go.mod h1:UOMv5ysSaYNkG+OFQykRIcU/QvvxJf3p21QfJ2Bt3cw=
+@@ -169,7 +166,6 @@ github.com/spf13/viper v1.4.0 h1:yXHLWeravcrgGyFSyCgdYpXQ9dR9c/WED3pg1RhxqEU=
+ github.com/spf13/viper v1.4.0/go.mod h1:PTJ7Z/lr49W6bUbkmS1V3by4uWynFiR9p7+dSq/yZzE=
+ github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
+ github.com/stretchr/objx v0.1.1/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
+-github.com/stretchr/testify v1.2.2 h1:bSDNvY7ZPG5RlJ8otE/7V6gMiyenm9RtJ7IUVIAoJ1w=
+ github.com/stretchr/testify v1.2.2/go.mod h1:a8OnRcib4nhh0OaRAV+Yts87kKdq0PP7pXfy6kDkUVs=
+ github.com/stretchr/testify v1.3.0 h1:TivCn/peBQ7UY8ooIcPgZFpTNSz0Q2U6UrFlUfqbe0Q=
+ github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UVUgZn+9EI=
+@@ -189,7 +185,6 @@ go.uber.org/atomic v1.4.0/go.mod h1:gD2HeocX3+yG+ygLZcrzQJaqmWj9AIm7n08wl/qW/PE=
+ go.uber.org/multierr v1.1.0/go.mod h1:wR5kodmAFQ0UK8QlbwjlSNy0Z68gJhDJUG5sjR94q/0=
+ go.uber.org/zap v1.10.0/go.mod h1:vwi/ZaCAaUcBkycHslxD9B2zi4UTXhF60s6SWpuDF0Q=
+ golang.org/x/crypto v0.0.0-20180904163835-0709b304e793/go.mod h1:6SG95UA2DQfeDnfUPMdvaQW0Q7yPrPDi9nlGo2tz2b4=
+-golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2 h1:VklqNMn3ovrHsnt90PveolxSbWFaJdECFbxSq0Mqo2M=
+ golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2/go.mod h1:djNgcEr1/C05ACkg1iLfiJU5Ep61QUkGW8qpdssI0+w=
+ golang.org/x/crypto v0.0.0-20191011191535-87dc89f01550 h1:ObdrDkeb4kJdCP557AjRjq69pTHfNouLtWZG7j9rPN8=
+ golang.org/x/crypto v0.0.0-20191011191535-87dc89f01550/go.mod h1:yigFU9vqHzYiE8UmvKecakEJjdnWj3jj499lnFckfCI=
+@@ -201,7 +196,6 @@ golang.org/x/net v0.0.0-20181114220301-adae6a3d119a/go.mod h1:mL1N/T3taQHkDXs73r
+ golang.org/x/net v0.0.0-20181220203305-927f97764cc3/go.mod h1:mL1N/T3taQHkDXs73rZJwtUhF3w3ftmwwsq0BUmARs4=
+ golang.org/x/net v0.0.0-20190311183353-d8887717615a/go.mod h1:t9HGtf8HONx5eT2rtn7q6eTqICYqUVnKs3thJo3Qplg=
+ golang.org/x/net v0.0.0-20190404232315-eb5bcb51f2a3/go.mod h1:t9HGtf8HONx5eT2rtn7q6eTqICYqUVnKs3thJo3Qplg=
+-golang.org/x/net v0.0.0-20190522155817-f3200d17e092 h1:4QSRKanuywn15aTZvI/mIDEgPQpswuFndXpOj3rKEco=
+ golang.org/x/net v0.0.0-20190522155817-f3200d17e092/go.mod h1:HSz+uSET+XFnRR8LxR5pz3Of3rY3CfYBVs4xY44aLks=
+ golang.org/x/net v0.0.0-20190620200207-3b0461eec859 h1:R/3boaszxrf1GEUWTVDzSKVwLmSJpwZ1yqXm8j0v2QI=
+ golang.org/x/net v0.0.0-20190620200207-3b0461eec859/go.mod h1:z5CRVTTTmAJ677TzLLGU+0bjPO0LkuOLi4/5GtJWs/s=
+@@ -214,10 +208,10 @@ golang.org/x/sys v0.0.0-20180830151530-49385e6e1522/go.mod h1:STP8DvDyc/dI5b8T5h
+ golang.org/x/sys v0.0.0-20180905080454-ebe1bf3edb33/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
+ golang.org/x/sys v0.0.0-20181107165924-66b7b1311ac8/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
+ golang.org/x/sys v0.0.0-20181116152217-5ac8a444bdc5/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
+-golang.org/x/sys v0.0.0-20190215142949-d0b11bdaac8a h1:1BGLXjeY4akVXGgbC9HugT3Jv3hCI0z56oJR5vAMgBU=
+ golang.org/x/sys v0.0.0-20190215142949-d0b11bdaac8a/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
+-golang.org/x/sys v0.0.0-20190412213103-97732733099d h1:+R4KGOnez64A81RvjARKc4UT5/tI9ujCIVX+P5KiHuI=
+ golang.org/x/sys v0.0.0-20190412213103-97732733099d/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
++golang.org/x/sys v0.15.0 h1:h48lPFYpsTvQJZF4EKyI4aLHaev3CxivZmv7yZig9pc=
++golang.org/x/sys v0.15.0/go.mod h1:/VUhepiaJMQUp4+oa/7Zr1D23ma6VTLIYjOOTFZPUcA=
+ golang.org/x/text v0.0.0-20170915032832-14c0d48ead0c/go.mod h1:NqM8EUOU14njkJ3fqMW+pc6Ldnwhi/IjpwHt7yyuwOQ=
+ golang.org/x/text v0.3.0 h1:g61tztE5qeGQ89tm6NTjjM9VPIm088od1l6aSorWRWg=
+ golang.org/x/text v0.3.0/go.mod h1:NqM8EUOU14njkJ3fqMW+pc6Ldnwhi/IjpwHt7yyuwOQ=
+@@ -225,13 +219,11 @@ golang.org/x/time v0.0.0-20190308202827-9d24e82272b4/go.mod h1:tRJNPiyCQ0inRvYxb
+ golang.org/x/tools v0.0.0-20180221164845-07fd8470d635/go.mod h1:n7NCudcB/nEzxVGmLbDWY5pfWTLqBcC2KZ6jyYvM4mQ=
+ golang.org/x/tools v0.0.0-20190114222345-bf090417da8b/go.mod h1:n7NCudcB/nEzxVGmLbDWY5pfWTLqBcC2KZ6jyYvM4mQ=
+ golang.org/x/tools v0.0.0-20190311212946-11955173bddd/go.mod h1:LCzVGOaR6xXOjkQ3onu1FJEFr0SW1gC7cKk1uF8kGRs=
+-golang.org/x/tools v0.0.0-20190425150028-36563e24a262 h1:qsl9y/CJx34tuA7QCPNp86JNJe4spst6Ff8MjvPUdPg=
+ golang.org/x/tools v0.0.0-20190425150028-36563e24a262/go.mod h1:RgjU9mgBXZiqYHBnxXauZ1Gv1EHHAz9KjViQ78xBX0Q=
+ google.golang.org/appengine v1.1.0/go.mod h1:EbEs0AVv82hx2wNQdGPgUI5lhzA/G0D9YwlJXL52JkM=
+ google.golang.org/genproto v0.0.0-20180817151627-c66870c02cf8/go.mod h1:JiN7NxoALGmiZfu7CAH4rXhgtRTLTxftemlI0sWmxmc=
+ google.golang.org/grpc v1.19.0/go.mod h1:mqu4LbDTu4XGKhr4mRzUsmM4RtVoemTSY81AxZiDr8c=
+ google.golang.org/grpc v1.21.0/go.mod h1:oYelfM1adQP15Ek0mdvEgi9Df8B9CZIaU1084ijfRaM=
+-gopkg.in/alecthomas/kingpin.v2 v2.2.6 h1:jMFz6MfLP0/4fUyZle81rXUoxOBFi19VUFKVDOQfozc=
+ gopkg.in/alecthomas/kingpin.v2 v2.2.6/go.mod h1:FMv+mEhP44yOT+4EoQTLFTRgOQ1FBLkstjWtayDeSgw=
+ gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
+ gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 h1:qIbj1fsPNlZgppZ+VLlY7N33q108Sa+fhmuc+sWQYwY=
+diff --git a/hack/docker-build.sh b/hack/docker-build.sh
+index 4c92724..bf2b329 100755
+--- a/hack/docker-build.sh
++++ b/hack/docker-build.sh
+@@ -9,11 +9,11 @@ curDir=$(cd "$(dirname "$0")" && pwd)
+ cd "${curDir}/../" || return
+ 
+ docker-build::build-dfclient(){
+-    docker build --build-arg GOPROXY="${GOPROXY}" -t dfclient:"${DF_VERSION}" -f Dockerfile .
++    docker build --build-arg GOPROXY="${GOPROXY}" -t cr.loongnix.cn/dragonflyoss/dfclient:"${DF_VERSION}" -f Dockerfile .
+ }
+ 
+ docker-build::build-supernode(){
+-    docker build --build-arg GOPROXY="${GOPROXY}" -t supernode:"${DF_VERSION}" -f Dockerfile.supernode .
++    docker build --build-arg GOPROXY="${GOPROXY}" -t cr.loongnix.cn/dragonflyoss/supernode:"${DF_VERSION}" -f Dockerfile.supernode .
+ }
+ 
+ main() {
+diff --git a/pkg/stat/stat_linux_loong64.go b/pkg/stat/stat_linux_loong64.go
+new file mode 100644
+index 0000000..61545c9
+--- /dev/null
++++ b/pkg/stat/stat_linux_loong64.go
+@@ -0,0 +1,42 @@
++/*
++ * Copyright The Dragonfly Authors.
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package util
++
++import (
++	"syscall"
++	"time"
++)
++
++// Atime returns the last access time in time.Time.
++func Atime(stat *syscall.Stat_t) time.Time {
++	return time.Unix(stat.Atim.Sec, stat.Atim.Nsec)
++}
++
++// AtimeSec returns the last access time in seconds.
++func AtimeSec(stat *syscall.Stat_t) int64 {
++	return stat.Atim.Sec
++}
++
++// Ctime returns the create time in time.Time.
++func Ctime(stat *syscall.Stat_t) time.Time {
++	return time.Unix(stat.Ctim.Sec, stat.Ctim.Nsec)
++}
++
++// CtimeSec returns the create time in seconds.
++func CtimeSec(stat *syscall.Stat_t) int64 {
++	return stat.Ctim.Sec
++}
+-- 
+2.24.4
+
