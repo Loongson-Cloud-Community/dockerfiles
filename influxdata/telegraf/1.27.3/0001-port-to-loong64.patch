@@ -1,0 +1,1596 @@
+From 0e472ae66da47d74ee6f87a550001c9a0152389f Mon Sep 17 00:00:00 2001
+From: yzewei <yangzewei@loongson.cn>
+Date: Mon, 21 Aug 2023 16:00:57 +0800
+Subject: [PATCH] add loongarch support
+
+---
+ DEBIAN/conffiles                              |   2 +
+ DEBIAN/control                                |  11 +
+ DEBIAN/md5sums                                |   6 +
+ DEBIAN/postinst                               |  82 ++
+ DEBIAN/postrm                                 |  33 +
+ DEBIAN/preinst                                |  24 +
+ DEBIAN/prerm                                  |  10 +
+ Makefile                                      |  25 +-
+ cmd/telegraf/README.md                        |  58 +-
+ config/README.md                              | 829 +++++++++++++++++-
+ docs/developers/README.md                     | 125 ++-
+ .../testdata/loadMibsFromPath/root/symlink    |   1 -
+ .../loadMibsFromPath/root/symlink/emptyFile   |   0
+ scripts/InRelease                             | 115 +++
+ scripts/buster.docker                         |  16 +
+ scripts/ci.docker                             |  16 +-
+ scripts/docker-entrypoint.sh                  |   8 +
+ 17 files changed, 1343 insertions(+), 18 deletions(-)
+ create mode 100644 DEBIAN/conffiles
+ create mode 100644 DEBIAN/control
+ create mode 100644 DEBIAN/md5sums
+ create mode 100755 DEBIAN/postinst
+ create mode 100755 DEBIAN/postrm
+ create mode 100755 DEBIAN/preinst
+ create mode 100755 DEBIAN/prerm
+ mode change 120000 => 100644 cmd/telegraf/README.md
+ mode change 120000 => 100644 config/README.md
+ mode change 120000 => 100644 docs/developers/README.md
+ delete mode 120000 internal/snmp/testdata/loadMibsFromPath/root/symlink
+ create mode 100644 internal/snmp/testdata/loadMibsFromPath/root/symlink/emptyFile
+ create mode 100644 scripts/InRelease
+ create mode 100644 scripts/buster.docker
+ create mode 100755 scripts/docker-entrypoint.sh
+
+diff --git a/DEBIAN/conffiles b/DEBIAN/conffiles
+new file mode 100644
+index 0000000..d711f60
+--- /dev/null
++++ b/DEBIAN/conffiles
+@@ -0,0 +1,2 @@
++/etc/logrotate.d/telegraf
++/etc/telegraf/telegraf.conf.sample
+diff --git a/DEBIAN/control b/DEBIAN/control
+new file mode 100644
+index 0000000..55ba3fc
+--- /dev/null
++++ b/DEBIAN/control
+@@ -0,0 +1,11 @@
++Package: telegraf
++Version: 1.27.3-1
++License: MIT
++Vendor: InfluxData
++Architecture: loongarch64
++Maintainer: support@influxdb.com
++Installed-Size: 179032
++Section: default
++Priority: optional
++Homepage: https://github.com/influxdata/telegraf
++Description: Plugin-driven server agent for reporting metrics into InfluxDB.
+diff --git a/DEBIAN/md5sums b/DEBIAN/md5sums
+new file mode 100644
+index 0000000..38813fe
+--- /dev/null
++++ b/DEBIAN/md5sums
+@@ -0,0 +1,6 @@
++e8b654479dc3f727652531061f818f7a  etc/logrotate.d/telegraf
++9af80392a0c859a993e17d0ccff68b69  etc/telegraf/telegraf.conf.sample
++d595b3a128b25aba493dafda70e36a55  usr/bin/telegraf
++28e966be61619129cc202b4a67f6fa86  usr/lib/telegraf/scripts/init.sh
++079516eb2c92438b387eee2ff60eeebf  usr/lib/telegraf/scripts/telegraf.service
++c2c8cbcc6242096ed5f579868d9864a6  usr/share/doc/telegraf/changelog.gz
+diff --git a/DEBIAN/postinst b/DEBIAN/postinst
+new file mode 100755
+index 0000000..8d53996
+--- /dev/null
++++ b/DEBIAN/postinst
+@@ -0,0 +1,82 @@
++#!/bin/bash
++
++LOG_DIR=/var/log/telegraf
++SCRIPT_DIR=/usr/lib/telegraf/scripts
++
++function install_init {
++    cp -f $SCRIPT_DIR/init.sh /etc/init.d/telegraf
++    chmod +x /etc/init.d/telegraf
++}
++
++function install_systemd {
++    #shellcheck disable=SC2086
++    cp -f $SCRIPT_DIR/telegraf.service $1
++    systemctl enable telegraf || true
++    systemctl daemon-reload || true
++}
++
++function install_update_rcd {
++    update-rc.d telegraf defaults
++}
++
++function install_chkconfig {
++    chkconfig --add telegraf
++}
++
++# Remove legacy symlink, if it exists
++if [[ -L /etc/init.d/telegraf ]]; then
++    rm -f /etc/init.d/telegraf
++fi
++# Remove legacy symlink, if it exists
++if [[ -L /etc/systemd/system/telegraf.service ]]; then
++    rm -f /etc/systemd/system/telegraf.service
++fi
++
++# Add defaults file, if it doesn't exist
++if [[ ! -f /etc/default/telegraf ]]; then
++    touch /etc/default/telegraf
++fi
++
++# Add .d configuration directory
++if [[ ! -d /etc/telegraf/telegraf.d ]]; then
++    mkdir -p /etc/telegraf/telegraf.d
++fi
++
++# If 'telegraf.conf' is not present use package's sample (fresh install)
++if [[ ! -f /etc/telegraf/telegraf.conf ]] && [[ -f /etc/telegraf/telegraf.conf.sample ]]; then
++   cp /etc/telegraf/telegraf.conf.sample /etc/telegraf/telegraf.conf
++fi
++
++test -d $LOG_DIR || mkdir -p $LOG_DIR
++chown -R -L telegraf:telegraf $LOG_DIR
++chmod 755 $LOG_DIR
++
++STATE_DIR=/var/lib/telegraf
++test -d "$STATE_DIR" || {
++    mkdir -p "$STATE_DIR"
++    chmod 770 "$STATE_DIR"
++    chown root:telegraf "$STATE_DIR"
++}
++
++STATE_FILE="$STATE_DIR/statefile"
++test -f "$STATE_FILE" || {
++    touch "$STATE_FILE"
++    chown root:telegraf "$STATE_FILE"
++    chmod 660 "$STATE_FILE"
++}
++
++if [ -d /run/systemd/system ]; then
++    install_systemd /lib/systemd/system/telegraf.service
++    # if and only if the service was already running then restart
++    deb-systemd-invoke try-restart telegraf.service >/dev/null || true
++else
++	# Assuming SysVinit
++	install_init
++	# Run update-rc.d or fallback to chkconfig if not available
++	if which update-rc.d &>/dev/null; then
++		install_update_rcd
++	else
++		install_chkconfig
++	fi
++	invoke-rc.d telegraf restart
++fi
+diff --git a/DEBIAN/postrm b/DEBIAN/postrm
+new file mode 100755
+index 0000000..35ca732
+--- /dev/null
++++ b/DEBIAN/postrm
+@@ -0,0 +1,33 @@
++#!/bin/bash
++
++function disable_systemd {
++    systemctl disable telegraf
++    rm -f $1
++}
++
++function disable_update_rcd {
++    update-rc.d -f telegraf remove
++    rm -f /etc/init.d/telegraf
++}
++
++function disable_chkconfig {
++    chkconfig --del telegraf
++    rm -f /etc/init.d/telegraf
++}
++
++if [ "$1" == "remove" -o "$1" == "purge" ]; then
++	# Remove/purge
++	rm -f /etc/default/telegraf
++
++	if [[ "$(readlink /proc/1/exe)" == */systemd ]]; then
++		disable_systemd /lib/systemd/system/telegraf.service
++	else
++		# Assuming sysv
++		# Run update-rc.d or fallback to chkconfig if not available
++		if which update-rc.d &>/dev/null; then
++			disable_update_rcd
++		else
++			disable_chkconfig
++		fi
++	fi
++fi
+diff --git a/DEBIAN/preinst b/DEBIAN/preinst
+new file mode 100755
+index 0000000..3fad54f
+--- /dev/null
++++ b/DEBIAN/preinst
+@@ -0,0 +1,24 @@
++#!/bin/bash
++
++if ! grep "^telegraf:" /etc/group &>/dev/null; then
++    groupadd -r telegraf
++fi
++
++if ! id telegraf &>/dev/null; then
++    useradd -r -M telegraf -s /bin/false -d /etc/telegraf -g telegraf
++fi
++
++if [[ -d /etc/opt/telegraf ]]; then
++    # Legacy configuration found
++    if [[ ! -d /etc/telegraf ]]; then
++        # New configuration does not exist, move legacy configuration to new location
++        echo -e "Please note, Telegraf's configuration is now located at '/etc/telegraf' (previously '/etc/opt/telegraf')."
++        mv -vn /etc/opt/telegraf /etc/telegraf
++
++        if [[ -f /etc/telegraf/telegraf.conf ]]; then
++            backup_name="telegraf.conf.$(date +%s).backup"
++            echo "A backup of your current configuration can be found at: /etc/telegraf/${backup_name}"
++            cp -a "/etc/telegraf/telegraf.conf" "/etc/telegraf/${backup_name}"
++        fi
++    fi
++fi
+diff --git a/DEBIAN/prerm b/DEBIAN/prerm
+new file mode 100755
+index 0000000..2657068
+--- /dev/null
++++ b/DEBIAN/prerm
+@@ -0,0 +1,10 @@
++#!/bin/bash
++
++if [ -d /run/systemd/system ]; then
++	if [ "$1" = remove ]; then
++		deb-systemd-invoke stop telegraf.service
++	fi
++else
++	# Assuming sysv
++	invoke-rc.d telegraf stop
++fi
+diff --git a/Makefile b/Makefile
+index 7d3c391..2cd7ce0 100644
+--- a/Makefile
++++ b/Makefile
+@@ -122,14 +122,14 @@ embed_readme_%:
+ .PHONY: config
+ config:
+ 	@echo "generating default config"
+-	go run ./cmd/telegraf config > etc/telegraf.conf
++	go run -v ./cmd/telegraf config > etc/telegraf.conf
+ 
+ .PHONY: docs
+ docs: build_tools embed_readme_inputs embed_readme_outputs embed_readme_processors embed_readme_aggregators embed_readme_secretstores
+ 
+ .PHONY: build
+ build:
+-	CGO_ENABLED=0 go build -tags "$(BUILDTAGS)" -ldflags "$(LDFLAGS)" ./cmd/telegraf
++	CGO_ENABLED=0 go build -v -tags "$(BUILDTAGS)" -ldflags "$(LDFLAGS)" ./cmd/telegraf
+ 
+ .PHONY: telegraf
+ telegraf: build
+@@ -137,7 +137,7 @@ telegraf: build
+ # Used by dockerfile builds
+ .PHONY: go-install
+ go-install:
+-	go install -mod=mod -ldflags "-w -s $(LDFLAGS)" ./cmd/telegraf
++	go install -mod=vendor -ldflags "-w -s $(LDFLAGS)" ./cmd/telegraf
+ 
+ .PHONY: test
+ test:
+@@ -242,15 +242,15 @@ clean:
+ 
+ .PHONY: docker-image
+ docker-image:
+-	docker build -f scripts/buster.docker -t "telegraf:$(commit)" .
++	docker build -f scripts/buster.docker -t "cr.loongnix.cn/library/telegraf:1.27.3" .
+ 
+ plugins/parsers/influx/machine.go: plugins/parsers/influx/machine.go.rl
+ 	ragel -Z -G2 $^ -o $@
+ 
+ .PHONY: ci
+ ci:
+-	docker build -t quay.io/influxdb/telegraf-ci:1.20.5 - < scripts/ci.docker
+-	docker push quay.io/influxdb/telegraf-ci:1.20.5
++	docker build -t cr.loongnix.cn/influxdb/telegraf-ci:1.20.2 - < scripts/ci.docker
++	#docker push cr.loongnix.cn/influxdb/telegraf-ci:1.20.2
+ 
+ .PHONY: install
+ install: $(buildbin)
+@@ -274,7 +274,7 @@ install: $(buildbin)
+ $(buildbin):
+ 	echo $(GOOS)
+ 	@mkdir -pv $(dir $@)
+-	CGO_ENABLED=0 go build -o $(dir $@) -ldflags "$(LDFLAGS)" ./cmd/telegraf
++	CGO_ENABLED=0 go build -v -o $(dir $@) -ldflags "$(LDFLAGS)" ./cmd/telegraf
+ 
+ # Define packages Telegraf supports, organized by architecture with a rule to echo the list to limit include_packages
+ # e.g. make package include_packages="$(make amd64)"
+@@ -287,6 +287,12 @@ mipsel += mipsel.deb linux_mipsel.tar.gz
+ mipsel:
+ 	@ echo $(mipsel)
+ arm64 += linux_arm64.tar.gz arm64.deb aarch64.rpm
++
++loongarch64 += linux_loongarch64.tar.gz loongarch64.deb loongarch64.rpm
++.PHONY: loongarch64
++loongarch64:
++	@ echo $(loongarch64)
++
+ .PHONY: arm64
+ arm64:
+ 	@ echo $(arm64)
+@@ -332,7 +338,7 @@ darwin-arm64 += darwin_arm64.tar.gz
+ darwin-arm64:
+ 	@ echo $(darwin-arm64)
+ 
+-include_packages := $(mips) $(mipsel) $(arm64) $(amd64) $(armel) $(armhf) $(riscv64) $(s390x) $(ppc64le) $(i386) $(windows) $(darwin-amd64) $(darwin-arm64)
++include_packages := $(mips) $(mipsel) $(loongarch64) $(arm64) $(amd64) $(armel) $(armhf) $(riscv64) $(s390x) $(ppc64le) $(i386) $(windows) $(darwin-amd64) $(darwin-arm64)
+ 
+ .PHONY: package
+ package: docs config $(include_packages)
+@@ -425,6 +431,9 @@ mips.deb linux_mips.tar.gz: export GOARCH := mips
+ mipsel.deb linux_mipsel.tar.gz: export GOOS := linux
+ mipsel.deb linux_mipsel.tar.gz: export GOARCH := mipsle
+ 
++loongarch64.deb linux_loongarch64.tar.gz: export GOOS := linux
++loongarch64.deb linux_loongarch64.tar.gz: export GOARCH := loong64
++
+ riscv64.deb riscv64.rpm linux_riscv64.tar.gz: export GOOS := linux
+ riscv64.deb riscv64.rpm linux_riscv64.tar.gz: export GOARCH := riscv64
+ 
+diff --git a/cmd/telegraf/README.md b/cmd/telegraf/README.md
+deleted file mode 120000
+index 162972f..0000000
+--- a/cmd/telegraf/README.md
++++ /dev/null
+@@ -1 +0,0 @@
+-../../docs/COMMANDS_AND_FLAGS.md
+\ No newline at end of file
+diff --git a/cmd/telegraf/README.md b/cmd/telegraf/README.md
+new file mode 100644
+index 0000000..79e04a8
+--- /dev/null
++++ b/cmd/telegraf/README.md
+@@ -0,0 +1,57 @@
++# Telegraf Commands & Flags
++
++The following page describes some of the commands and flags available via the
++Telegraf command line interface.
++
++## Usage
++
++General usage of Telegraf, requires passing in at least one config file with
++the plugins the user wishes to use:
++
++```bash
++telegraf --config config.toml
++```
++
++## Help
++
++To get the full list of subcommands and flags run:
++
++```bash
++telegraf help
++```
++
++Here are some commonly used flags that users should be aware of:
++
++* `--config-directory`: Read all config files from a directory
++* `--debug`: Enable additional debug logging
++* `--once`: Run one collection and flush interval then exit
++* `--test`: Run only inputs, output to stdout, and exit
++
++Check out the full help out for more available flags and options.
++
++## Version
++
++While telegraf will print out the version when running, if a user is uncertain
++what version their binary is, run the version subcommand:
++
++```bash
++telegraf version
++```
++
++## Config
++
++The config subcommand allows users to print out a sample configuration to
++stdout. This subcommand can very quickly print out the default values for all
++or any of the plugins available in Telegraf.
++
++For example to print the example config for all plugins run:
++
++```bash
++telegraf config > telegraf.conf
++```
++
++If a user only wanted certain inputs or outputs, then the filters can be used:
++
++```bash
++telegraf config --input-filter cpu --output-filter influxdb
++```
+diff --git a/config/README.md b/config/README.md
+deleted file mode 120000
+index 5455122..0000000
+--- a/config/README.md
++++ /dev/null
+@@ -1 +0,0 @@
+-../docs/CONFIGURATION.md
+\ No newline at end of file
+diff --git a/config/README.md b/config/README.md
+new file mode 100644
+index 0000000..e92f0b3
+--- /dev/null
++++ b/config/README.md
+@@ -0,0 +1,828 @@
++<!-- markdownlint-disable MD024 -->
++
++# Configuration
++
++Telegraf's configuration file is written using [TOML][] and is composed of
++three sections: [global tags][], [agent][] settings, and [plugins][].
++
++## Generating a Configuration File
++
++A default config file can be generated by telegraf:
++
++```sh
++telegraf config > telegraf.conf
++```
++
++To generate a file with specific inputs and outputs, you can use the
++--input-filter and --output-filter flags:
++
++```sh
++telegraf config --input-filter cpu:mem:net:swap --output-filter influxdb:kafka
++```
++
++[View the full list][flags] of Telegraf commands and flags or by running `telegraf --help`.
++
++### Windows PowerShell v5 Encoding
++
++In PowerShell 5, the default encoding is UTF-16LE and not UTF-8. Telegraf
++expects a valid UTF-8 file. This is not an issue with PowerShell 6 or newer,
++as well as the Command Prompt or with using the Git Bash shell.
++
++As such, users will need to specify the output encoding when generating a full
++configuration file:
++
++```sh
++telegraf.exe config | Out-File -Encoding utf8 telegraf.conf
++```
++
++This will generate a UTF-8 encoded file with a BOM. However, Telegraf can
++handle the leading BOM.
++
++## Configuration Loading
++
++The location of the configuration file can be set via the `--config` command
++line flag.
++
++When the `--config-directory` command line flag is used files ending with
++`.conf` in the specified directory will also be included in the Telegraf
++configuration.
++
++On most systems, the default locations are `/etc/telegraf/telegraf.conf` for
++the main configuration file and `/etc/telegraf/telegraf.d` for the directory of
++configuration files.
++
++## Environment Variables
++
++Environment variables can be used anywhere in the config file, simply surround
++them with `${}`.  Replacement occurs before file parsing. For strings
++the variable must be within quotes, e.g., `"${STR_VAR}"`, for numbers and booleans
++they should be unquoted, e.g., `${INT_VAR}`, `${BOOL_VAR}`.
++
++In addition to this, Telegraf also supports Shell parameter expansion for environment variables
++which allows syntax such as:
++
++- `${VARIABLE:-default}` evaluates to default if VARIABLE is unset or empty in the environment.
++- `${VARIABLE-default}` evaluates to default only if VARIABLE is unset in the environment.
++Similarly, the following syntax allows you to specify mandatory variables:
++- `${VARIABLE:?err}` exits with an error message containing err if VARIABLE is unset or empty in the environment.
++- `${VARIABLE?err}` exits with an error message containing err if VARIABLE is unset in the environment.
++
++When using the `.deb` or `.rpm` packages, you can define environment variables
++in the `/etc/default/telegraf` file.
++
++**Example**:
++
++`/etc/default/telegraf`:
++
++For InfluxDB 1.x:
++
++```shell
++USER="alice"
++INFLUX_URL="http://localhost:8086"
++INFLUX_SKIP_DATABASE_CREATION="true"
++INFLUX_PASSWORD="monkey123"
++```
++
++For InfluxDB OSS 2:
++
++```shell
++INFLUX_HOST="http://localhost:8086" # used to be 9999
++INFLUX_TOKEN="replace_with_your_token"
++INFLUX_ORG="your_username"
++INFLUX_BUCKET="replace_with_your_bucket_name"
++```
++
++For InfluxDB Cloud 2:
++
++```shell
++# For AWS West (Oregon)
++INFLUX_HOST="https://us-west-2-1.aws.cloud2.influxdata.com"
++# Other Cloud URLs at https://v2.docs.influxdata.com/v2.0/reference/urls/#influxdb-cloud-urls
++INFLUX_TOKEN=”replace_with_your_token”
++INFLUX_ORG="yourname@yourcompany.com"
++INFLUX_BUCKET="replace_with_your_bucket_name"
++```
++
++`/etc/telegraf.conf`:
++
++```toml
++[global_tags]
++  user = "${USER}"
++
++[[inputs.mem]]
++
++# For InfluxDB 1.x:
++[[outputs.influxdb]]
++  urls = ["${INFLUX_URL}"]
++  skip_database_creation = ${INFLUX_SKIP_DATABASE_CREATION}
++  password = "${INFLUX_PASSWORD}"
++
++# For InfluxDB OSS 2:
++[[outputs.influxdb_v2]]
++  urls = ["${INFLUX_HOST}"]
++  token = "${INFLUX_TOKEN}"
++  organization = "${INFLUX_ORG}"
++  bucket = "${INFLUX_BUCKET}"
++
++# For InfluxDB Cloud 2:
++[[outputs.influxdb_v2]]
++  urls = ["${INFLUX_HOST}"]
++  token = "${INFLUX_TOKEN}"
++  organization = "${INFLUX_ORG}"
++  bucket = "${INFLUX_BUCKET}"
++```
++
++The above files will produce the following effective configuration file to be
++parsed:
++
++```toml
++[global_tags]
++  user = "alice"
++
++[[inputs.mem]]
++
++# For InfluxDB 1.x:
++[[outputs.influxdb]]
++  urls = "http://localhost:8086"
++  skip_database_creation = true
++  password = "monkey123"
++
++# For InfluxDB OSS 2:
++[[outputs.influxdb_v2]]
++  urls = ["http://127.0.0.1:8086"] # double check the port. could be 9999 if using OSS Beta
++  token = "replace_with_your_token"
++  organization = "your_username"
++  bucket = "replace_with_your_bucket_name"
++
++# For InfluxDB Cloud 2:
++[[outputs.influxdb_v2]]
++  # For AWS West (Oregon)
++  INFLUX_HOST="https://us-west-2-1.aws.cloud2.influxdata.com"
++  # Other Cloud URLs at https://v2.docs.influxdata.com/v2.0/reference/urls/#influxdb-cloud-urls
++  token = "replace_with_your_token"
++  organization = "yourname@yourcompany.com"
++  bucket = "replace_with_your_bucket_name"
++```
++
++## Secret-store secrets
++
++Additional or instead of environment variables, you can use secret-stores
++to fill in credentials or similar. To do so, you need to configure one or more
++secret-store plugin(s) and then reference the secret in your plugin
++configurations. A reference to a secret is specified in form
++`@{<secret store id>:<secret name>}`, where the `secret store id` is the unique
++ID you defined for your secret-store and `secret name` is the name of the secret
++to use.
++**NOTE:** Both, the `secret store id` as well as the `secret name` can only
++consist of letters (both upper- and lowercase), numbers and underscores.
++
++**Example**:
++
++This example illustrates the use of secret-store(s) in plugins
++
++```toml
++[global_tags]
++  user = "alice"
++
++[[secretstores.os]]
++  id = "local_secrets"
++
++[[secretstores.jose]]
++  id = "cloud_secrets"
++  path = "/etc/telegraf/secrets"
++  # Optional reference to another secret store to unlock this one.
++  password = "@{local_secrets:cloud_store_passwd}"
++
++[[inputs.http]]
++  urls = ["http://server.company.org/metrics"]
++  username = "@{local_secrets:company_server_http_metric_user}"
++  password = "@{local_secrets:company_server_http_metric_pass}"
++
++[[outputs.influxdb_v2]]
++  urls = ["https://us-west-2-1.aws.cloud2.influxdata.com"]
++  token = "@{cloud_secrets:influxdb_token}"
++  organization = "yourname@yourcompany.com"
++  bucket = "replace_with_your_bucket_name"
++```
++
++## Intervals
++
++Intervals are durations of time and can be specified for supporting settings by
++combining an integer value and time unit as a string value.  Valid time units are
++`ns`, `us` (or `µs`), `ms`, `s`, `m`, `h`.
++
++```toml
++[agent]
++  interval = "10s"
++```
++
++## Global Tags
++
++Global tags can be specified in the `[global_tags]` table in key="value"
++format. All metrics that are gathered will be tagged with the tags specified.
++Global tags are overriden by tags set by plugins.
++
++```toml
++[global_tags]
++  dc = "us-east-1"
++```
++
++## Agent
++
++The agent table configures Telegraf and the defaults used across all plugins.
++
++- **interval**: Default data collection [interval][] for all inputs.
++
++- **round_interval**: Rounds collection interval to [interval][]
++  ie, if interval="10s" then always collect on :00, :10, :20, etc.
++
++- **metric_batch_size**:
++  Telegraf will send metrics to outputs in batches of at most
++  metric_batch_size metrics.
++  This controls the size of writes that Telegraf sends to output plugins.
++
++- **metric_buffer_limit**:
++  Maximum number of unwritten metrics per output.  Increasing this value
++  allows for longer periods of output downtime without dropping metrics at the
++  cost of higher maximum memory usage.
++
++- **collection_jitter**:
++  Collection jitter is used to jitter the collection by a random [interval][].
++  Each plugin will sleep for a random time within jitter before collecting.
++  This can be used to avoid many plugins querying things like sysfs at the
++  same time, which can have a measurable effect on the system.
++
++- **collection_offset**:
++  Collection offset is used to shift the collection by the given [interval][].
++  This can be be used to avoid many plugins querying constraint devices
++  at the same time by manually scheduling them in time.
++
++- **flush_interval**:
++  Default flushing [interval][] for all outputs. Maximum flush_interval will be
++  flush_interval + flush_jitter.
++
++- **flush_jitter**:
++  Default flush jitter for all outputs. This jitters the flush [interval][]
++  by a random amount. This is primarily to avoid large write spikes for users
++  running a large number of telegraf instances. ie, a jitter of 5s and interval
++  10s means flushes will happen every 10-15s.
++
++- **precision**:
++  Collected metrics are rounded to the precision specified as an [interval][].
++
++  Precision will NOT be used for service inputs. It is up to each individual
++  service input to set the timestamp at the appropriate precision.
++
++- **debug**:
++  Log at debug level.
++
++- **quiet**:
++  Log only error level messages.
++
++- **logtarget**:
++  Log target controls the destination for logs and can be one of "file",
++  "stderr" or, on Windows, "eventlog".  When set to "file", the output file is
++  determined by the "logfile" setting.
++
++- **logfile**:
++  Name of the file to be logged to when using the "file" logtarget.  If set to
++  the empty string then logs are written to stderr.
++
++- **logfile_rotation_interval**:
++  The logfile will be rotated after the time interval specified.  When set to
++  0 no time based rotation is performed.
++
++- **logfile_rotation_max_size**:
++  The logfile will be rotated when it becomes larger than the specified size.
++  When set to 0 no size based rotation is performed.
++
++- **logfile_rotation_max_archives**:
++  Maximum number of rotated archives to keep, any older logs are deleted.  If
++  set to -1, no archives are removed.
++
++- **log_with_timezone**:
++  Pick a timezone to use when logging or type 'local' for local time. Example: 'America/Chicago'.
++  [See this page for options/formats.](https://socketloop.com/tutorials/golang-display-list-of-timezones-with-gmt)
++
++- **hostname**:
++  Override default hostname, if empty use os.Hostname()
++
++- **omit_hostname**:
++  If set to true, do no set the "host" tag in the telegraf agent.
++
++- **snmp_translator**:
++  Method of translating SNMP objects. Can be "netsnmp" (deprecated) which
++  translates by calling external programs `snmptranslate` and `snmptable`,
++  or "gosmi" which translates using the built-in gosmi library.
++
++- **statefile**:
++  Name of the file to load the states of plugins from and store the states to.
++  If uncommented and not empty, this file will be used to save the state of
++  stateful plugins on termination of Telegraf. If the file exists on start,
++  the state in the file will be restored for the plugins.
++
++- **always_include_local_tags**:
++  Ensure tags explicitly defined in a plugin will *always* pass tag-filtering
++  via `taginclude` or `tagexclude`. This removes the need to specify local tags
++  twice.
++
++## Plugins
++
++Telegraf plugins are divided into 4 types: [inputs][], [outputs][],
++[processors][], and [aggregators][].
++
++Unlike the `global_tags` and `agent` tables, any plugin can be defined
++multiple times and each instance will run independently.  This allows you to
++have plugins defined with differing configurations as needed within a single
++Telegraf process.
++
++Each plugin has a unique set of configuration options, reference the
++sample configuration for details.  Additionally, several options are available
++on any plugin depending on its type.
++
++### Input Plugins
++
++Input plugins gather and create metrics.  They support both polling and event
++driven operation.
++
++Parameters that can be used with any input plugin:
++
++- **alias**: Name an instance of a plugin.
++
++- **interval**:
++  Overrides the `interval` setting of the [agent][Agent] for the plugin.  How
++  often to gather this metric. Normal plugins use a single global interval, but
++  if one particular input should be run less or more often, you can configure
++  that here.
++
++- **precision**:
++  Overrides the `precision` setting of the [agent][Agent] for the plugin.
++  Collected metrics are rounded to the precision specified as an [interval][].
++
++  When this value is set on a service input, multiple events occuring at the
++  same timestamp may be merged by the output database.
++
++- **collection_jitter**:
++  Overrides the `collection_jitter` setting of the [agent][Agent] for the
++  plugin.  Collection jitter is used to jitter the collection by a random
++  [interval][].
++
++- **collection_offset**:
++  Overrides the `collection_offset` setting of the [agent][Agent] for the
++  plugin. Collection offset is used to shift the collection by the given
++  [interval][].
++
++- **name_override**: Override the base name of the measurement.  (Default is
++  the name of the input).
++
++- **name_prefix**: Specifies a prefix to attach to the measurement name.
++
++- **name_suffix**: Specifies a suffix to attach to the measurement name.
++
++- **tags**: A map of tags to apply to a specific input's measurements.
++
++The [metric filtering][] parameters can be used to limit what metrics are
++emitted from the input plugin.
++
++#### Examples
++
++Use the name_suffix parameter to emit measurements with the name `cpu_total`:
++
++```toml
++[[inputs.cpu]]
++  name_suffix = "_total"
++  percpu = false
++  totalcpu = true
++```
++
++Use the name_override parameter to emit measurements with the name `foobar`:
++
++```toml
++[[inputs.cpu]]
++  name_override = "foobar"
++  percpu = false
++  totalcpu = true
++```
++
++Emit measurements with two additional tags: `tag1=foo` and `tag2=bar`
++
++> **NOTE**: With TOML, order matters.  Parameters belong to the last defined
++> table header, place `[inputs.cpu.tags]` table at the *end* of the plugin
++> definition.
++
++```toml
++[[inputs.cpu]]
++  percpu = false
++  totalcpu = true
++  [inputs.cpu.tags]
++    tag1 = "foo"
++    tag2 = "bar"
++```
++
++Alternatively, when using the inline table syntax, the tags do not need
++to go at the end:
++
++```toml
++[[inputs.cpu]]
++  tags = {tag1 = "foo", tag2 = "bar"}
++  percpu = false
++  totalcpu = true
++```
++
++Utilize `name_override`, `name_prefix`, or `name_suffix` config options to
++avoid measurement collisions when defining multiple plugins:
++
++```toml
++[[inputs.cpu]]
++  percpu = false
++  totalcpu = true
++
++[[inputs.cpu]]
++  percpu = true
++  totalcpu = false
++  name_override = "percpu_usage"
++  fielddrop = ["cpu_time*"]
++```
++
++### Output Plugins
++
++Output plugins write metrics to a location.  Outputs commonly write to
++databases, network services, and messaging systems.
++
++Parameters that can be used with any output plugin:
++
++- **alias**: Name an instance of a plugin.
++- **flush_interval**: The maximum time between flushes.  Use this setting to
++  override the agent `flush_interval` on a per plugin basis.
++- **flush_jitter**: The amount of time to jitter the flush interval.  Use this
++  setting to override the agent `flush_jitter` on a per plugin basis.
++- **metric_batch_size**: The maximum number of metrics to send at once.  Use
++  this setting to override the agent `metric_batch_size` on a per plugin basis.
++- **metric_buffer_limit**: The maximum number of unsent metrics to buffer.
++  Use this setting to override the agent `metric_buffer_limit` on a per plugin
++  basis.
++- **name_override**: Override the original name of the measurement.
++- **name_prefix**: Specifies a prefix to attach to the measurement name.
++- **name_suffix**: Specifies a suffix to attach to the measurement name.
++
++The [metric filtering][] parameters can be used to limit what metrics are
++emitted from the output plugin.
++
++#### Examples
++
++Override flush parameters for a single output:
++
++```toml
++[agent]
++  flush_interval = "10s"
++  flush_jitter = "5s"
++  metric_batch_size = 1000
++
++[[outputs.influxdb]]
++  urls = [ "http://example.org:8086" ]
++  database = "telegraf"
++
++[[outputs.file]]
++  files = [ "stdout" ]
++  flush_interval = "1s"
++  flush_jitter = "1s"
++  metric_batch_size = 10
++```
++
++### Processor Plugins
++
++Processor plugins perform processing tasks on metrics and are commonly used to
++rename or apply transformations to metrics.  Processors are applied after the
++input plugins and before any aggregator plugins.
++
++Parameters that can be used with any processor plugin:
++
++- **alias**: Name an instance of a plugin.
++- **order**: The order in which the processor(s) are executed. starting with 1.
++  If this is not specified then processor execution order will be the order in
++  the config. Processors without "order" will take precedence over those
++  with a defined order.
++
++The [metric filtering][] parameters can be used to limit what metrics are
++handled by the processor.  Excluded metrics are passed downstream to the next
++processor.
++
++#### Examples
++
++If the order processors are applied matters you must set order on all involved
++processors:
++
++```toml
++[[processors.rename]]
++  order = 1
++  [[processors.rename.replace]]
++    tag = "path"
++    dest = "resource"
++
++[[processors.strings]]
++  order = 2
++  [[processors.strings.trim_prefix]]
++    tag = "resource"
++    prefix = "/api/"
++```
++
++### Aggregator Plugins
++
++Aggregator plugins produce new metrics after examining metrics over a time
++period, as the name suggests they are commonly used to produce new aggregates
++such as mean/max/min metrics.  Aggregators operate on metrics after any
++processors have been applied.
++
++Parameters that can be used with any aggregator plugin:
++
++- **alias**: Name an instance of a plugin.
++- **period**: The period on which to flush & clear each aggregator. All
++  metrics that are sent with timestamps outside of this period will be ignored
++  by the aggregator.
++- **delay**: The delay before each aggregator is flushed. This is to control
++  how long for aggregators to wait before receiving metrics from input
++  plugins, in the case that aggregators are flushing and inputs are gathering
++  on the same interval.
++- **grace**: The duration when the metrics will still be aggregated
++  by the plugin, even though they're outside of the aggregation period. This
++  is needed in a situation when the agent is expected to receive late metrics
++  and it's acceptable to roll them up into next aggregation period.
++- **drop_original**: If true, the original metric will be dropped by the
++  aggregator and will not get sent to the output plugins.
++- **name_override**: Override the base name of the measurement.  (Default is
++  the name of the input).
++- **name_prefix**: Specifies a prefix to attach to the measurement name.
++- **name_suffix**: Specifies a suffix to attach to the measurement name.
++- **tags**: A map of tags to apply to the measurement - behavior varies based on aggregator.
++
++The [metric filtering][] parameters can be used to limit what metrics are
++handled by the aggregator.  Excluded metrics are passed downstream to the next
++aggregator.
++
++#### Examples
++
++Collect and emit the min/max of the system load1 metric every 30s, dropping
++the originals.
++
++```toml
++[[inputs.system]]
++  fieldpass = ["load1"] # collects system load1 metric.
++
++[[aggregators.minmax]]
++  period = "30s"        # send & clear the aggregate every 30s.
++  drop_original = true  # drop the original metrics.
++
++[[outputs.file]]
++  files = ["stdout"]
++```
++
++Collect and emit the min/max of the swap metrics every 30s, dropping the
++originals. The aggregator will not be applied to the system load metrics due
++to the `namepass` parameter.
++
++```toml
++[[inputs.swap]]
++
++[[inputs.system]]
++  fieldpass = ["load1"] # collects system load1 metric.
++
++[[aggregators.minmax]]
++  period = "30s"        # send & clear the aggregate every 30s.
++  drop_original = true  # drop the original metrics.
++  namepass = ["swap"]   # only "pass" swap metrics through the aggregator.
++
++[[outputs.file]]
++  files = ["stdout"]
++```
++
++## Metric Filtering
++
++Metric filtering can be configured per plugin on any input, output, processor,
++and aggregator plugin.  Filters fall under two categories: Selectors and
++Modifiers.
++
++### Selectors
++
++Selector filters include or exclude entire metrics.  When a metric is excluded
++from a Input or an Output plugin, the metric is dropped.  If a metric is
++excluded from a Processor or Aggregator plugin, it is skips the plugin and is
++sent onwards to the next stage of processing.
++
++- **namepass**:
++An array of [glob pattern][] strings. Only metrics whose measurement name
++matches a pattern in this list are emitted.
++
++- **namedrop**:
++The inverse of `namepass`. If a match is found the metric is discarded. This
++is tested on metrics after they have passed the `namepass` test.
++
++- **tagpass**:
++A table mapping tag keys to arrays of [glob pattern][] strings.  Only metrics
++that contain a tag key in the table and a tag value matching one of its
++patterns is emitted. This can either use the explicit table syntax (e.g.
++a subsection using a `[...]` header) or inline table syntax (e.g like
++a JSON table with `{...}`). Please see the below notes on specifying the table.
++
++- **tagdrop**:
++The inverse of `tagpass`.  If a match is found the metric is discarded. This
++is tested on metrics after they have passed the `tagpass` test.
++
++> NOTE: Due to the way TOML is parsed, when using the explicit table
++> syntax (with `[...]`) for `tagpass` and `tagdrop` parameters, they
++> must be defined at the **end** of the plugin definition, otherwise subsequent
++> plugin config options will be interpreted as part of the tagpass/tagdrop
++> tables.
++> NOTE: When using the inline table syntax (e.g. `{...}`) the table must exist
++> in the main plugin definition and not in any sub-table (e.g.
++> `[[inputs.win_perf_counters.object]]`).
++
++- **metricpass**:
++A ["Common Expression Language"][CEL] (CEL) expression with boolean result where
++`true` will allow the metric to pass, otherwise the metric is discarded. This
++filter expression is more general compared to e.g. `namepass` and also allows
++for time-based filtering. An introduction to the CEL language can be found
++[here][CEL intro]. Further details, such as available functions and expressions,
++are provided in the [language definition][CEL lang] as well as in the
++[extension documentation][CEL ext].
++
++> NOTE: As CEL is an *interpreted* languguage, this type of filtering is much
++> slower compared to `namepass`/`namedrop` and friends. So consider to use the
++> more restricted filter options where possible in case of high-throughput
++> scenarios.
++
++[CEL]:https://github.com/google/cel-go/tree/master
++[CEL intro]: https://codelabs.developers.google.com/codelabs/cel-go
++[CEL lang]: https://github.com/google/cel-spec/blob/master/doc/langdef.md
++[CEL ext]: https://github.com/google/cel-go/tree/master/ext#readme
++
++### Modifiers
++
++Modifier filters remove tags and fields from a metric.  If all fields are
++removed the metric is removed. Tags and fields are modified before a metric is
++passed to a processor, aggregator, or output plugin. When used with an input
++plugin the filter applies after the input runs.
++
++- **fieldpass**:
++An array of [glob pattern][] strings.  Only fields whose field key matches a
++pattern in this list are emitted.
++
++- **fielddrop**:
++The inverse of `fieldpass`.  Fields with a field key matching one of the
++patterns will be discarded from the metric.  This is tested on metrics after
++they have passed the `fieldpass` test.
++
++- **taginclude**:
++An array of [glob pattern][] strings.  Only tags with a tag key matching one of
++the patterns are emitted.  In contrast to `tagpass`, which will pass an entire
++metric based on its tag, `taginclude` removes all non matching tags from the
++metric.  Any tag can be filtered including global tags and the agent `host`
++tag.
++
++- **tagexclude**:
++The inverse of `taginclude`. Tags with a tag key matching one of the patterns
++will be discarded from the metric.  Any tag can be filtered including global
++tags and the agent `host` tag.
++
++### Filtering Examples
++
++#### Using tagpass and tagdrop
++
++```toml
++[[inputs.cpu]]
++  percpu = true
++  totalcpu = false
++  fielddrop = ["cpu_time"]
++  # Don't collect CPU data for cpu6 & cpu7
++  [inputs.cpu.tagdrop]
++    cpu = [ "cpu6", "cpu7" ]
++
++[[inputs.disk]]
++  [inputs.disk.tagpass]
++    # tagpass conditions are OR, not AND.
++    # If the (filesystem is ext4 or xfs) OR (the path is /opt or /home)
++    # then the metric passes
++    fstype = [ "ext4", "xfs" ]
++    # Globs can also be used on the tag values
++    path = [ "/opt", "/home*" ]
++
++[[inputs.win_perf_counters]]
++  [[inputs.win_perf_counters.object]]
++    ObjectName = "Network Interface"
++    Instances = ["*"]
++    Counters = [
++      "Bytes Received/sec",
++      "Bytes Sent/sec"
++    ]
++    Measurement = "win_net"
++  # Do not send metrics where the Windows interface name (instance) begins with
++  # 'isatap' or 'Local'
++  [inputs.win_perf_counters.tagdrop]
++    instance = ["isatap*", "Local*"]
++```
++
++#### Using fieldpass and fielddrop
++
++```toml
++# Drop all metrics for guest & steal CPU usage
++[[inputs.cpu]]
++  percpu = false
++  totalcpu = true
++  fielddrop = ["usage_guest", "usage_steal"]
++
++# Only store inode related metrics for disks
++[[inputs.disk]]
++  fieldpass = ["inodes*"]
++```
++
++#### Using namepass and namedrop
++
++```toml
++# Drop all metrics about containers for kubelet
++[[inputs.prometheus]]
++  urls = ["http://kube-node-1:4194/metrics"]
++  namedrop = ["container_*"]
++
++# Only store rest client related metrics for kubelet
++[[inputs.prometheus]]
++  urls = ["http://kube-node-1:4194/metrics"]
++  namepass = ["rest_client_*"]
++```
++
++#### Using taginclude and tagexclude
++
++```toml
++# Only include the "cpu" tag in the measurements for the cpu plugin.
++[[inputs.cpu]]
++  percpu = true
++  totalcpu = true
++  taginclude = ["cpu"]
++
++# Exclude the "fstype" tag from the measurements for the disk plugin.
++[[inputs.disk]]
++  tagexclude = ["fstype"]
++```
++
++#### Metrics can be routed to different outputs using the metric name and tags
++
++```toml
++[[outputs.influxdb]]
++  urls = [ "http://localhost:8086" ]
++  database = "telegraf"
++  # Drop all measurements that start with "aerospike"
++  namedrop = ["aerospike*"]
++
++[[outputs.influxdb]]
++  urls = [ "http://localhost:8086" ]
++  database = "telegraf-aerospike-data"
++  # Only accept aerospike data:
++  namepass = ["aerospike*"]
++
++[[outputs.influxdb]]
++  urls = [ "http://localhost:8086" ]
++  database = "telegraf-cpu0-data"
++  # Only store measurements where the tag "cpu" matches the value "cpu0"
++  [outputs.influxdb.tagpass]
++    cpu = ["cpu0"]
++```
++
++#### Routing metrics to different outputs based on the input
++
++Metrics are tagged with `influxdb_database` in the input, which is then used to
++select the output.  The tag is removed in the outputs before writing.
++
++```toml
++[[outputs.influxdb]]
++  urls = ["http://influxdb.example.com"]
++  database = "db_default"
++  [outputs.influxdb.tagdrop]
++    influxdb_database = ["*"]
++
++[[outputs.influxdb]]
++  urls = ["http://influxdb.example.com"]
++  database = "db_other"
++  tagexclude = ["influxdb_database"]
++  [outputs.influxdb.tagpass]
++    influxdb_database = ["other"]
++
++[[inputs.disk]]
++  [inputs.disk.tags]
++    influxdb_database = "other"
++```
++
++## Transport Layer Security (TLS)
++
++Reference the detailed [TLS][] documentation.
++
++[TOML]: https://github.com/toml-lang/toml#toml
++[global tags]: #global-tags
++[interval]: #intervals
++[agent]: #agent
++[plugins]: #plugins
++[inputs]: #input-plugins
++[outputs]: #output-plugins
++[processors]: #processor-plugins
++[aggregators]: #aggregator-plugins
++[metric filtering]: #metric-filtering
++[TLS]: /docs/TLS.md
++[glob pattern]: https://github.com/gobwas/glob#syntax
++[flags]: /docs/COMMANDS_AND_FLAGS.md
+diff --git a/docs/developers/README.md b/docs/developers/README.md
+deleted file mode 120000
+index f939e75..0000000
+--- a/docs/developers/README.md
++++ /dev/null
+@@ -1 +0,0 @@
+-../../CONTRIBUTING.md
+\ No newline at end of file
+diff --git a/docs/developers/README.md b/docs/developers/README.md
+new file mode 100644
+index 0000000..81a1420
+--- /dev/null
++++ b/docs/developers/README.md
+@@ -0,0 +1,124 @@
++# Contributing to Telegraf
++
++There are many ways to get involved in the Telegraf project! From opening issues, creating pull requests, to joining the conversation in Slack. We would love to see you contribute your expertise and join our community. To get started review this document to learn best practices.
++
++![tiger](assets/GopherAndTiger.png "tiger")
++
++## Opening Issues
++
++### Bug reports
++
++Before you file an issue, please search existing issues in case it has already been filed, or perhaps even fixed. If you file an issue, please ensure you include all the requested details (e.g. Telegraf config and logs, platform, etc.)
++
++Please note that issues are not the place to file general support requests such as "How do I use the mongoDB plugin?" Questions of this nature should be sent to the [Community Slack](https://influxdata.com/slack) or [Community Page](https://community.influxdata.com/), not filed as issues.
++
++### Feature requests
++
++We really like to receive feature requests as it helps us prioritize our work. Before you file a feature request, please search existing issues, you can filter issues that have the label `feature request`. Please be clear about your requirements and goals, help us to understand what you would like to see added to Telegraf with examples and the reasons why it is important to you. If you find your feature request already exists as a Github issue please indicate your support for that feature by using the "thumbs up" reaction.
++
++### Support questions
++
++We recommend posting support questions in our [Community Slack](https://influxdata.com/slack) or [Community Page](https://community.influxdata.com/), we have a lot of talented community members there who could help answer your question more quickly.
++
++## Contributing code
++
++### Creating a pull request
++
++1. [Sign the CLA][cla].
++2. Open a [new issue][] to discuss the changes you would like to make.  This is
++   not strictly required but it may help reduce the amount of rework you need
++   to do later.
++3. Make changes or write plugin using the guidelines in the following
++   documents:
++   - [Input Plugins][inputs]
++   - [Processor Plugins][processors]
++   - [Aggregator Plugins][aggregators]
++   - [Output Plugins][outputs]
++4. Ensure you have added proper unit tests and documentation.
++5. Open a new [pull request][].
++6. The pull request title needs to follow [conventional commit format](https://www.conventionalcommits.org/en/v1.0.0/#summary)
++
++**Note:** If you have a pull request with only one commit, then that commit needs to follow the conventional commit format or the `Semantic Pull Request` check will fail. This is because github will use the pull request title if there are multiple commits, but if there is only one commit it will use it instead.
++
++### When will your contribution get released?
++
++We have two kinds of releases: patch releases, which happen every few weeks, and feature releases, which happen once a quarter. If your fix is a bug fix, it will be released in the next patch release after it is merged to master. If your release is a new plugin or other feature, it will be released in the next quarterly release after it is merged to master. Quarterly releases are on the third Wednesday of March, June, September, and December.
++
++### Contributing an External Plugin
++
++Input, output, and processor plugins written for internal Telegraf can be run as externally-compiled plugins through the [Execd Input](/plugins/inputs/execd), [Execd Output](/plugins/outputs/execd), and [Execd Processor](/plugins/processors/execd) Plugins without having to change the plugin code.
++
++Follow the guidelines of how to integrate your plugin with the [Execd Go Shim](/plugins/common/shim) to easily compile it as a separate app and run it with the respective `execd` plugin.
++Check out our [guidelines](/docs/EXTERNAL_PLUGINS.md#external-plugin-guidelines) on how to build and set up your external plugins to run with `execd`.
++
++## Security Vulnerability Reporting
++
++InfluxData takes security and our users' trust very seriously. If you believe you have found a security issue in any of our
++open source projects, please responsibly disclose it by contacting `security@influxdata.com`. More details about
++security vulnerability reporting,
++including our GPG key, [can be found here](https://www.influxdata.com/how-to-report-security-vulnerabilities/).
++
++## Common development tasks
++
++**Adding a dependency:**
++
++Telegraf uses Go modules. Assuming you can already build the project, run this in the telegraf directory:
++
++1. `go get github.com/[dependency]/[new-package]`
++
++**Before opening a PR:**
++
++Before opening a pull request you should run the following checks locally to make sure the CI will pass.
++
++```shell
++make lint
++make check
++make check-deps
++make test
++make docs
++```
++
++**Execute integration tests:**
++
++(Optional)
++
++To run only the integration tests use:
++
++```shell
++make test-integration
++```
++
++To run the full test suite use:
++
++```shell
++make test-all
++```
++
++### For more developer resources
++
++- [Code Style][codestyle]
++- [Deprecation][deprecation]
++- [Logging][logging]
++- [Metric Format Changes][metricformat]
++- [Packaging][packaging]
++- [Profiling][profiling]
++- [Reviews][reviews]
++- [Sample Config][sample config]
++- [Code of Conduct][code of conduct]
++
++[cla]: https://www.influxdata.com/legal/cla/
++[new issue]: https://github.com/influxdata/telegraf/issues/new/choose
++[pull request]: https://github.com/influxdata/telegraf/compare
++[inputs]: /docs/INPUTS.md
++[processors]: /docs/PROCESSORS.md
++[aggregators]: /docs/AGGREGATORS.md
++[outputs]: /docs/OUTPUTS.md
++[codestyle]: /docs/developers/CODE_STYLE.md
++[deprecation]: /docs/developers/DEPRECATION.md
++[logging]: /docs/developers/LOGGING.md
++[metricformat]: /docs/developers/METRIC_FORMAT_CHANGES.md
++[packaging]: /docs/developers/PACKAGING.md
++[profiling]: /docs/developers/PROFILING.md
++[reviews]: /docs/developers/REVIEWS.md
++[sample config]: /docs/developers/SAMPLE_CONFIG.md
++[code of conduct]: /CODE_OF_CONDUCT.md
+diff --git a/internal/snmp/testdata/loadMibsFromPath/root/symlink b/internal/snmp/testdata/loadMibsFromPath/root/symlink
+deleted file mode 120000
+index a10e5b8..0000000
+--- a/internal/snmp/testdata/loadMibsFromPath/root/symlink
++++ /dev/null
+@@ -1 +0,0 @@
+-../linkTarget/
+\ No newline at end of file
+diff --git a/internal/snmp/testdata/loadMibsFromPath/root/symlink/emptyFile b/internal/snmp/testdata/loadMibsFromPath/root/symlink/emptyFile
+new file mode 100644
+index 0000000..e69de29
+diff --git a/scripts/InRelease b/scripts/InRelease
+new file mode 100644
+index 0000000..9dc2d54
+--- /dev/null
++++ b/scripts/InRelease
+@@ -0,0 +1,115 @@
++-----BEGIN PGP SIGNED MESSAGE-----
++Hash: SHA512
++
++Origin: Debian
++Label: Debian
++Suite: Debian
++Codename: DaoXiangHu-stable
++Version: 10.4
++Date: Wed, 16 Aug 2023 01:18:26 UTC
++Architectures: loongarch64
++Components: main contrib non-free
++MD5Sum:
++ 8b66857197ca0deabf2bea919ec7b56f 56397294 main/binary-loongarch64/Packages
++ 82a6860549371fe9c90279e35f4fc13d 15965353 main/binary-loongarch64/Packages.gz
++ 3ba9f95dccdd8a91e3e0b1740b71a6a2 101 main/binary-loongarch64/Release
++ 3c10bc0fd3b088f10df4a3352435faad 366064 main/debian-installer/binary-loongarch64/Packages
++ 7cbaa22190c176072b3daa8d1242162d 90980 main/debian-installer/binary-loongarch64/Packages.gz
++ 8efc0d90e60fa79512173c2a597f1f86 46364341 main/source/Sources
++ 7b913aaee673be26e8a1b8a738ee33ef 12355079 main/source/Sources.gz
++ 157a35160bec7de8e053134e5a689222 96 main/source/Release
++ d41d8cd98f00b204e9800998ecf8427e 0 contrib/binary-loongarch64/Packages
++ 7029066c27ac6f5ef18d660d5741979a 20 contrib/binary-loongarch64/Packages.gz
++ 59e3837f1e65fbeaf66203b5b867e78c 104 contrib/binary-loongarch64/Release
++ d41d8cd98f00b204e9800998ecf8427e 0 contrib/source/Sources
++ 7029066c27ac6f5ef18d660d5741979a 20 contrib/source/Sources.gz
++ bf7249fa03d6d844ae9f48c7659c4f13 99 contrib/source/Release
++ 224dc5914959a5891012cce6264641b6 422362 non-free/binary-loongarch64/Packages
++ 7ae7800019476b120bd9ed4c82f4f565 108746 non-free/binary-loongarch64/Packages.gz
++ cb1c0de70defdf1248458be545750c34 105 non-free/binary-loongarch64/Release
++ ac46c791d3319583c7460aa7334201eb 423028 non-free/source/Sources
++ 90455f9e0b4a91386122c79be83e2b95 117101 non-free/source/Sources.gz
++ b65cbf32728e65bea0f73bb54a6384bf 100 non-free/source/Release
++ 0cf135aaf7a4b478e789194e68adbf8f 395444796 main/Contents-loongarch64
++ 5060998d775b127b170bab7e35176782 27542593 main/Contents-loongarch64.gz
++ 0291d347788c31a74a8084144b4f3f84 20739232 main/Contents-loongarch64.xz
++ d41d8cd98f00b204e9800998ecf8427e 0 contrib/Contents-loongarch64
++ 7029066c27ac6f5ef18d660d5741979a 20 contrib/Contents-loongarch64.gz
++ 8dc5aea5b03dff8595f096f9e368e888 32 contrib/Contents-loongarch64.xz
++ 4b5a4c6b8f8efdb7e575577b92ed9f31 7393811 non-free/Contents-loongarch64
++ 6a350f7c0ce579a5a6f888cbe086b71b 402860 non-free/Contents-loongarch64.gz
++ 12b7e7aba6f6babedf6f5abb910cbe21 304428 non-free/Contents-loongarch64.xz
++SHA1:
++ 2105a0dbfbe42c5abcb4ce6522452b33ca2e2a9a 56397294 main/binary-loongarch64/Packages
++ d8c0d193ff8103a22b17d83937c342b10b38757a 15965353 main/binary-loongarch64/Packages.gz
++ efb790ee9ce902520e097f22a48c023716f08d88 101 main/binary-loongarch64/Release
++ f10b8f5a9d01e8b8fbbbb9c7b71215b1eb704760 366064 main/debian-installer/binary-loongarch64/Packages
++ a7cf0b03ad471d8147a8b908ae937e35c7013458 90980 main/debian-installer/binary-loongarch64/Packages.gz
++ d8de07d8fda22b343c08c6f3b5f24b68b4109f42 46364341 main/source/Sources
++ bd17e530d864f4acd59ff6fde5c4e85af86bb5aa 12355079 main/source/Sources.gz
++ e3d6ee8e06f172e31ad317cd5b59c1a813e1d7fd 96 main/source/Release
++ da39a3ee5e6b4b0d3255bfef95601890afd80709 0 contrib/binary-loongarch64/Packages
++ 46c6643f07aa7f6bfe7118de926b86defc5087c4 20 contrib/binary-loongarch64/Packages.gz
++ 3b97488b793aa3ab1415a778353023bcda88f67a 104 contrib/binary-loongarch64/Release
++ da39a3ee5e6b4b0d3255bfef95601890afd80709 0 contrib/source/Sources
++ 46c6643f07aa7f6bfe7118de926b86defc5087c4 20 contrib/source/Sources.gz
++ fb29300836ad4f3409e517fd56b1d1d1d6cf0900 99 contrib/source/Release
++ 1e811d30dc250b492a67ca8993ac0bb2f2d6436c 422362 non-free/binary-loongarch64/Packages
++ 4299f5f947534e1d7cbaa78061a873c87affc746 108746 non-free/binary-loongarch64/Packages.gz
++ 3c76ad8dc399ee3ba5d25b38c67b9d62d69faaa7 105 non-free/binary-loongarch64/Release
++ 030d2951eb1b9fd3c163b35f7bac56ff6103d833 423028 non-free/source/Sources
++ 33bd6f993db8d71383512b4a3f45104f63128098 117101 non-free/source/Sources.gz
++ ef5ec23c71dc26289d6788c76269a243252d639f 100 non-free/source/Release
++ 8cdb5581d8b1f659e4d520b1990e11ff576db408 395444796 main/Contents-loongarch64
++ 4966cacc4d7430b37cdbdf5dbcfa1f1b16c43835 27542593 main/Contents-loongarch64.gz
++ 49f099fab2c01dd94f4a6d1960e03be957948416 20739232 main/Contents-loongarch64.xz
++ da39a3ee5e6b4b0d3255bfef95601890afd80709 0 contrib/Contents-loongarch64
++ 46c6643f07aa7f6bfe7118de926b86defc5087c4 20 contrib/Contents-loongarch64.gz
++ 9746882f4236fa1c3a8f86be2f1d9c46680c0b10 32 contrib/Contents-loongarch64.xz
++ e5b48feafd24c039edfe59bd3629531e928728c2 7393811 non-free/Contents-loongarch64
++ fae116b2257495ee0e611d07560fec3dbbd86d0a 402860 non-free/Contents-loongarch64.gz
++ 0e16cf2fee45af6dc2f1aed8440edd1d5ffc73ab 304428 non-free/Contents-loongarch64.xz
++SHA256:
++ 838b883354eb170abb69f3fa2c2be0344a22167f9c00bf3c09e4e376845f4942 56397294 main/binary-loongarch64/Packages
++ 4e44c2c5bd8920272e6bd320d8316df7a65937f62a497fb3b42c10466e681ac3 15965353 main/binary-loongarch64/Packages.gz
++ d1e4fb19204715ca8f45e15366419eddae77ea91039843142cda8ae031b893d9 101 main/binary-loongarch64/Release
++ 7b135a12a1e6023f20d7e1cd241e7779aa359ba905b1e663e75914fc00f25f3a 366064 main/debian-installer/binary-loongarch64/Packages
++ a118e0b281b291a02eac6463d6a45484e9dd51666452729872226735b1e16db5 90980 main/debian-installer/binary-loongarch64/Packages.gz
++ 98d356094fec2553d30d7cdb2fecc3284a1e1a612bb79c91233cb3e10d8734de 46364341 main/source/Sources
++ 2f121743b4aed648033d8acde27721dedcf73f9700a8c7f02ca1f02cc3e13dae 12355079 main/source/Sources.gz
++ 3d47062b4c641dad7bbe520e3c0df65954b6a9fd7867cde781a22d28c2592749 96 main/source/Release
++ e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 0 contrib/binary-loongarch64/Packages
++ 59869db34853933b239f1e2219cf7d431da006aa919635478511fabbfc8849d2 20 contrib/binary-loongarch64/Packages.gz
++ eecee2ddd378a87f47e05c10fe9561966342cb6d686f3c6ed00974457452b8ba 104 contrib/binary-loongarch64/Release
++ e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 0 contrib/source/Sources
++ 59869db34853933b239f1e2219cf7d431da006aa919635478511fabbfc8849d2 20 contrib/source/Sources.gz
++ 637ac92b7c5b2718ecb4a62e86ad1d60048411b9f924c0c04b5be0bcad74fa28 99 contrib/source/Release
++ 797725242a6fe54be35917806739f82f7f999b5b5877e3b3f3b2b0cdcb31c71e 422362 non-free/binary-loongarch64/Packages
++ 7b6ecb02e05c3122dd9a69b1aacf2e85c6fcd90c2a2b7cf6dbd6fa2a5f2e82f1 108746 non-free/binary-loongarch64/Packages.gz
++ 59bd3b39906919ab75867307640b6d68059a4a92ea6249690765d83e3d26d2f2 105 non-free/binary-loongarch64/Release
++ d4c9fd7c859155fb91f6e43f70593a20c76f744e2b7ea51a03cac83681b49285 423028 non-free/source/Sources
++ 16844732c6de32ec680520d3a2a8abc26244d296385a4ae41b1266fc3473c6e0 117101 non-free/source/Sources.gz
++ 8ab629f142e3f8661804361a319141b3964f84878a3d7528e614f964713d9ffc 100 non-free/source/Release
++ 9e713f8cea21ef88f934e10ad8eb42606fe09c4e7be45f6ac871a7ec376f7dcb 395444796 main/Contents-loongarch64
++ cc1e2eafc790fa9f5f1c83b0568f1aae30776640f04acdecc18760d7408806d6 27542593 main/Contents-loongarch64.gz
++ 45663f5991661bb73cadf7a683c6608273cc3fbf450a444f7b9ac3a725acd266 20739232 main/Contents-loongarch64.xz
++ e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 0 contrib/Contents-loongarch64
++ 59869db34853933b239f1e2219cf7d431da006aa919635478511fabbfc8849d2 20 contrib/Contents-loongarch64.gz
++ 0040f94d11d0039505328a90b2ff48968db873e9e7967307631bf40ef5679275 32 contrib/Contents-loongarch64.xz
++ 5f0dfee245797841b41cf159b8630b5290280f2700af95967e97bc6299cac5b2 7393811 non-free/Contents-loongarch64
++ 2e67ed98ab25bbe1a7fb98776287ffa8ea2ded925f7a093c3ba3476a6a67713c 402860 non-free/Contents-loongarch64.gz
++ 975957e6e299b697b69e008980ccbd1c715642ab0976184c5266de8eee9ad61a 304428 non-free/Contents-loongarch64.xz
++-----BEGIN PGP SIGNATURE-----
++
++iQGzBAEBCgAdFiEE0bj00yQfAVys9zPTqMfCDO3xuBcFAmTcI+QACgkQqMfCDO3x
++uBeA4gv/XatCjfrxu5dbOJSARKD1RaMnam0J62cHPwJcHgR55o/P/znT4KkK+5Oq
++nDVxSBX+34Lxc8vA4YVrmKZw0r+6ndG4C9ZW2rkt0TgkQhff0FF9jbGe9dDYHYfg
++Y9RlRJ1jl6OLSDvGYkB25GSu5r958eLbryUYJe6erWZL74Z3KYDSP0YE2Bi7b7V5
++4ZoapKGznIG7ofV6Cqn3dGXIXJnZuVrhS5LANj7+Exl65gawrsG1UH/JFrhmJzXH
++Fg4mtoHtaTrryetPi6tAUW9AQzHWMhGvq0kH3C1fMFe93uFYYjIh0TSCniDmVfns
++5OJG7daukHvSug5SHTYb64AyPVfw1TVWR4ajB/IqsqgpdQIkaks0mYr79QUs3S18
++4iQpnTh2lzTTzLeCOk4MO2LUaiuvZatp03aPonQcap04j+53jZ1I/AvtbN+ggssy
++v985ewmAtT5f1dx21KPiyVAljrq+s2BopNBe2Y1yk918j+LCRaN3/liZym1X1x7e
++g5F613TK
++=3nIL
++-----END PGP SIGNATURE-----
+diff --git a/scripts/buster.docker b/scripts/buster.docker
+new file mode 100644
+index 0000000..4379e32
+--- /dev/null
++++ b/scripts/buster.docker
+@@ -0,0 +1,16 @@
++FROM cr.loongnix.cn/library/golang:1.20-buster as builder
++WORKDIR /go/src/github.com/influxdata/telegraf
++
++COPY . /go/src/github.com/influxdata/telegraf
++RUN make go-install
++
++FROM cr.loongnix.cn/library/buildpack-deps:buster-curl
++#FROM buildpack-deps:buster-curl
++COPY --from=builder /go/bin/* /usr/bin/
++COPY etc/telegraf.conf /etc/telegraf/telegraf.conf
++
++EXPOSE 8125/udp 8092/udp 8094
++
++COPY scripts/docker-entrypoint.sh /entrypoint.sh
++ENTRYPOINT ["/entrypoint.sh"]
++CMD ["telegraf"]
+diff --git a/scripts/ci.docker b/scripts/ci.docker
+index 27124a3..5b09d94 100644
+--- a/scripts/ci.docker
++++ b/scripts/ci.docker
+@@ -1,9 +1,11 @@
+-FROM golang:1.20.5
++FROM cr.loongnix.cn/library/golang:1.20-buster
++MAINTAINER yangzewei@loongson.cn
+ 
+ RUN chmod -R 755 "$GOPATH"
+-
+-RUN DEBIAN_FRONTEND=noninteractive \
+-	apt update && apt install -y --no-install-recommends \
++#COPY InRelease InRelease
++#RUN DEBIAN_FRONTEND=noninteractive \
++#RUN	apt update && apt install -y --no-install-recommends \
++RUN     apt update && apt install -y \
+ 	autoconf \
+ 	git \
+ 	libtool \
+@@ -15,9 +17,11 @@ RUN DEBIAN_FRONTEND=noninteractive \
+ 	ruby-dev \
+ 	zip && \
+ 	rm -rf /var/lib/apt/lists/*
+-
++RUN gem sources --add http://mirrors.aliyun.com/rubygems/ \ #更换为阿里源\
++    gem sources --remove https://rubygems.org/ \
++    gem install fpm
+ RUN ln -sf /usr/share/zoneinfo/Etc/UTC /etc/localtime
+ RUN locale-gen C.UTF-8 || true
+ ENV LANG=C.UTF-8
+ 
+-RUN gem install fpm
++#RUN gem install fpm
+diff --git a/scripts/docker-entrypoint.sh b/scripts/docker-entrypoint.sh
+new file mode 100755
+index 0000000..6e7580b
+--- /dev/null
++++ b/scripts/docker-entrypoint.sh
+@@ -0,0 +1,8 @@
++#!/bin/bash
++set -e
++
++if [ "${1:0:1}" = '-' ]; then
++    set -- telegraf "$@"
++fi
++
++exec "$@"
+-- 
+2.20.1
+
