@@ -9,7 +9,6 @@ LATEST?=true
 IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):$(TAG)
 LATEST_IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):latest
 
-# SOURCE_URL is a url to download source, such as https://github.com/merore/merore.git.
 # SOURCE is project sources, its located at src/$(SORUCE).
 # PATCH is a patch that supports loong64 to $(SOURCE).
 # Be sure to fill in the follows!!!
