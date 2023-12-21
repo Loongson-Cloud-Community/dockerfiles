@@ -1,4 +1,5 @@
-FROM cr.loongnix.cn/library/debian:buster
+ARG TAG=buster
+FROM cr.loongnix.cn/library/debian:${TAG}
 
 LABEL maintainer="zhaixiaojuan@loongson.cn"
 

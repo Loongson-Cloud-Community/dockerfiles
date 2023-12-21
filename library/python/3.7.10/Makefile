@@ -13,13 +13,13 @@ PYTHON_GET_PIP_URL?=https://github.com/pypa/get-pip/raw/a1675ab6c2bd898ed82b1f58
 
 default: image
 
-download:
-	wget -O Python-$(PYTHON_VERSION).tar.xz "https://www.python.org/ftp/python/$(PYTHON_VERSION)/Python-$(PYTHON_VERSION).tar.xz"&& \
-	wget -O get-pip.py "$(PYTHON_GET_PIP_URL)"
-image: download
+image: 
 	docker build \
+		--build-arg PYTHON_VERSION=${PYTHON_VERSION} \
+		--build-arg PYTHON_GET_PIP_URL=${PYTHON_GET_PIP_URL} \
+		--build-arg http_proxy=$(http_proxy) \
+		--build-arg https_proxy=$(https_proxy) \
 		-t $(IMAGE) \
 		.
-
 push:
 	docker push $(IMAGE)

@@ -17,9 +17,12 @@ SOURCE_URL=https://github.com/grafana/grafana.git
 SOURCE=$(shell echo $(SOURCE_URL) | awk -F '/' '{print $$NF}' | awk -F '.' '{print $$1}')
 PATCH=0001-support-loong64.patch
 
+GOPROXY ?= https://goproxy.cn,https://mirrors.aliyun.com/goproxy/,https://goproxy.io,direct
+
 default: image
 
 src/$(SOURCE):
+	echo "0928 test"
 	git clone -b v$(TAG) --depth=1 $(SOURCE_URL) $@
 	cd $@ && \
 		git apply ../../$(PATCH)
@@ -31,7 +34,8 @@ image: src/$(SOURCE)
 	DOCKER_BUILD_ARGS="--build-arg BASE_IMAGE=cr.loongnix.cn/library/alpine:3.11 \
 		--build-arg JS_IMAGE=docker.m.daocloud.io/grafana/grafana:$(TAG) \
 		--build-arg https_proxy=${https_proxy} --build-arg http_proxy=${http_proxy} \
-		--build-arg GO_IMAGE=cr.loongnix.cn/library/golang:1.20" \
+		--build-arg GOPROXY=$(GOPROXY) \
+		--build-arg GO_IMAGE=cr.loongnix.cn/library/golang:1.20-alpine" \
 		$(MAKE) -C src/$(SOURCE) build-docker-full
 
 push:

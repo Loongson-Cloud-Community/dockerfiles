@@ -1,0 +1,19 @@
+name: contab
+# 指定此工作流程的触发器
+on: 
+  schedule:
+    - cron: '0 2 * * 0'
+jobs:
+  # 定义名称为"image-build"的job
+  debian-build:
+    runs-on: self-hosted
+    steps:
+      # 获取最新变动
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 2
+      - run: make image -C library/debian/buster-slim 
+      - run: make push -C library/debian/buster-slim 
+      - run: make image -C loongson/loongnix/20
+      - run: make push -C loongson/loongnix/20
+      
