@@ -3,7 +3,7 @@
 REGISTRY        ?=cr.loongnix.cn
 ORGANIZATION    ?=tonistiigi
 REPOSITORY      ?=binfmt
-TAG             ?=master
+TAG             ?=latest
 LATEST          ?=true
 
 IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):latest
