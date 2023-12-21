@@ -6,7 +6,7 @@ REPOSITORY      ?=binfmt
 TAG             ?=master
 LATEST          ?=true
 
-IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):$(TAG)
+IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):latest
 LATEST_IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):latest
 GIT_URL=https://github.com/Loongson-Cloud-Community/binfmt.git
 default: image
@@ -19,12 +19,5 @@ image: src
 
 push:
 	docker push $(IMAGE)
-	#latest image
-	@if [ $(LATEST) = "true" ]; \
-                then \
-                docker tag $(IMAGE) $(LATEST_IMAGE); \
-                docker push $(LATEST_IMAGE); \
-        fi
-
 clean:
 	rm -rf src                       
