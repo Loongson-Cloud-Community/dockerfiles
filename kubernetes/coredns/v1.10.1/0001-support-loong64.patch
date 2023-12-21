@@ -1,0 +1,47 @@
+From 01d85f2891347458120ef4c65211a06765747c9b Mon Sep 17 00:00:00 2001
+From: zhangguanzhang <zhangguanzhang@qq.com>
+Date: Sat, 7 Oct 2023 10:35:21 +0800
+Subject: [PATCH] support loong64
+
+---
+ Dockerfile | 19 ++++++++++++-------
+ 1 file changed, 12 insertions(+), 7 deletions(-)
+
+diff --git a/Dockerfile b/Dockerfile
+index b840a577..4e4fdcf3 100644
+--- a/Dockerfile
++++ b/Dockerfile
+@@ -1,4 +1,8 @@
+-FROM --platform=$BUILDPLATFORM debian:stable-slim
++ARG DEBIAN_IMAGE=debian:stable-slim
++ARG BASE=gcr.io/distroless/static-debian11:nonroot
++ARG USER=nonroot
++FROM ${DEBIAN_IMAGE} AS build
++
+ SHELL [ "/bin/sh", "-ec" ]
+ 
+ RUN export DEBCONF_NONINTERACTIVE_SEEN=true \
+@@ -7,13 +11,14 @@ RUN export DEBCONF_NONINTERACTIVE_SEEN=true \
+            TERM=linux ; \
+     apt-get -qq update ; \
+     apt-get -yyqq upgrade ; \
+-    apt-get -yyqq install ca-certificates ; \
++    apt-get -yyqq install ca-certificates libcap2-bin; \
+     apt-get clean
++COPY coredns /coredns
++RUN setcap cap_net_bind_service=+ep /coredns
+ 
+-FROM --platform=$TARGETPLATFORM scratch
+-
+-COPY --from=0 /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+-ADD coredns /coredns
+-
++FROM ${BASE}
++COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
++COPY --from=build /coredns /coredns
++USER ${USER}:${USER}
+ EXPOSE 53 53/udp
+ ENTRYPOINT ["/coredns"]
+-- 
+2.25.1
+

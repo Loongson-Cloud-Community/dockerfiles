@@ -40,6 +40,28 @@ __使用方法__
 以补丁的形式打入，并通过 *Makefile* 构建镜像。阅读
 [Makefile-new.template](Makefile-new.template) 了解详情。
 
+### 注意事项
+
+__镜像修改意见__
+
+本仓库的ci流水线会根据生成的镜像提出修改意见，类似于：
+
+- cr.loongnix.cn/grafana/promtail:2.8.2
+
+|    | code        | level   | alerts                                                                                                                                          |
+|---:|:------------|:--------|:------------------------------------------------------------------------------------------------------------------------------------------------|
+|  0 | DKL-DI-0005 | FATAL   | Use 'rm -rf /var/lib/apt/lists' after 'apt-get install|update' : |0 /bin/sh -c apt-get update &&   apt-get install -qy   tzdata ca-certificates |
+|  1 | CIS-DI-0001 | WARN    | Last user should not be root                                                                                                                    |
+|  2 | CIS-DI-0005 | INFO    | export DOCKER_CONTENT_TRUST=1 before docker pull/build                                                                                          |
+|  3 | CIS-DI-0006 | INFO    | not found HEALTHCHECK statement                                                                                                                 |
+|  4 | CIS-DI-0008 | INFO    | setuid file: urwxr-xr-x usr/bin/chsh                                                                                                            |
+
+您需要根据修改意见对于源码或者补丁进行修改，消除修改意见中`FATAL`级别的告警。
+
+__镜像存在多个tag__
+
+如果构建的镜像需要添加多个`tag`，请务必在`make image`阶段进行添加。
+
 ## 如何贡献
 
 欢迎贡献 [CONTRIBUTING.md](CONTRIBUTING.md)

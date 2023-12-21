@@ -3,8 +3,8 @@ name: push
 env:
   PR_NUMBER: ${{ github.event.number }}
 on: 
-  push:
-    branches: [main]
+  # push:
+  #  branches: [main]
   pull_request:
     branches: [main]
 jobs:

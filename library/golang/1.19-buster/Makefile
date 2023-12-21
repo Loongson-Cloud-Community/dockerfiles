@@ -11,13 +11,13 @@ ALIAS = $(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):1.19
 default: image
 
 image:
+	echo "10 09 test"
 	docker build \
 		-t $(IMAGE) \
+		-t $(ALIAS) \
 		.
 
-push: alias
+push:
 	docker push $(IMAGE)
 	docker push $(ALIAS)
 
-alias:
-	docker tag $(IMAGE) $(ALIAS)
