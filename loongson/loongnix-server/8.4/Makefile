@@ -7,7 +7,7 @@ TAG?=8.4
 
 IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):$(TAG)
 
-ROOTFS=Loongnix-server-8.4.0.rootfs.loongarch64.tar.gz
+ROOTFS=Loongnix-server-8.4.0.rootfs.loongarch64.tar.xz
 
 default: image
 
