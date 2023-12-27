@@ -20,7 +20,7 @@ default: image
 
 image: src
 # Commands for building.
-	cd src/src/ && docker buildx bake -f docker-bake.hcl
+	cd src/src/ && docker buildx bake --load -f docker-bake.hcl
 
 src:
 	git clone -q -b loongarch64-1.3.0 --depth=1 $(SOURCE_URL) $@
