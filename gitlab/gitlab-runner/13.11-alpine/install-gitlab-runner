@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+set -ev
+
+curl -L -o /usr/bin/gitlab-runner-linux-loong64 https://github.com/Loongson-Cloud-Community/gitlab-runner/releases/download/v13.11.0/gitlab-runner-linux-loong64
+
+mv "/usr/bin/gitlab-runner-linux-loong64" /usr/bin/gitlab-runner
+
+chmod +x /usr/bin/gitlab-runner
+ln -s /usr/bin/gitlab-runner /usr/bin/gitlab-ci-multi-runner

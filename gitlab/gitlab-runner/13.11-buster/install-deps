@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+
+set -veEo pipefail
+
+SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
+
+TARGETPLATFORM="linux/loong64"
+DOCKER_MACHINE_VERSION="xxxx"
+DUMB_INIT_VERSION="1.2.2"
+GIT_LFS_VERSION="2.11.0"
+
+case "${TARGETPLATFORM}" in
+    "linux/arm64")
+        ARCH=arm64
+        DOCKER_MACHINE_ARCH=aarch64
+        DUMB_INIT_ARCH=aarch64
+        GIT_LFS_ARCH=arm64
+        ;;
+    "linux/amd64" | "")
+        ARCH=amd64
+        DOCKER_MACHINE_ARCH=x86_64
+        DUMB_INIT_ARCH=x86_64
+        GIT_LFS_ARCH=amd64
+        ;;
+    "linux/s390x")
+        ARCH=s390x
+        DOCKER_MACHINE_ARCH=s390x
+        DUMB_INIT_ARCH=s390x
+        GIT_LFS_ARCH=s390x
+        ;;
+    "linux/loong64")
+        ARCH=loong64
+        DOCKER_MACHINE_ARCH=loong64
+        DUMB_INIT_ARCH=loong64
+        GIT_LFS_ARCH=loong64
+        ;;
+    *)
+        echo "Unexpected TARGETPLATFORM value: ${TARGETPLATFORM}"
+        ;;
+esac;
+
+"${SCRIPTPATH}/install-gitlab-runner" "${ARCH}"
+rm "${SCRIPTPATH}/install-gitlab-runner"
+gitlab-runner --version
+
+mkdir -p /etc/gitlab-runner/certs
+chmod -R 700 /etc/gitlab-runner
+
+echo "No checksum specified for docker-machine, skipping."
+
+wget -nv "https://github.com/Loongson-Cloud-Community/dumb-init/releases/download/v1.2.2/dumb-init-loongarch64" -O /usr/bin/dumb-init
+chmod +x /usr/bin/dumb-init
+dumb-init --version
+
+wget -nv "https://github.com/Loongson-Cloud-Community/git-lfs/releases/download/v2.11.0/git-lfs-linux-loong64" -O /usr/bin/git-lfs
+ls -l /usr/bin/git-lfs
+chmod +x /usr/bin/git-lfs
+/usr/bin/git-lfs install --skip-repo
+git-lfs version
+
+# sha256sum -c -w "${SCRIPTPATH}/checksums-${ARCH}"
