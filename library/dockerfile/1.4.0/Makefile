@@ -3,7 +3,7 @@
 REGISTRY?=cr.loongnix.cn
 ORGANIZATION?=library
 REPOSITORY?=dockerfile
-TAG?=1.5.0
+TAG?=1.4.0
 LATEST?=true
 
 IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):$(TAG)
@@ -12,7 +12,7 @@ SOURCE_URL=https://github.com/Loongson-Cloud-Community/buildkit.git
 default: image
 
 src:
-	git clone -b loongarch64-1.5.0 --depth 1 $(SOURCE_URL) $@
+	git clone -b loongarch64-dockerfile/1.4.0 --depth 1 $(SOURCE_URL) $@
 
 image: src
 	cd src/ && docker buildx build \
