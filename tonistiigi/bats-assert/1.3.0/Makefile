@@ -21,7 +21,7 @@ default: image
 
 image: src
 # Commands for building.
-	cd src/util/bats-assert &&  docker buildx bake -f docker-bake.hcl
+	cd src/util/bats-assert &&  docker buildx bake --load -f docker-bake.hcl
 
 src:
 	git clone -q -b loongarch64-$(TAG) --depth=1 $(SOURCE_URL) $@
