@@ -4,6 +4,7 @@ REGISTRY?=cr.loongnix.cn
 ORGANIZATION?=library
 REPOSITORY?=openjdk
 TAG?=8.1.15-loongnixserver8.4
+LATEST?=false
 
 DOWNLOAD_URL?=http://ftp.loongnix.cn/Java/openjdk8/loongson8.1.15-fx-jdk8u372b07-linux-loongarch64.tar.gz
 JAVA_VERSION?=8.1.15
@@ -21,7 +22,7 @@ image:
 		.
 
 push:
-	docker tag $(IMAGE) $(RELEASE_IMAGE)
+	docker push $(IMAGE)
 	#latest image
 	@if [ $(LATEST) = "true" ]; \
 		then \
