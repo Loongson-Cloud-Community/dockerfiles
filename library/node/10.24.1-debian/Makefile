@@ -4,10 +4,10 @@ REGISTRY?=cr.loongnix.cn
 ORGANIZATION?=library
 REPOSITORY?=node
 TAG?=10.24.1-debian
-LATEST?=true
 
-IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):$(TAG)
-LATEST_IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):latest
+ALIASES=10.24.1
+
+IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY)
 
 default: image
 
@@ -15,14 +15,14 @@ image:
 	docker build \
 		--build-arg http_proxy=$(http_proxy) \
 		--build-arg https_proxy=$(https_proxy) \
-		-t $(IMAGE) \
+		-t $(IMAGE):$(TAG) \
 		.
 
 push:
-	docker push $(IMAGE)
-	#latest image
-	@if [ $(LATEST) = "true" ]; \
-		then \
-		docker tag $(IMAGE) $(LATEST_IMAGE); \
-		docker push $(LATEST_IMAGE); \
-	fi
+	docker push $(IMAGE):$(TAG)
+	#alias
+	@for alias in $(ALIASES); \
+		do \
+			docker tag $(IMAGE):$(TAG) $(IMAGE):$$alias; \
+			docker push $(IMAGE):$$alias; \
+		done
