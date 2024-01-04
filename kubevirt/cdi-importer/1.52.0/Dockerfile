@@ -9,11 +9,15 @@ COPY cdi-importer \
      /usr/bin/
 
 
-COPY install_rpm.sh packages.txt /
+COPY install_rpm.sh \
+     packages.txt \
+     ca_anchors.tar \
+     /
 
 RUN ./install_rpm.sh; \
-    rm -rf install_rpm.sh packages.txt
-
-ADD ca_anchors.tar /
+    tar -xf ca_anchors.tar; \
+    rm -rf install_rpm.sh \
+           packages.txt \
+ 	   ca_anchors.tar
 
 ENTRYPOINT ["/usr/bin/cdi-importer","-alsologtostderr"]
