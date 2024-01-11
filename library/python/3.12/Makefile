@@ -4,21 +4,23 @@ REGISTRY?=cr.loongnix.cn
 ORGANIZATION?=library
 REPOSITORY?=python
 TAG?=3.12
+VERSION?=3.12.1
 
 IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):$(TAG)
+FULL_IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):$(VERSION)
 
 default: image
 
-download:
-	[ ! -f "Dockerfile" ] && wget "https://github.com/docker-library/$(REPOSITORY)/raw/master/$(TAG)/slim-bullseye/Dockerfile" || true
-	sed -i "s@FROM debian:.*-slim@FROM cr.loongnix.cn/library/debian:buster-slim@g" Dockerfile
-
-image: download
+image:
 	docker build \
 		-t $(IMAGE) \
 		-t $(IMAGE)-slim-buster \
-		.
+		-t $(FULL_IMAGE) \
+		-t $(FULL_IMAGE)-slim-buster \
+		./debian
 
 push:
 	docker push $(IMAGE)
 	docker push $(IMAGE)-slim-buster
+	docker push $(FULL_IMAGE)
+	docker push $(FULL_IMAGE)-slim-buster
