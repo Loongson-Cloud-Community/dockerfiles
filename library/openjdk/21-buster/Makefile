@@ -3,7 +3,7 @@
 REGISTRY?=cr.loongnix.cn
 ORGANIZATION?=library
 REPOSITORY?=openjdk
-TAG?=11
+TAG?=21
 
 IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):$(TAG)
 
