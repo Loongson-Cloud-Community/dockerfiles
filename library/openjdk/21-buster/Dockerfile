@@ -14,39 +14,33 @@ RUN set -eux; \
 	; \
 	rm -rf /var/lib/apt/lists/*
 
-ENV JAVA_HOME /usr/local/openjdk-11
-RUN { echo '#/bin/sh'; echo 'echo "$JAVA_HOME"'; } > /usr/local/bin/docker-java-home && chmod +x /usr/local/bin/docker-java-home && [ "$JAVA_HOME" = "$(docker-java-home)" ] # backwards compatibility
+ENV JAVA_HOME /usr/local/openjdk-21
 ENV PATH $JAVA_HOME/bin:$PATH
 
 # Default to UTF-8 file.encoding
 ENV LANG C.UTF-8
 
-# https://adoptopenjdk.net/upstream.html
+# https://jdk.java.net/
 # >
-# > What are these binaries?
+# > Java Development Kit builds, from Oracle
 # >
-# > These binaries are built by Red Hat on their infrastructure on behalf of the OpenJDK jdk8u and jdk11u projects. The binaries are created from the unmodified source code at OpenJDK. Although no formal support agreement is provided, please report any bugs you may find to https://bugs.java.com/.
-# >
-ENV JAVA_VERSION 11.0.21
-# https://github.com/docker-library/openjdk/issues/320#issuecomment-494050246
-# >
-# > I am the OpenJDK 8 and 11 Updates OpenJDK project lead.
-# > ...
-# > While it is true that the OpenJDK Governing Board has not sanctioned those releases, they (or rather we, since I am a member) didn't sanction Oracle's OpenJDK releases either. As far as I am aware, the lead of an OpenJDK project is entitled to release binary builds, and there is clearly a need for them.
-# >
+ENV JAVA_VERSION 21
 
 RUN set -eux; \
 	\
 	arch="$(dpkg --print-architecture)"; \
 	case "$arch" in \
 		'amd64') \
-			downloadUrl='https://github.com/adoptium/temurin11-binaries/releases/download/jdk-11.0.21%2B9/OpenJDK11U-jdk_x64_linux_hotspot_11.0.21_9.tar.gz'; \
+			downloadUrl='https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21%2B35/OpenJDK21U-jdk_x64_linux_hotspot_21_35.tar.gz'; \
+			downloadSha256='82f64c53acaa045370d6762ebd7441b74e6fda14b464d54d1ff8ca941ec069e6'; \
 			;; \
 		'arm64') \
-			downloadUrl='https://github.com/adoptium/temurin11-binaries/releases/download/jdk-11.0.21%2B9/OpenJDK11U-jdk_aarch64_linux_hotspot_11.0.21_9.tar.gz'; \
+			downloadUrl='https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21%2B35/OpenJDK21U-jdk_aarch64_linux_hotspot_21_35.tar.gz'; \
+			downloadSha256='33e440c237438aa2e3866d84ead8d4e00dc0992d98d9fd0ee2fe48192f2dbc4b'; \
 			;; \
 		'loongarch64') \
-			downloadUrl='http://ftp.loongnix.cn/Java/openjdk11/loongson11.8.0-fx-jdk11.0.21_9-linux-loongarch64.tar.gz'; \
+			downloadUrl='http://ftp.loongnix.cn/Java/openjdk21/loongson21.1.0-fx-jdk21_35-linux-loongarch64.tar.gz'; \
+			downloadSha256='d43efb6faa2d099250b2b8b5923d9793683109c66d1b8b69db35d607d4341c41'; \
 			;; \
 		*) echo >&2 "error: unsupported architecture: '$arch'"; exit 1 ;; \
 	esac; \
@@ -54,13 +48,12 @@ RUN set -eux; \
 	savedAptMark="$(apt-mark showmanual)"; \
 	apt-get update; \
 	apt-get install -y --no-install-recommends \
-		dirmngr \
-		gnupg \
 		wget \
 	; \
 	rm -rf /var/lib/apt/lists/*; \
 	\
-    wget --progress=dot:giga -O openjdk.tgz "$downloadUrl"; \
+	wget --progress=dot:giga -O openjdk.tgz "$downloadUrl"; \
+	echo "$downloadSha256 *openjdk.tgz" | sha256sum --strict --check -; \
 	\
 	mkdir -p "$JAVA_HOME"; \
 	tar --extract \

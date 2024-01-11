@@ -1,34 +1,12 @@
-#
-# NOTE: THIS DOCKERFILE IS GENERATED VIA "apply-templates.sh"
-#
-# PLEASE DO NOT EDIT IT DIRECTLY.
-#
-
-FROM cr.loongnix.cn/library/buildpack-deps:buster-scm
-
-LABEL maintainer="shanjiantao@loongson.cn"
-
-ARG DOWNLOAD_URL=http://ftp.loongnix.cn/Java/openjdk8/loongson8.1.11-jdk8u332b09-linux-loongarch64.tar.gz
-
-ARG JAVA_VERSION
-ENV JAVA_VERSION ${JAVA_VERSION}
+FROM cr.loongnix.cn/library/debian:buster-slim
 
 RUN set -eux; \
 	apt-get update; \
 	apt-get install -y --no-install-recommends \
-		bzip2 \
-		unzip \
-		xz-utils \
-		\
-# java.lang.UnsatisfiedLinkError: /usr/local/openjdk-11/lib/libfontmanager.so: libfreetype.so.6: cannot open shared object file: No such file or directory
-# java.lang.NoClassDefFoundError: Could not initialize class sun.awt.X11FontManager
-# https://github.com/docker-library/openjdk/pull/235#issuecomment-424466077
-		fontconfig libfreetype6 \
-		\
 # utilities for keeping Debian and OpenJDK CA certificates in sync
 		ca-certificates p11-kit \
 	; \
-	rm -rf /tmp/* /var/cache/apt/* /var/lib/apt/lists/*
+	rm -rf /var/lib/apt/lists/*
 
 ENV JAVA_HOME /usr/local/openjdk-8
 RUN { echo '#/bin/sh'; echo 'echo "$JAVA_HOME"'; } > /usr/local/bin/docker-java-home && chmod +x /usr/local/bin/docker-java-home && [ "$JAVA_HOME" = "$(docker-java-home)" ] # backwards compatibility
@@ -43,6 +21,7 @@ ENV LANG C.UTF-8
 # >
 # > These binaries are built by Red Hat on their infrastructure on behalf of the OpenJDK jdk8u and jdk11u projects. The binaries are created from the unmodified source code at OpenJDK. Although no formal support agreement is provided, please report any bugs you may find to https://bugs.java.com/.
 # >
+ENV JAVA_VERSION 8u392
 # https://github.com/docker-library/openjdk/issues/320#issuecomment-494050246
 # >
 # > I am the OpenJDK 8 and 11 Updates OpenJDK project lead.
@@ -51,11 +30,33 @@ ENV LANG C.UTF-8
 # >
 
 RUN set -eux; \
-	downloadUrl="${DOWNLOAD_URL}"; \
+	\
+	arch="$(dpkg --print-architecture)"; \
+	case "$arch" in \
+		'amd64') \
+			downloadUrl='https://github.com/adoptium/temurin8-binaries/releases/download/jdk8u392-b08/OpenJDK8U-jdk_x64_linux_hotspot_8u392b08.tar.gz'; \
+			;; \
+		'arm64') \
+			downloadUrl='https://github.com/adoptium/temurin8-binaries/releases/download/jdk8u392-b08/OpenJDK8U-jdk_aarch64_linux_hotspot_8u392b08.tar.gz'; \
+			;; \
+		'loongarch64') \
+			downloadUrl='http://ftp.loongnix.cn/Java/openjdk8/loongson8.1.17-fx-jdk8u392b08-linux-loongarch64.tar.gz'; \
+			;; \
+		*) echo >&2 "error: unsupported architecture: '$arch'"; exit 1 ;; \
+	esac; \
+	\
+	savedAptMark="$(apt-mark showmanual)"; \
+	apt-get update; \
+	apt-get install -y --no-install-recommends \
+		dirmngr \
+		gnupg \
+		wget \
+	; \
+	rm -rf /var/lib/apt/lists/*; \
 	\
 	wget --progress=dot:giga -O openjdk.tgz "$downloadUrl"; \
 	\
-	mkdir -p "$JAVA_HOME"; \
+    mkdir -p "$JAVA_HOME"; \
 	tar --extract \
 		--file openjdk.tgz \
 		--directory "$JAVA_HOME" \
@@ -63,6 +64,10 @@ RUN set -eux; \
 		--no-same-owner \
 	; \
 	rm openjdk.tgz*; \
+	\
+	apt-mark auto '.*' > /dev/null; \
+	[ -z "$savedAptMark" ] || apt-mark manual $savedAptMark > /dev/null; \
+	apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false; \
 	\
 # update "cacerts" bundle to use Debian's CA certificates (and make sure it stays up-to-date with changes to Debian's store)
 # see https://github.com/docker-library/openjdk/issues/327
