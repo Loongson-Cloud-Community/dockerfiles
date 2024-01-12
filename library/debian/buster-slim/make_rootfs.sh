@@ -63,6 +63,11 @@ chroot $TMPDIR bash -c '
           userdel --force --remove $user
       fi
   done
+  for group in systemd-journal; do
+      if getent group $group >/dev/null; then
+          groupdel $group
+      fi
+  done
 ' -- $pkgIncludes $pkgExcludes
 
 findMatchIncludes=()
