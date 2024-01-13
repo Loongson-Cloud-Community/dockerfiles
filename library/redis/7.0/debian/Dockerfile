@@ -35,9 +35,9 @@ RUN set -eux; \
 	gosu --version; \
 	gosu nobody true
 
-ENV REDIS_VERSION 7.2.3
-ENV REDIS_DOWNLOAD_URL http://download.redis.io/releases/redis-7.2.3.tar.gz
-ENV REDIS_DOWNLOAD_SHA 3e2b196d6eb4ddb9e743088bfc2915ccbb42d40f5a8a3edd8cb69c716ec34be7
+ENV REDIS_VERSION 7.0.15
+ENV REDIS_DOWNLOAD_URL http://download.redis.io/releases/redis-7.0.15.tar.gz
+ENV REDIS_DOWNLOAD_SHA 98066f5363504b26c34dd20fbcc3c957990d764cdf42576c836fc021073f4341
 
 RUN set -eux; \
 	\
@@ -59,6 +59,9 @@ RUN set -eux; \
 	echo "$REDIS_DOWNLOAD_SHA *redis.tar.gz" | sha256sum -c -; \
 	mkdir -p /usr/src/redis; \
 	tar -xzf redis.tar.gz -C /usr/src/redis --strip-components=1; \
+	rm -f /usr/src/redis/deps/jemalloc/build-aux/config.guess /usr/src/redis/deps/jemalloc/build-aux/config.sub; \
+	wget -O /usr/src/redis/deps/jemalloc/build-aux/config.sub "git.savannah.gnu.org/gitweb/?p=config.git;a=blob_plain;f=config.sub;hb=HEAD"; \
+	wget -O /usr/src/redis/deps/jemalloc/build-aux/config.guess "git.savannah.gnu.org/gitweb/?p=config.git;a=blob_plain;f=config.guess;hb=HEAD"; \
 	rm redis.tar.gz; \
 	\
 # disable Redis protected mode [1] as it is unnecessary in context of Docker
@@ -118,7 +121,7 @@ RUN set -eux; \
 	redis-cli --version; \
 	redis-server --version; \
 	\
-	echo '{"spdxVersion":"SPDX-2.3","SPDXID":"SPDXRef-DOCUMENT","name":"redis-server-sbom","packages":[{"name":"redis-server","versionInfo":"7.2.3","SPDXID":"SPDXRef-Package--redis-server","externalRefs":[{"referenceCategory":"PACKAGE-MANAGER","referenceType":"purl","referenceLocator":"pkg:generic/redis-server@7.2.3?os_name=debian&os_version=buster"}],"licenseDeclared":"BSD-3-Clause"}]}' > /usr/local/redis.spdx.json
+	echo '{"spdxVersion":"SPDX-2.3","SPDXID":"SPDXRef-DOCUMENT","name":"redis-server-sbom","packages":[{"name":"redis-server","versionInfo":"7.0.14","SPDXID":"SPDXRef-Package--redis-server","externalRefs":[{"referenceCategory":"PACKAGE-MANAGER","referenceType":"purl","referenceLocator":"pkg:generic/redis-server@7.0.14?os_name=debian&os_version=buster"}],"licenseDeclared":"BSD-3-Clause"}]}' > /usr/local/redis.spdx.json
 
 RUN mkdir /data && chown redis:redis /data
 VOLUME /data
