@@ -182,6 +182,13 @@ RUN mkdir -p /var/run/postgresql && chown -R postgres:postgres /var/run/postgres
 ENV PGDATA /var/lib/postgresql/data
 # this 777 will be replaced by 700 at runtime (allows semi-arbitrary "--user" values)
 RUN mkdir -p "$PGDATA" && chown -R postgres:postgres "$PGDATA" && chmod 1777 "$PGDATA"
+RUN apt-get -y install locales; \
+  # fix setlocale failure \
+  echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen; \
+  locale-gen; \
+  # fix psql can't link to /usr/local/lib
+  ldconfig
+
 VOLUME /var/lib/postgresql/data
 
 COPY docker-entrypoint.sh /usr/local/bin/
