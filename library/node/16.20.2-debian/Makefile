@@ -22,7 +22,7 @@ image:
 		-t $(FULL_IMAGE)-buster-slim \
 		.
 
-push: alias
+push:
 	docker push $(IMAGE)
 	docker push $(IMAGE)-buster-slim
 	docker push $(FULL_IMAGE)
