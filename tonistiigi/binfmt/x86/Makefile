@@ -6,7 +6,7 @@ REPOSITORY      ?=binfmt
 TAG             ?=x86_add_loongarch
 LATEST          ?=true
 
-IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):latest
+IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):$(TAG)
 LATEST_IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):latest
 GIT_URL=https://github.com/Loongson-Cloud-Community/binfmt.git
 default: image
