@@ -6,7 +6,7 @@ REPOSITORY      ?=binfmt
 TAG             ?=latest
 LATEST          ?=true
 
-IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):latest
+IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):loongarch64_other_arch
 LATEST_IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):latest
 GIT_URL=https://github.com/Loongson-Cloud-Community/binfmt.git
 default: image
@@ -15,7 +15,7 @@ src:
 	git clone -b loongarch64-master $(GIT_URL) $@
 
 image: src
-	cd src && docker buildx bake -f docker-bake.hcl
+	cd src && docker buildx bake --load -f docker-bake.hcl
 
 push:
 	docker push $(IMAGE)
