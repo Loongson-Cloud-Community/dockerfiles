@@ -1,0 +1,22 @@
+From 180cc56793b338259c186aecd20c5422bc22ad01 Mon Sep 17 00:00:00 2001
+From: wangweijie <wangweijie@loongson.cn>
+Date: Mon, 29 Jan 2024 09:44:45 +0800
+Subject: [PATCH] port to loong64
+
+---
+ Dockerfile | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/Dockerfile b/Dockerfile
+index 2bdd7b2..88b93ca 100644
+--- a/Dockerfile
++++ b/Dockerfile
+@@ -1,4 +1,4 @@
+-FROM busybox:1.28
++FROM cr.loongnix.cn/library/busybox:1.30.1
+ COPY dashboards /dashboards
+ COPY grafana-clickhouse-datasource /deepflow-plugins/grafana-clickhouse-datasource
+ COPY deepflow-apptracing-panel/dist  /deepflow-plugins/deepflow-apptracing-panel
+-- 
+2.27.0
+
