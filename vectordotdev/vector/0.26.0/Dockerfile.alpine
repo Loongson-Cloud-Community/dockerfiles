@@ -1,0 +1,23 @@
+#FROM docker.io/alpine:3.14 AS builder
+FROM cr.loongnix.cn/library/alpine:3.11 AS builder
+LABEL maintainer = "Zewei Yang yangzewei@loongson.cn"
+
+WORKDIR /vector
+#RUN wget https://github.com/Loongson-Cloud-Community/vector/releases/download/0.26.0/vector-0.26.0-loongarch64-unknown-linux-musl.tar.gz ./
+#COPY vector-0.26.0-loongarch64-unknown-linux-musl.tar.gz ./
+RUN tar -xvf vector-0*-"$(cat /etc/apk/arch)"-unknown-linux-musl*.tar.gz --strip-components=2
+
+RUN mkdir -p /var/lib/vector
+
+#FROM docker.io/alpine:3.14
+FROM cr.loongnix.cn/library/alpine:3.11
+RUN apk --no-cache add ca-certificates tzdata
+
+COPY --from=builder /vector/bin/* /usr/local/bin/
+COPY --from=builder /vector/config/vector.toml /etc/vector/vector.toml
+COPY --from=builder /var/lib/vector /var/lib/vector
+
+# Smoke test
+RUN ["vector", "--version"]
+
+ENTRYPOINT ["/usr/local/bin/vector"]
