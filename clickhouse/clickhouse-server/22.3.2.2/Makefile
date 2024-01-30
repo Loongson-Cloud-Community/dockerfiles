@@ -9,7 +9,7 @@ LATEST?=true
 IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):$(TAG)
 LATEST_IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):latest
 
-DEB_LOCATION_URL=https://github.com/Loongson-Cloud-Community/ClickHouse/releases/download/v$(TAG)/deb.tar.gz
+DEB_LOCATION_URL=https://github.com/Loongson-Cloud-Community/ClickHouse/releases/download/v$(TAG)-lts/deb.tar.gz
 
 default: image
 
