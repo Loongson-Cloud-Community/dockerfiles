@@ -19,7 +19,7 @@ PATCH=0001-port-to-loong64.patch
 
 default: image
 
-image: download
+image: clean download
 	docker build -t $(IMAGE) \
 		src/$(SOURCE)
 
@@ -29,7 +29,7 @@ src/$(SOURCE):
 		git apply ../../$(PATCH)
 
 download: src/$(SOURCE)
-	wget https://github.com/Loongson-Cloud-Community/grafana-clickhouse-datasource/releases/download/v1.1.2/grafana-clickhouse-datasource-1.1.2.zip
+	wget -O grafana-clickhouse-datasource-1.1.2.zip https://github.com/Loongson-Cloud-Community/grafana-clickhouse-datasource/releases/download/v1.1.2/grafana-clickhouse-datasource-1.1.2.zip
 	unzip -d src/$(SOURCE) grafana-clickhouse-datasource-1.1.2.zip
 
 push:
@@ -42,4 +42,4 @@ push:
 
 clean:
 	rm -rf src \
-		grafana-clickhouse-datasource-1.1.2.zip
+		grafana-clickhouse-datasource-1.1.2.zip*
