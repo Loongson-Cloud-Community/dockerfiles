@@ -1,0 +1,98 @@
+/*
+ * Copyright (c) 2022 Yunshan Networks
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package updater
+
+import (
+	cloudmodel "github.com/deepflowys/deepflow/server/controller/cloud/model"
+	"github.com/deepflowys/deepflow/server/controller/db/mysql"
+	"github.com/deepflowys/deepflow/server/controller/recorder/cache"
+	"github.com/deepflowys/deepflow/server/controller/recorder/common"
+	"github.com/deepflowys/deepflow/server/controller/recorder/db"
+)
+
+type DHCPPort struct {
+	UpdaterBase[cloudmodel.DHCPPort, mysql.DHCPPort, *cache.DHCPPort]
+}
+
+func NewDHCPPort(wholeCache *cache.Cache, cloudData []cloudmodel.DHCPPort) *DHCPPort {
+	updater := &DHCPPort{
+		UpdaterBase[cloudmodel.DHCPPort, mysql.DHCPPort, *cache.DHCPPort]{
+			cache:        wholeCache,
+			dbOperator:   db.NewDHCPPort(),
+			diffBaseData: wholeCache.DHCPPorts,
+			cloudData:    cloudData,
+		},
+	}
+	updater.dataGenerator = updater
+	updater.cacheHandler = updater
+	return updater
+}
+
+func (p *DHCPPort) getDiffBaseByCloudItem(cloudItem *cloudmodel.DHCPPort) (diffBase *cache.DHCPPort, exists bool) {
+	diffBase, exists = p.diffBaseData[cloudItem.Lcuuid]
+	return
+}
+
+func (p *DHCPPort) generateUpdateInfo(diffBase *cache.DHCPPort, cloudItem *cloudmodel.DHCPPort) (map[string]interface{}, bool) {
+	updateInfo := make(map[string]interface{})
+	if diffBase.Name != cloudItem.Name {
+		updateInfo["name"] = cloudItem.Name
+	}
+	if diffBase.RegionLcuuid != cloudItem.RegionLcuuid {
+		updateInfo["region"] = cloudItem.RegionLcuuid
+	}
+	if diffBase.AZLcuuid != cloudItem.AZLcuuid {
+		updateInfo["az"] = cloudItem.AZLcuuid
+	}
+
+	if len(updateInfo) > 0 {
+		return updateInfo, true
+	}
+	return nil, false
+}
+
+func (p *DHCPPort) generateDBItemToAdd(cloudItem *cloudmodel.DHCPPort) (*mysql.DHCPPort, bool) {
+	vpcID, exists := p.cache.ToolDataSet.GetVPCIDByLcuuid(cloudItem.VPCLcuuid)
+	if !exists {
+		log.Errorf(resourceAForResourceBNotFound(
+			common.RESOURCE_TYPE_VPC_EN, cloudItem.VPCLcuuid,
+			common.RESOURCE_TYPE_DHCP_PORT_EN, cloudItem.Lcuuid,
+		))
+		return nil, false
+	}
+	dbItem := &mysql.DHCPPort{
+		Name:   cloudItem.Name,
+		Domain: p.cache.DomainLcuuid,
+		Region: cloudItem.RegionLcuuid,
+		AZ:     cloudItem.AZLcuuid,
+		VPCID:  vpcID,
+	}
+	dbItem.Lcuuid = cloudItem.Lcuuid
+	return dbItem, true
+}
+
+func (p *DHCPPort) addCache(dbItems []*mysql.DHCPPort) {
+	p.cache.AddDHCPPorts(dbItems)
+}
+
+func (p *DHCPPort) updateCache(cloudItem *cloudmodel.DHCPPort, diffBase *cache.DHCPPort) {
+	diffBase.Update(cloudItem)
+}
+
+func (p *DHCPPort) deleteCache(lcuuids []string) {
+	p.cache.DeleteDHCPPorts(lcuuids)
+}
