@@ -46,6 +46,7 @@ src/$(SOURCE):
 		git apply ../../$(PATCH)
 
 image: src/$(SOURCE)
+	echo "ci test"
 	@$(foreach value, $(BUILD_TG), \
 		EXTRA_DOCKER_ARGS="-e HTTPS_PROXY=$(http_proxy) -e HTTP_PROXY=$(http_proxy)" \
 		GOPROXY="" \
