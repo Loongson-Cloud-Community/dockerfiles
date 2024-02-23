@@ -4,7 +4,7 @@ REGISTRY?=cr.loongnix.cn
 ORGANIZATION?=library
 REPOSITORY?=mariadb
 TAG?=10.11
-VERSION?=10.11.6
+VERSION?=10.11.7
 
 IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):$(TAG)
 FULL_IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):$(VERSION)
@@ -13,6 +13,8 @@ default: image
 
 image:
 	docker build \
+		--build-arg http_proxy=$(http_proxy) \
+		--build-arg https_proxy=$(https_proxy) \
 		-t $(IMAGE) \
 		-t $(IMAGE)-buster \
 		-t $(FULL_IMAGE) \
