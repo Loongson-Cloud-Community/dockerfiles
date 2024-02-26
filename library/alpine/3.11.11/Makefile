@@ -14,6 +14,7 @@ ALIAS=cr.loongnix.cn/library/alpine:3.11
 default: image
 
 image: $(ROOTFS)
+	echo "ci-test 0223"
 	docker build \
 		--build-arg ROOTFS=$(ROOTFS) \
 		-t $(IMAGE) \
