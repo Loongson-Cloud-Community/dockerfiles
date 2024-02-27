@@ -10,6 +10,7 @@ IMAGE = $(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):$(TAG)
 default: image
 
 image:
+	echo "ci test latest"
 	docker build \
 		-t $(IMAGE) \
 		.
