@@ -1,0 +1,42 @@
+From d226941bb322d20873884f2a3b5110cf3c9ba77d Mon Sep 17 00:00:00 2001
+From: zhangguanzhang <zhangguanzhang@qq.com>
+Date: Thu, 29 Feb 2024 19:41:39 +0800
+Subject: [PATCH] support loong64
+
+---
+ Dockerfile.image | 25 +++----------------------
+ 1 file changed, 3 insertions(+), 22 deletions(-)
+
+diff --git a/Dockerfile.image b/Dockerfile.image
+index 0b9a1bd..b30bde0 100644
+--- a/Dockerfile.image
++++ b/Dockerfile.image
+@@ -1,22 +1,3 @@
+-FROM --platform=$BUILDPLATFORM tonistiigi/xx AS xx
+-
+-FROM --platform=$BUILDPLATFORM golang:alpine AS build
+-# copy xx scripts to your build stage
+-COPY --from=xx / /
+-ARG TARGETPLATFORM
+-ARG BUILDPLATFORM
+-RUN apk --no-cache add bash
+-COPY go.mod go.sum *.go /build/
+-COPY scripts /build/scripts
+-WORKDIR /build
+-RUN xx-info env
+-RUN go mod tidy && go mod vendor
+-RUN export GOOS=$(xx-info os) &&\
+-    export GOARCH=$(xx-info arch) &&\
+-    ./scripts/build_flannel.sh &&\
+-    mv ./dist/flannel-${GOARCH} /flannel
+-
+-FROM alpine:20230901
+-ARG GOARCH
+-COPY --from=build /flannel /flannel
+-
++ARG BASE_IMG=cr.loongnix.cn/library/alpine:3.11
++FROM ${BASE_IMG}
++COPY dist/flannel-loong64 /flannel
+-- 
+2.25.1
+
