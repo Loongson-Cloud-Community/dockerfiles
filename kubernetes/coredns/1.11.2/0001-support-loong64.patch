@@ -1,0 +1,38 @@
+From ff84a785b61d12b0e8de1e862c0f58973e0636b7 Mon Sep 17 00:00:00 2001
+From: zhangguanzhang <zhangguanzhang@qq.com>
+Date: Fri, 1 Mar 2024 10:02:59 +0800
+Subject: [PATCH] support loong64
+
+---
+ Dockerfile | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/Dockerfile b/Dockerfile
+index f75519b4..1b9f2ff4 100644
+--- a/Dockerfile
++++ b/Dockerfile
+@@ -1,7 +1,7 @@
+ ARG DEBIAN_IMAGE=debian:stable-slim
+ ARG BASE=gcr.io/distroless/static-debian11:nonroot
+-FROM --platform=$BUILDPLATFORM ${DEBIAN_IMAGE} AS build
+-SHELL [ "/bin/sh", "-ec" ]
++ARG USER=nonroot
++FROM ${DEBIAN_IMAGE} AS build
+ 
+ RUN export DEBCONF_NONINTERACTIVE_SEEN=true \
+            DEBIAN_FRONTEND=noninteractive \
+@@ -14,9 +14,9 @@ RUN export DEBCONF_NONINTERACTIVE_SEEN=true \
+ COPY coredns /coredns
+ RUN setcap cap_net_bind_service=+ep /coredns
+ 
+-FROM --platform=$TARGETPLATFORM ${BASE}
++FROM ${BASE}
+ COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+ COPY --from=build /coredns /coredns
+-USER nonroot:nonroot
++USER ${USER}:${USER}
+ EXPOSE 53 53/udp
+ ENTRYPOINT ["/coredns"]
+-- 
+2.25.1
+
