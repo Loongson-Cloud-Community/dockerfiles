@@ -1,0 +1,144 @@
+From 9395f61a2b5040aeeb381c3c45fd23beb78fc77a Mon Sep 17 00:00:00 2001
+From: zhangguanzhang <zhangguanzhang@qq.com>
+Date: Mon, 11 Mar 2024 14:58:05 +0800
+Subject: [PATCH] support loong64
+
+---
+ Makefile          | 28 +++++++++++++++-------------
+ images/Dockerfile | 35 +++++++++--------------------------
+ 2 files changed, 24 insertions(+), 39 deletions(-)
+
+diff --git a/Makefile b/Makefile
+index fe9cb19d..bd5eb045 100644
+--- a/Makefile
++++ b/Makefile
+@@ -4,6 +4,9 @@
+ REGISTRY?=quay.io/coreos/flannel
+ QEMU_VERSION=v3.0.0
+ 
++EXTRA_DOCKER_RUN_ARGS ?= 
++EXTRA_DOCKER_BUILD_ARGS ?= 
++
+ # Default tag and architecture. Can be overridden
+ TAG?=$(shell git describe --tags --always)
+ ARCH?=amd64
+@@ -45,23 +48,22 @@ dist/flanneld.exe: $(shell find . -type f  -name '*.go')
+ 	  -ldflags '-s -w -X github.com/flannel-io/flannel/pkg/version.Version=$(TAG) -extldflags "-static"'
+ 
+ # This will build flannel natively using golang image
+-dist/flanneld-$(ARCH): deps dist/qemu-$(ARCH)-static
++dist/flanneld-$(ARCH):
+ 	# valid values for ARCH are [amd64 arm arm64 ppc64le s390x riscv64]
+ 	docker run --rm -e CGO_ENABLED=$(CGO_ENABLED) -e GOARCH=$(ARCH) -e GOCACHE=/go \
++		$(EXTRA_DOCKER_RUN_ARGS) \
+ 		-u $(shell id -u):$(shell id -g) \
+-		-v $(CURDIR)/dist/qemu-$(ARCH)-static:/usr/bin/qemu-$(ARCH)-static \
+-		-v $(CURDIR):/go/src/github.com/flannel-io/flannel:ro \
++		-v $(CURDIR):/go/src/github.com/flannel-io/flannel \
+ 		-v $(CURDIR)/dist:/go/src/github.com/flannel-io/flannel/dist \
+-		golang:$(GO_VERSION) /bin/bash -c '\
++		$(GO_IMG) /bin/bash -c '\
+ 		cd /go/src/github.com/flannel-io/flannel && \
+-		make -e dist/flanneld && \
++		make -e deps dist/flanneld && \
+ 		mv dist/flanneld dist/flanneld-$(ARCH)'
+ 
+ ## Create a docker image on disk for a specific arch and tag
+-image:	deps dist/flanneld-$(TAG)-$(ARCH).docker
+-dist/flanneld-$(TAG)-$(ARCH).docker:
+-	docker buildx build -f images/Dockerfile --platform=$(ARCH) --build-arg TAG=$(TAG) -t $(REGISTRY):$(TAG)-$(ARCH) --load .
+-	docker save -o dist/flanneld-$(TAG)-$(ARCH).docker $(REGISTRY):$(TAG)-$(ARCH)
++image:	dist/flanneld-$(TAG)-$(ARCH).docker
++dist/flanneld-$(TAG)-$(ARCH).docker: dist/flanneld-$(ARCH)
++	docker build -f images/Dockerfile $(EXTRA_DOCKER_BUILD_ARGS) -t $(REGISTRY):$(TAG) .
+ 
+ # amd64 gets an image without the suffix too (i.e. it's the default)
+ ifeq ($(ARCH),amd64)
+@@ -76,7 +78,7 @@ test: license-check gofmt deps verify-modules
+ 	docker run --cap-add=NET_ADMIN \
+ 		--cap-add=SYS_ADMIN --rm \
+ 		-v $(shell pwd):/go/src/github.com/flannel-io/flannel \
+-		golang:$(GO_VERSION) \
++		$(GO_IMG) \
+ 		/bin/bash -c 'cd /go/src/github.com/flannel-io/flannel && go test -v -cover -timeout 5m $(TEST_PACKAGES_EXPANDED)'
+ 
+ 	# Test the docker-opts script
+@@ -111,7 +113,7 @@ gofmt:
+ 		-u $(shell id -u):$(shell id -g) \
+ 		-v $(CURDIR):/go/src/github.com/flannel-io/flannel \
+ 		-v $(CURDIR)/dist:/go/src/github.com/flannel-io/flannel/dist \
+-		golang:$(GO_VERSION) /bin/bash -c '\
++		$(GO_IMG) /bin/bash -c '\
+ 		cd /go/src/github.com/flannel-io/flannel && \
+ 		! gofmt -d $(PACKAGES) 2>&1 | read'
+ 
+@@ -121,7 +123,7 @@ verify-modules:
+                 -u $(shell id -u):$(shell id -g) \
+                 -v $(CURDIR):/go/src/github.com/flannel-io/flannel \
+                 -v $(CURDIR)/dist:/go/src/github.com/flannel-io/flannel/dist \
+-                golang:$(GO_VERSION) /bin/bash -c '\
++                $(GO_IMG) /bin/bash -c '\
+                 cd /go/src/github.com/flannel-io/flannel && \
+ 		!go mod tidy 2>&1|read && \
+ 		!go vet 2>&1|read'
+@@ -141,7 +143,7 @@ endif
+ 		-u $(shell id -u):$(shell id -g) \
+ 		-v $(CURDIR):/go/src/github.com/flannel-io/flannel:ro \
+ 		-v $(CURDIR)/dist:/go/src/github.com/flannel-io/flannel/dist \
+-		golang:$(GO_VERSION) /bin/bash -c '\
++		$(GO_IMG) /bin/bash -c '\
+ 		cd /go/src/github.com/flannel-io/flannel && \
+ 		make -e dist/flanneld && \
+ 		mv dist/flanneld dist/flanneld-$(ARCH)'
+diff --git a/images/Dockerfile b/images/Dockerfile
+index fd600088..a053a3e0 100644
+--- a/images/Dockerfile
++++ b/images/Dockerfile
+@@ -1,35 +1,18 @@
+-FROM --platform=$BUILDPLATFORM tonistiigi/xx AS xx
++ARG GO_IMG=cr.loongnix.cn/library/golang:1.21
++ARG BASE_IMG=cr.loongnix.cn/library/alpine:3.11
++
++FROM ${GO_IMG} AS build
+ 
+-FROM --platform=$BUILDPLATFORM golang:alpine AS build
+-# copy xx scripts to your build stage
+-COPY --from=xx / /
+-ARG TARGETPLATFORM
+-ARG BUILDPLATFORM
+-ARG TAG
+-RUN apk --no-cache add bash make gcc musl-dev git linux-headers git
+-COPY Makefile go.mod go.sum *.go /build/
+-COPY pkg /build/pkg
+-WORKDIR /build
+-RUN mkdir dist
+-RUN xx-info env
+-RUN make deps
+-RUN export GOOS=$(xx-info os) &&\
+-    export GOARCH=$(xx-info arch) &&\
+-    export ARCH=$(xx-info arch) &&\
+-    make dist/flanneld
+ RUN git clone https://github.com/kubernetes-sigs/iptables-wrappers.git /iptables-wrapper
+ WORKDIR /iptables-wrapper
+ RUN git checkout 5792812d9e5a5bb7f22d79d557bbfeece253343d
+-RUN export GOOS=$(xx-info os) &&\
+-    export GOARCH=$(xx-info arch) &&\
+-    export ARCH=$(xx-info arch) &&\
+-    make build
++RUN GOARCH=loong64 make build
+ 
+-FROM alpine:20231219
++FROM ${BASE_IMG}
+ RUN apk update && apk upgrade
+-RUN apk add --no-cache iproute2 ca-certificates iptables strongswan iptables-legacy && update-ca-certificates
+-RUN apk add wireguard-tools --no-cache --repository http://dl-cdn.alpinelinux.org/alpine/edge/community
+-COPY --from=build /build/dist/flanneld /opt/bin/flanneld
++RUN apk add --no-cache iproute2 net-tools ca-certificates iptables strongswan && update-ca-certificates
++RUN apk add wireguard-tools --no-cache
++COPY dist/flanneld-loong64 /opt/bin/flanneld
+ COPY dist/mk-docker-opts.sh /opt/bin/
+ COPY --from=build /iptables-wrapper/iptables-wrapper-installer.sh /
+ COPY --from=build /iptables-wrapper/bin/iptables-wrapper /
+-- 
+2.25.1
+
