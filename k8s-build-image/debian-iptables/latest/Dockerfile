@@ -17,7 +17,8 @@ FROM cr.loongnix.cn/k8s-build-image/debian-base:latest as build
 # Install iptables and ebtables packages from buster-backports
 RUN apt-get update \
     && apt-get -y --no-install-recommends install \
-        iptables 
+        iptables \
+    && rm -rf /var/lib/apt/lists
 
 # Install other dependencies and then clean up apt caches
 RUN clean-install \
