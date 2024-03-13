@@ -20,12 +20,10 @@ PATCH=0001-port-to-loong64.patch
 default: image
 
 image: src/$(SOURCE)
-# Commands for building.
-	$(MAKE) -C src/$(SOURCE) 
+	cd src/$(SOURCE) && PLATFORM=$(PLATFORM) POLICY=manylinux2014 COMMIT_SHA=2022-12-26-0d38463 ./build.sh
 
-src/$(SOURCE):
+src/$(SOURCE): clean
 	git clone -q -b loongarch-$(TAG) --depth=1 $(SOURCE_URL) $@
-	cd $@ && PLATFORM=$(PLATFORM) POLICY=manylinux2014 COMMIT_SHA=2022-12-26-0d38463 ./build.sh
 
 push:
 	docker push $(IMAGE)
