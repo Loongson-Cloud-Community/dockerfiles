@@ -3,12 +3,12 @@
 REGISTRY?=cr.loongnix.cn
 ORGANIZATION?=pypa
 REPOSITORY?=manylinux
-TAG?=2024-03-10-4935fcc
-LATEST?=true
+TAG?=2023-10-03-72cdc42
+LATEST?=false
 
 IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):$(TAG)
 LATEST_IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):latest
-
+PLATFORM=$(shell uname -m)
 # SOURCE_URL is a url to download source, such as https://github.com/merore/merore.git.
 # SOURCE is project sources, its located at src/$(SORUCE).
 # PATCH is a patch that supports loong64 to $(SOURCE).
@@ -20,7 +20,7 @@ PATCH=0001-port-to-loong64.patch
 default: image
 
 image: src/$(SOURCE)
-	cd src/$(SOURCE) && PLATFORM=$(shell uname -m) POLICY=manylinux2014 COMMIT_SHA=2022-12-26-0d38463 ./build.sh
+	cd src/$(SOURCE) && PLATFORM=$(PLATFORM) POLICY=manylinux2014 COMMIT_SHA=$(TAG) ./build.sh	
 
 src/$(SOURCE): clean
 	git clone -q -b loongarch-$(TAG) --depth=1 $(SOURCE_URL) $@
