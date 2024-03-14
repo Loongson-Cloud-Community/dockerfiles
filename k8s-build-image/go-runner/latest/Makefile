@@ -14,6 +14,7 @@ image:
 	docker build \
 		--build-arg http_proxy=$(http_proxy) \
 		--build-arg https_proxy=$(https_proxy) \
+		--build-arg ARCH=loong64 \
 		-t $(IMAGE) \
 		.
 

@@ -1,0 +1,128 @@
+From 559a47ed35c46022b3ae3fbdf7f5406962e49431 Mon Sep 17 00:00:00 2001
+From: zhangguanzhang <zhangguanzhang@qq.com>
+Date: Wed, 13 Mar 2024 15:06:58 +0800
+Subject: [PATCH] support loong64
+
+---
+ Dockerfile.node-cache   |  8 ++++----
+ Makefile                |  4 ++--
+ images/dnsmasq/Makefile |  3 +++
+ rules.mk                | 18 +++++++++---------
+ 4 files changed, 18 insertions(+), 15 deletions(-)
+
+diff --git a/Dockerfile.node-cache b/Dockerfile.node-cache
+index ca77efd2..2b36fcf7 100644
+--- a/Dockerfile.node-cache
++++ b/Dockerfile.node-cache
+@@ -11,9 +11,9 @@
+ # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ # See the License for the specific language governing permissions and
+ # limitations under the License.
+-
+-FROM ARG_FROM_IPT
+-ADD bin/ARG_ARCH/ARG_BIN /ARG_BIN
++ARG IPTIMAGE
++FROM ${IPTIMAGE}
++ADD bin/loong64/node-cache /node-cache
+ EXPOSE 53 53/udp
+ EXPOSE 53 53/tcp
+-ENTRYPOINT ["/ARG_BIN"]
++ENTRYPOINT ["/node-cache"]
+diff --git a/Makefile b/Makefile
+index 52db01fd..ab62d8f6 100644
+--- a/Makefile
++++ b/Makefile
+@@ -20,14 +20,14 @@
+ PKG := k8s.io/dns
+ 
+ # List of binaries to build.
+-BINARIES := \
++BINARIES ?= \
+     e2e \
+     ginkgo \
+     sidecar-e2e
+ 
+ # List of binaries to build that are containerized and pushed.
+ # You must have a matching Dockerfile.BINARY for each BINARY.
+-CONTAINER_BINARIES := \
++CONTAINER_BINARIES ?= \
+     dnsmasq-nanny \
+     kube-dns \
+     node-cache \
+diff --git a/images/dnsmasq/Makefile b/images/dnsmasq/Makefile
+index 1a376ee1..314f51e4 100644
+--- a/images/dnsmasq/Makefile
++++ b/images/dnsmasq/Makefile
+@@ -44,6 +44,9 @@ else ifeq ($(ARCH),ppc64le)
+ else ifeq ($(ARCH),s390x)
+ 	TRIPLE    ?= s390x-linux-gnu
+ 	QEMUARCH  := s390x
++else ifeq ($(ARCH),loong64)
++	TRIPLE    ?= loongarch64-linux-gnu
++	QEMUARCH  := loong64
+ else
+ $(error Unsupported ARCH: $(ARCH))
+ endif
+diff --git a/rules.mk b/rules.mk
+index c0cc5f96..74c2cd6c 100644
+--- a/rules.mk
++++ b/rules.mk
+@@ -36,8 +36,8 @@ IPTIMAGE ?= registry.k8s.io/build-image/distroless-iptables:v0.4.1@sha256:6b7fef
+ 
+ # These rules MUST be expanded at reference time (hence '=') as BINARY
+ # is dynamically scoped.
+-CONTAINER_NAME  = $(REGISTRY)/$(CONTAINER_PREFIX)-$(BINARY)-$(ARCH)
+-BUILDSTAMP_NAME = $(subst :,_,$(subst /,_,$(CONTAINER_NAME))_$(VERSION))
++CONTAINER_NAME  ?= $(REGISTRY)/$(CONTAINER_PREFIX)-$(BINARY)-$(ARCH)
++BUILDSTAMP_NAME ?= $(BINARY)
+ 
+ # Ensure that the docker command line supports the manifest images
+ export DOCKER_CLI_EXPERIMENTAL=enabled
+@@ -50,10 +50,10 @@ CONTAINER_BUILDSTAMPS := $(foreach BINARY,$(CONTAINER_BINARIES),.$(BUILDSTAMP_NA
+ PUSH_BUILDSTAMPS := $(foreach BINARY,$(CONTAINER_BINARIES),.$(BUILDSTAMP_NAME)-push)
+ 
+ ifeq ($(VERBOSE), 1)
+-	DOCKER_BUILD_FLAGS :=
++	DOCKER_BUILD_FLAGS ?=
+ 	VERBOSE_OUTPUT := >&1
+ else
+-	DOCKER_BUILD_FLAGS := -q
++	DOCKER_BUILD_FLAGS ?= -q
+ 	VERBOSE_OUTPUT := >/dev/null
+ endif
+ 
+@@ -100,8 +100,8 @@ build: $(GO_BINARIES) images-build
+ # So this is a workaround where we set GOCACHE env variable, but do not use it as a volume.
+ $(GO_BINARIES): build-dirs
+ 	@echo "building : $@"
+-	@docker pull $(BUILD_IMAGE)
+-	@docker run                                                            \
++	# @docker pull $(BUILD_IMAGE)
++	docker run                                                            \
+ 	    --rm                                                               \
+ 	    --sig-proxy=true                                                   \
+ 	    -u $$(id -u):$$(id -g)                                             \
+@@ -118,6 +118,7 @@ $(GO_BINARIES): build-dirs
+ 	        PKG=$(PKG)                                                     \
+ 	        ./build/build.sh                                               \
+ 	    "
++	@find bin
+ 
+ 
+ # Rules for dockerfiles.
+@@ -139,10 +140,9 @@ $(foreach BINARY,$(CONTAINER_BINARIES),$(eval $(DOCKERFILE_RULE)))
+ 
+ # Rules for containers
+ define CONTAINER_RULE
+-.$(BUILDSTAMP_NAME)-container: bin/$(ARCH)/$(BINARY)
++.$(BUILDSTAMP_NAME)-container:
+ 	@echo "container: bin/$(ARCH)/$(BINARY) ($(CONTAINER_NAME))"
+-	@docker buildx build					\
+-		--platform linux/$(ARCH)			\
++	DOCKER_BUILDKIT=0 docker build			\
+ 		$(DOCKER_BUILD_FLAGS)				\
+ 		-t $(CONTAINER_NAME):$(VERSION)		\
+ 		-f .$(BINARY)-$(ARCH)-dockerfile .	\
+-- 
+2.25.1
+
