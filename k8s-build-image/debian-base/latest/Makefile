@@ -7,7 +7,6 @@ TAG?=latest
 
 IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):$(TAG)
 
-
 default: image
 
 image:
