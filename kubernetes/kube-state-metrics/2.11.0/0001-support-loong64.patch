@@ -1,0 +1,62 @@
+From 76340c5c8883a14f84dfd6fed3166febeb07e8fb Mon Sep 17 00:00:00 2001
+From: zhangguanzhang <zhangguanzhang@qq.com>
+Date: Fri, 22 Mar 2024 15:04:47 +0800
+Subject: [PATCH] support loong64
+
+---
+ Dockerfile | 7 ++++---
+ Makefile   | 8 +++++---
+ 2 files changed, 9 insertions(+), 6 deletions(-)
+
+diff --git a/Dockerfile b/Dockerfile
+index 798ac7e6..24f5fbd1 100644
+--- a/Dockerfile
++++ b/Dockerfile
+@@ -1,14 +1,15 @@
+-ARG GOVERSION=1.21
++ARG GO_IMG=golang:1.21
+ ARG GOARCH
+-FROM golang:${GOVERSION} as builder
++FROM ${GO_IMG} as builder
+ ARG GOARCH
+ ENV GOARCH=${GOARCH}
++ENV GOPROXY=https://goproxy.cn,https://mirrors.aliyun.com/goproxy/,https://goproxy.io,direct
+ WORKDIR /go/src/k8s.io/kube-state-metrics/
+ COPY . /go/src/k8s.io/kube-state-metrics/
+ 
+ RUN make build-local
+ 
+-FROM gcr.io/distroless/static:latest-${GOARCH}
++FROM cr.loongnix.cn/prometheus/busybox:glibc
+ COPY --from=builder /go/src/k8s.io/kube-state-metrics/kube-state-metrics /
+ 
+ USER nobody
+diff --git a/Makefile b/Makefile
+index 0a619f09..0d36c0e1 100644
+--- a/Makefile
++++ b/Makefile
+@@ -16,8 +16,9 @@ OS ?= $(shell uname -s | tr A-Z a-z)
+ ALL_ARCH = amd64 arm arm64 ppc64le s390x
+ PKG = github.com/prometheus/common
+ PROMETHEUS_VERSION = 2.46.0
+-GO_VERSION = 1.21.8
+-IMAGE = $(REGISTRY)/kube-state-metrics
++GO_IMG ?= golang:1.20
++IMAGE ?= $(REGISTRY)/kube-state-metrics
++IMAGE_NAME ?= $(IMAGE):$(TAG)
+ MULTI_ARCH_IMG = $(IMAGE)-$(ARCH)
+ USER ?= $(shell id -u -n)
+ HOST ?= $(shell hostname)
+@@ -101,7 +102,8 @@ all: all-container
+ container: container-$(ARCH)
+ 
+ container-%:
+-	${DOCKER_CLI} build --pull -t $(IMAGE)-$*:$(TAG) --build-arg GOVERSION=$(GO_VERSION) --build-arg GOARCH=$* .
++	${DOCKER_CLI} build --pull -t $(IMAGE_NAME) \
++		--build-arg GO_IMG=$(GO_IMG) --build-arg GOVERSION=$(GO_VERSION) --build-arg GOARCH=$* .
+ 
+ sub-container-%:
+ 	$(MAKE) --no-print-directory ARCH=$* container
+-- 
+2.25.1
+
