@@ -1,0 +1,106 @@
+From d9edaac5e96e4d4cd63c637d3b5d1726717b1e85 Mon Sep 17 00:00:00 2001
+From: zhangguanzhang <zhangguanzhang@qq.com>
+Date: Mon, 25 Mar 2024 14:40:42 +0800
+Subject: [PATCH] support loong64
+
+---
+ Makefile                                |  4 ++--
+ clients/cmd/promtail/Dockerfile         | 14 +++++++-------
+ cmd/loki/Dockerfile                     |  6 ++++--
+ vendor/go.etcd.io/bbolt/bolt_loong64.go | 10 ++++++++++
+ 4 files changed, 23 insertions(+), 11 deletions(-)
+ create mode 100644 vendor/go.etcd.io/bbolt/bolt_loong64.go
+
+diff --git a/Makefile b/Makefile
+index f0286223a..a18291323 100644
+--- a/Makefile
++++ b/Makefile
+@@ -575,7 +575,7 @@ endef
+ 
+ # promtail
+ promtail-image: ## build the promtail docker image
+-	$(SUDO) docker build -t $(IMAGE_PREFIX)/promtail:$(IMAGE_TAG) -f clients/cmd/promtail/Dockerfile .
++	$(SUDO) docker build $(DOCKER_BUILD_ARGS) -t $(IMAGE_PREFIX)/promtail:$(IMAGE_TAG) -f clients/cmd/promtail/Dockerfile .
+ promtail-image-cross:
+ 	$(SUDO) $(BUILD_OCI) -t $(IMAGE_PREFIX)/promtail:$(IMAGE_TAG) -f clients/cmd/promtail/Dockerfile.cross .
+ 
+@@ -588,7 +588,7 @@ promtail-push: promtail-image-cross
+ 
+ # loki
+ loki-image: ## build the loki docker image
+-	$(SUDO) docker build -t $(IMAGE_PREFIX)/loki:$(IMAGE_TAG) -f cmd/loki/Dockerfile .
++	$(SUDO) docker build $(DOCKER_BUILD_ARGS) -t $(IMAGE_PREFIX)/loki:$(IMAGE_TAG) -f cmd/loki/Dockerfile .
+ loki-image-cross:
+ 	$(SUDO) $(BUILD_OCI) -t $(IMAGE_PREFIX)/loki:$(IMAGE_TAG) -f cmd/loki/Dockerfile.cross .
+ 
+diff --git a/clients/cmd/promtail/Dockerfile b/clients/cmd/promtail/Dockerfile
+index 901fc4050..9420fcb21 100644
+--- a/clients/cmd/promtail/Dockerfile
++++ b/clients/cmd/promtail/Dockerfile
+@@ -1,21 +1,21 @@
+-FROM golang:1.21.3-bullseye as build
++ARG GO_IMG=golang:1.21.3-bullseye
++ARG BASE_IMG=debian:bullseye-slim
++FROM ${GO_IMG} as build
+ 
+ COPY . /src/loki
+ WORKDIR /src/loki
+ # Backports repo required to get a libsystemd version 246 or newer which is required to handle journal +ZSTD compression
+-RUN echo "deb http://deb.debian.org/debian bullseye-backports main" >> /etc/apt/sources.list
+-RUN apt-get update && apt-get install -t bullseye-backports -qy libsystemd-dev
++RUN apt-get update && apt-get install -qy libsystemd-dev
+ RUN make clean && make BUILD_IN_CONTAINER=false PROMTAIL_JOURNAL_ENABLED=true promtail
+ 
+ # Promtail requires debian as the base image to support systemd journal reading
+-FROM debian:bullseye-slim
++FROM ${BASE_IMG}
+ # tzdata required for the timestamp stage to work
+ # Backports repo required to get a libsystemd version 246 or newer which is required to handle journal +ZSTD compression
+-RUN echo "deb http://deb.debian.org/debian bullseye-backports main" >> /etc/apt/sources.list
++
+ RUN apt-get update && \
+   apt-get install -qy \
+-  tzdata ca-certificates
+-RUN apt-get install -t bullseye-backports -qy libsystemd-dev && \
++  tzdata ca-certificates libsystemd-dev && \
+   rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+ COPY --from=build /src/loki/clients/cmd/promtail/promtail /usr/bin/promtail
+ COPY clients/cmd/promtail/promtail-docker-config.yaml /etc/promtail/config.yml
+diff --git a/cmd/loki/Dockerfile b/cmd/loki/Dockerfile
+index 9d2959d3b..f74186343 100644
+--- a/cmd/loki/Dockerfile
++++ b/cmd/loki/Dockerfile
+@@ -1,10 +1,12 @@
+-FROM golang:1.21.3 as build
++ARG GO_IMG=golang:1.21.3
++ARG BASE_IMG=alpine:3.18.6
++FROM ${GO_IMG} as build
+ 
+ COPY . /src/loki
+ WORKDIR /src/loki
+ RUN make clean && make BUILD_IN_CONTAINER=false loki
+ 
+-FROM alpine:3.18.6
++FROM ${BASE_IMG}
+ 
+ RUN apk add --no-cache ca-certificates libcap
+ 
+diff --git a/vendor/go.etcd.io/bbolt/bolt_loong64.go b/vendor/go.etcd.io/bbolt/bolt_loong64.go
+new file mode 100644
+index 000000000..31c17c1d0
+--- /dev/null
++++ b/vendor/go.etcd.io/bbolt/bolt_loong64.go
+@@ -0,0 +1,10 @@
++//go:build loong64
++// +build loong64
++
++package bbolt
++
++// maxMapSize represents the largest mmap size supported by Bolt.
++const maxMapSize = 0xFFFFFFFFFFFF // 256TB
++
++// maxAllocSize is the size used when creating array pointers.
++const maxAllocSize = 0x7FFFFFFF
+-- 
+2.25.1
+
