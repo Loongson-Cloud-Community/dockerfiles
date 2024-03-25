@@ -1,0 +1,107 @@
+From ec828044b9a9836a1164e969651f4009845f4493 Mon Sep 17 00:00:00 2001
+From: zhangguanzhang <zhangguanzhang@qq.com>
+Date: Fri, 22 Mar 2024 17:34:56 +0800
+Subject: [PATCH] support loong64
+
+---
+ Makefile          | 20 +++++++++++---------
+ images/Dockerfile | 34 ++++++++--------------------------
+ 2 files changed, 19 insertions(+), 35 deletions(-)
+
+diff --git a/Makefile b/Makefile
+index eaf698a5..45b6e625 100644
+--- a/Makefile
++++ b/Makefile
+@@ -17,6 +17,8 @@ endif
+ 
+ # Go version to use for builds
+ GO_VERSION=1.20
++EXTRA_DOCKER_RUN_ARGS ?= 
++EXTRA_DOCKER_BUILD_ARGS ?= 
+ 
+ # K8s version used for Makefile helpers
+ K8S_VERSION=1.24.6
+@@ -46,23 +48,23 @@ dist/flanneld.exe: $(shell find . -type f  -name '*.go')
+ 	  -ldflags '-s -w -X github.com/flannel-io/flannel/pkg/version.Version=$(TAG) -extldflags "-static"'
+ 
+ # This will build flannel natively using golang image
+-dist/flanneld-$(ARCH): deps dist/qemu-$(ARCH)-static
++dist/flanneld-$(ARCH):
+ 	# valid values for ARCH are [amd64 arm arm64 ppc64le s390x riscv64]
+ 	docker run --rm -e CGO_ENABLED=$(CGO_ENABLED) -e GOARCH=$(ARCH) -e GOCACHE=/go \
+ 		-u $(shell id -u):$(shell id -g) \
+-		-v $(CURDIR)/dist/qemu-$(ARCH)-static:/usr/bin/qemu-$(ARCH)-static \
+-		-v $(CURDIR):/go/src/github.com/flannel-io/flannel:ro \
++		$(EXTRA_DOCKER_RUN_ARGS) \
++		-v $(CURDIR):/go/src/github.com/flannel-io/flannel \
+ 		-v $(CURDIR)/dist:/go/src/github.com/flannel-io/flannel/dist \
+-		golang:$(GO_VERSION) /bin/bash -c '\
++		$(GO_IMG) /bin/bash -c '\
+ 		cd /go/src/github.com/flannel-io/flannel && \
+-		make -e dist/flanneld && \
++		make -e deps dist/flanneld && \
+ 		mv dist/flanneld dist/flanneld-$(ARCH)'
+ 
+ ## Create a docker image on disk for a specific arch and tag
+-image:	deps dist/flanneld-$(TAG)-$(ARCH).docker
+-dist/flanneld-$(TAG)-$(ARCH).docker:
+-	docker buildx build -f images/Dockerfile --platform=$(ARCH) --build-arg TAG=$(TAG) -t $(REGISTRY):$(TAG)-$(ARCH) --load .
+-	docker save -o dist/flanneld-$(TAG)-$(ARCH).docker $(REGISTRY):$(TAG)-$(ARCH)
++image:	dist/flanneld-$(TAG)-$(ARCH).docker
++dist/flanneld-$(TAG)-$(ARCH).docker: dist/flanneld-$(ARCH)
++	docker build -f images/Dockerfile $(EXTRA_DOCKER_BUILD_ARGS) -t $(REGISTRY):$(TAG) .
++#	docker save -o dist/flanneld-$(TAG)-$(ARCH).docker $(REGISTRY):$(TAG)-$(ARCH)
+ 
+ # amd64 gets an image without the suffix too (i.e. it's the default)
+ ifeq ($(ARCH),amd64)
+diff --git a/images/Dockerfile b/images/Dockerfile
+index fd600088..4b7134e0 100644
+--- a/images/Dockerfile
++++ b/images/Dockerfile
+@@ -1,35 +1,17 @@
+-FROM --platform=$BUILDPLATFORM tonistiigi/xx AS xx
++ARG GO_IMG=cr.loongnix.cn/library/golang:1.21
++ARG BASE_IMG=cr.loongnix.cn/library/alpine:3.11
+ 
+-FROM --platform=$BUILDPLATFORM golang:alpine AS build
+-# copy xx scripts to your build stage
+-COPY --from=xx / /
+-ARG TARGETPLATFORM
+-ARG BUILDPLATFORM
+-ARG TAG
+-RUN apk --no-cache add bash make gcc musl-dev git linux-headers git
+-COPY Makefile go.mod go.sum *.go /build/
+-COPY pkg /build/pkg
+-WORKDIR /build
+-RUN mkdir dist
+-RUN xx-info env
+-RUN make deps
+-RUN export GOOS=$(xx-info os) &&\
+-    export GOARCH=$(xx-info arch) &&\
+-    export ARCH=$(xx-info arch) &&\
+-    make dist/flanneld
++FROM ${GO_IMG} AS build
+ RUN git clone https://github.com/kubernetes-sigs/iptables-wrappers.git /iptables-wrapper
+ WORKDIR /iptables-wrapper
+ RUN git checkout 5792812d9e5a5bb7f22d79d557bbfeece253343d
+-RUN export GOOS=$(xx-info os) &&\
+-    export GOARCH=$(xx-info arch) &&\
+-    export ARCH=$(xx-info arch) &&\
+-    make build
++RUN GOARCH=loong64 make build
+ 
+-FROM alpine:20231219
++FROM ${BASE_IMG}
+ RUN apk update && apk upgrade
+-RUN apk add --no-cache iproute2 ca-certificates iptables strongswan iptables-legacy && update-ca-certificates
+-RUN apk add wireguard-tools --no-cache --repository http://dl-cdn.alpinelinux.org/alpine/edge/community
+-COPY --from=build /build/dist/flanneld /opt/bin/flanneld
++RUN apk add --no-cache iproute2 ca-certificates iptables strongswan net-tools && update-ca-certificates
++RUN apk add wireguard-tools --no-cache
++COPY dist/flanneld-loong64 /opt/bin/flanneld
+ COPY dist/mk-docker-opts.sh /opt/bin/
+ COPY --from=build /iptables-wrapper/iptables-wrapper-installer.sh /
+ COPY --from=build /iptables-wrapper/bin/iptables-wrapper /
+-- 
+2.25.1
+
