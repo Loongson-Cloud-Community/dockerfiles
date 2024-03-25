@@ -1,0 +1,111 @@
+From f11d55107cb1550d8704f87972f7641df22d23ad Mon Sep 17 00:00:00 2001
+From: zhangguanzhang <zhangguanzhang@qq.com>
+Date: Mon, 25 Mar 2024 10:22:38 +0800
+Subject: [PATCH] support loong64
+
+---
+ Makefile          |  3 ++-
+ build/build.sh    |  1 +
+ deploy/Dockerfile | 36 +++++++++++-------------------------
+ 3 files changed, 14 insertions(+), 26 deletions(-)
+
+diff --git a/Makefile b/Makefile
+index c304bae3..bb6bacb3 100644
+--- a/Makefile
++++ b/Makefile
+@@ -16,6 +16,7 @@ GO := go
+ GOLANGCI_VER := v1.56.2
+ GO_TEST ?= $(GO) test $(or $(GO_FLAGS),-race)
+ arch ?= $(shell go env GOARCH)
++IMAGE_NAME ?= cadvisor:$(shell git rev-parse --short HEAD)
+ 
+ all: presubmit build test
+ 
+@@ -69,7 +70,7 @@ release:
+ 	@./build/release.sh
+ 
+ docker-%:
+-	@docker build -t cadvisor:$(shell git rev-parse --short HEAD) -f deploy/Dockerfile .
++	@DOCKER_BUILDKIT=0 docker build -t $(IMAGE_NAME) $(DOCKER_BUILD_ARGS) -f deploy/Dockerfile .
+ 
+ docker-build:
+ 	@docker run --rm -w /go/src/github.com/google/cadvisor -v ${PWD}:/go/src/github.com/google/cadvisor golang:1.22 make build
+diff --git a/build/build.sh b/build/build.sh
+index e0613553..09294c9b 100755
+--- a/build/build.sh
++++ b/build/build.sh
+@@ -61,6 +61,7 @@ fi
+ 
+ # Since github.com/google/cadvisor/cmd is a submodule, we must build from inside that directory
+ pushd cmd > /dev/null
++  sed -ri 's#arm64#loong64#' $(go env GOMODCACHE)/github.com/opencontainers/runc\@v1.1.12/libcontainer/system/syscall_linux_64.go
+   go build ${GO_FLAGS} -ldflags "${ldflags}" -o "${output_file}" "${repo_path}/cmd"
+ popd > /dev/null
+ 
+diff --git a/deploy/Dockerfile b/deploy/Dockerfile
+index 1108f4ab..502ad942 100644
+--- a/deploy/Dockerfile
++++ b/deploy/Dockerfile
+@@ -1,20 +1,7 @@
+-FROM registry.hub.docker.com/library/golang:1.22-alpine3.18 AS build
++ARG BASE_IMG=mirror.gcr.io/library/alpine:3.18
++ARG GO_IMG=registry.hub.docker.com/library/golang:1.22-alpine3.18
+ 
+-# Install build depdencies for all supported arches
+-RUN apk --no-cache add bash build-base cmake device-mapper findutils git \
+-                       libc6-compat linux-headers ndctl-dev pkgconfig python3 wget zfs && \
+-    apk --no-cache add thin-provisioning-tools --repository http://dl-3.alpinelinux.org/alpine/edge/main/ && \
+-    echo 'hosts: files mdns4_minimal [NOTFOUND=return] dns mdns4' >> /etc/nsswitch.conf && \
+-    rm -rf /var/cache/apk/*
+-
+-RUN wget https://sourceforge.net/projects/perfmon2/files/libpfm4/libpfm-4.11.0.tar.gz && \
+-  echo "112bced9a67d565ff0ce6c2bb90452516d1183e5  libpfm-4.11.0.tar.gz" | sha1sum -c  && \
+-  tar -xzf libpfm-4.11.0.tar.gz && \
+-  rm libpfm-4.11.0.tar.gz
+-
+-RUN export DBG="-g -Wall" && \
+-  make -e -C libpfm-4.11.0 && \
+-  make install -C libpfm-4.11.0
++FROM ${GO_IMG} AS build
+ 
+ # ipmctl only supports Intel x86_64 processors.
+ # https://github.com/intel/ipmctl/issues/163
+@@ -40,27 +27,26 @@ RUN cd cmd && go mod download
+ ADD . .
+ 
+ ARG VERSION
++ARG GOARCH=amd64
+ 
+ # libipmctl only works on x86_64 CPUs.
+-RUN export GO_TAGS="libpfm,netgo"; \
++RUN set -x; \
++    export GO_TAGS="libpfm,netgo"; \
+     if [ "$(uname --machine)" = "x86_64" ]; then \
+           # Disable libipmctl due to https://github.com/google/cadvisor/issues/3482
+           #export GO_TAGS="$GO_TAGS,libipmctl"; \
+           export GO_TAGS="$GO_TAGS"; \
+     fi; \
+-    GO_FLAGS="-tags=$GO_TAGS" ./build/build.sh
++    GO_CGO_ENABLED=0 GO_FLAGS="-tags=$GO_TAGS" bash -x ./build/build.sh
+ 
+-FROM mirror.gcr.io/library/alpine:3.18
+-MAINTAINER dengnan@google.com vmarmol@google.com vishnuk@google.com jimmidyson@gmail.com stclair@google.com
++FROM ${BASE_IMG}
++LABEL MAINTAINER dengnan@google.com vmarmol@google.com vishnuk@google.com jimmidyson@gmail.com stclair@google.com
+ 
+-RUN apk --no-cache add libc6-compat device-mapper findutils ndctl zfs && \
+-    apk --no-cache add thin-provisioning-tools --repository http://dl-3.alpinelinux.org/alpine/edge/main/ && \
++RUN apk --no-cache add wget && \
+     echo 'hosts: files mdns4_minimal [NOTFOUND=return] dns mdns4' >> /etc/nsswitch.conf && \
+     rm -rf /var/cache/apk/*
+ 
+-# Grab cadvisor,libpfm4 and libipmctl from "build" container if they exist (libipmctl only works on amd64/x86_64).
+-COPY --from=build /usr/local/lib/libpfm.so* /usr/local/lib/
+-COPY --from=build /usr/local/lib/libipmctl.so* /usr/local/lib/
++
+ COPY --from=build /go/src/github.com/google/cadvisor/_output/cadvisor /usr/bin/cadvisor
+ 
+ EXPOSE 8080
+-- 
+2.25.1
+
