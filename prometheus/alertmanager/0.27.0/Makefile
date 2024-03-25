@@ -25,7 +25,6 @@ src/$(SOURCE):
 		git apply ../../$(PATCH)
 
 build: src/$(SOURCE)
-# Commands for building.
 	docker run --rm -v `pwd`/src/$(SOURCE):/v -w /v/ui/react-app \
 		-e http_proxy=$(http_proxy) -e https_proxy=$(https_proxy) \
 		--entrypoint bash \
