@@ -1,20 +1,29 @@
-From d9edaac5e96e4d4cd63c637d3b5d1726717b1e85 Mon Sep 17 00:00:00 2001
+From 8999051b13fbdab365c6ae937644ec6a7ec266d8 Mon Sep 17 00:00:00 2001
 From: zhangguanzhang <zhangguanzhang@qq.com>
 Date: Mon, 25 Mar 2024 14:40:42 +0800
 Subject: [PATCH] support loong64
 
 ---
- Makefile                                |  4 ++--
+ Makefile                                |  6 +++---
  clients/cmd/promtail/Dockerfile         | 14 +++++++-------
  cmd/loki/Dockerfile                     |  6 ++++--
  vendor/go.etcd.io/bbolt/bolt_loong64.go | 10 ++++++++++
- 4 files changed, 23 insertions(+), 11 deletions(-)
+ 4 files changed, 24 insertions(+), 12 deletions(-)
  create mode 100644 vendor/go.etcd.io/bbolt/bolt_loong64.go
 
 diff --git a/Makefile b/Makefile
-index f0286223a..a18291323 100644
+index f0286223a..1fdaa3a4e 100644
 --- a/Makefile
 +++ b/Makefile
+@@ -101,7 +101,7 @@ RM := --rm
+ # in any custom cloudbuild.yaml files
+ TTY := --tty
+ 
+-DOCKER_BUILDKIT=1
++DOCKER_BUILDKIT ?= 1
+ OCI_PLATFORMS=--platform=linux/amd64 --platform=linux/arm64 --platform=linux/arm/7
+ BUILD_IMAGE = BUILD_IMAGE=$(IMAGE_PREFIX)/loki-build-image:$(BUILD_IMAGE_VERSION)
+ ifeq ($(CI), true)
 @@ -575,7 +575,7 @@ endef
  
  # promtail

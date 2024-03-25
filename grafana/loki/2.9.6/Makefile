@@ -28,6 +28,7 @@ src/$(SOURCE):
 image: src/$(SOURCE)
 # Commands for building.
 	IMAGE_PREFIX=$(REGISTRY)/$(ORGANIZATION) IMAGE_TAG=$(TAG) \
+	DOCKER_BUILDKIT=0 \
 	DOCKER_BUILD_ARGS="--build-arg BASE_IMG=cr.loongnix.cn/library/alpine:3.11 \
 		--build-arg https_proxy=${https_proxy} --build-arg http_proxy=${http_proxy} \
 		--build-arg GO_IMG=cr.loongnix.cn/library/golang:1.21" \
