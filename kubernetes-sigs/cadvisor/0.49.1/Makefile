@@ -26,7 +26,7 @@ image: src/$(SOURCE)
 	cd src/$(SOURCE)/ && \
 	DOCKER_BUILD_ARGS="--build-arg https_proxy=${https_proxy} --build-arg http_proxy=${http_proxy} \
 		--build-arg GOARCH=loong64 --build-arg GO_IMG=$(GO_IMG) --build-arg BASE_IMG=cr.loongnix.cn/library/alpine:3.11 " \
-	IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY) \
+	IMAGE_NAME=$(IMAGE) \
 		make docker-loong64
 
 push:
