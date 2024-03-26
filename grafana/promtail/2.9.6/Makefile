@@ -27,6 +27,7 @@ src/$(SOURCE):
 
 image: src/$(SOURCE)
 	IMAGE_PREFIX=$(REGISTRY)/$(ORGANIZATION) IMAGE_TAG=$(TAG) \
+	DOCKER_BUILDKIT=0 \
 	DOCKER_BUILD_ARGS="--build-arg BASE_IMG=cr.loongnix.cn/library/debian:buster-slim \
 		--build-arg https_proxy=${https_proxy} --build-arg http_proxy=${http_proxy} \
 		--build-arg GO_IMG=cr.loongnix.cn/library/golang:1.21-buster" \
