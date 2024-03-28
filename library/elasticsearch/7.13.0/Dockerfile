@@ -28,6 +28,7 @@ RUN curl --retry 10 -S -L --output /opt/elasticsearch.tar.gz https://github.com/
 
 RUN tar -zxf /opt/elasticsearch.tar.gz --strip-components=1
 
+RUN rm -rf data/* logs/*
 # The distribution includes a `config` directory, no need to create it
 COPY config/elasticsearch.yml config/
 COPY config/log4j2.properties config/log4j2.docker.properties
