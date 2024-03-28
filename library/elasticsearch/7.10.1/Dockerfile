@@ -24,9 +24,9 @@ RUN set -eux ; \
 RUN mkdir /usr/share/elasticsearch
 WORKDIR /usr/share/elasticsearch
 
-RUN curl --retry 10 -S -L --output /opt/elasticsearch.tar.gz https://github.com/Loongson-Cloud-Community/elasticsearch/releases/download/v7.10.1/elasticsearch-7.10.1-linux-loongarch64-jdk11-jna5-5-0.tar.gz
-
-RUN tar -zxf /opt/elasticsearch.tar.gz --strip-components=1
+RUN curl --retry 10 -S -L --output /opt/elasticsearch.tar.gz https://github.com/Loongson-Cloud-Community/elasticsearch/releases/download/v7.10.1/elasticsearch-7.10.1-linux-loongarch64-jdk11-jna5-5-0.tar.gz \
+	&& tar -zxf /opt/elasticsearch.tar.gz --strip-components=1 \
+	&& rm /opt/elasticsearch.tar.gz
 RUN rm -rf logs/* data/*
 # The distribution includes a `config` directory, no need to create it
 COPY config/elasticsearch.yml config/
