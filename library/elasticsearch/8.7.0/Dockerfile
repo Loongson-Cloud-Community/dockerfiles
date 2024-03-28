@@ -38,7 +38,7 @@ RUN tar -zxf /tmp/elasticsearch.tar.gz --strip-components=1
 
 #In order to prevent the cache files in the elasticsearch-8.7.0-SNAPSHOT-loongarch64_jdk17.tar.gz from not being deleted and causing build errors.
 RUN rm -rf config/elasticsearch.keystore config/certs config/*.orig && \
-    rm -rf logs/*
+    rm -rf logs/* data/*
 
 # The distribution includes a `config` directory, no need to create it
 COPY config/elasticsearch.yml config/
