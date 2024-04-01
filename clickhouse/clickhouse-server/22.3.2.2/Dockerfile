@@ -1,11 +1,51 @@
 FROM cr.loongnix.cn/library/debian:buster
 
+# ARG for quick switch to a given ubuntu mirror
+#ARG apt_archive="http://archive.ubuntu.com"
+#RUN sed -i "s|http://archive.ubuntu.com|$apt_archive|g" /etc/apt/sources.list
+
+#ARG repository="deb https://packages.clickhouse.com/deb stable main"
+ARG version=22.1.1.*
+
+# set non-empty deb_location_url url to create a docker image
+# from debs created by CI build, for example:
+# docker build . --network host --build-arg version="21.4.1.6282" --build-arg deb_location_url="https://clickhouse-builds.s3.yandex.net/21852/069cfbff388b3d478d1a16dc7060b48073f5d522/clickhouse_build_check/clang-11_relwithdebuginfo_none_bundled_unsplitted_disable_False_deb/" -t filimonovq/clickhouse-server:pr21852
+ARG deb_location_url=""
+
+# set non-empty single_binary_location_url to create docker image
+# from a single binary url (useful for non-standard builds - with sanitizers, for arm64).
+# for example (run on aarch64 server):
+# docker build . --network host --build-arg single_binary_location_url="https://builds.clickhouse.com/master/aarch64/clickhouse" -t altinity/clickhouse-server:master-testing-arm
+# note: clickhouse-odbc-bridge is not supported there.
+ARG single_binary_location_url=""
+
 # see https://github.com/moby/moby/issues/4032#issuecomment-192327844
 ARG DEBIAN_FRONTEND=noninteractive
 
+# user/group precreated explicitly with fixed uid/gid on purpose.
+# It is especially important for rootless containers: in that case entrypoint
+# can't do chown and owners of mounted volumes should be configured externally.
+# We do that in advance at the begining of Dockerfile before any packages will be
+# installed to prevent picking those uid / gid by some unrelated software.
+# The same uid / gid (101) is used both for alpine and ubuntu.
 
+# To drop privileges, we need 'su' command, that simply changes uid and gid.
+# In fact, the 'su' command from Linux is not so simple, due to inherent vulnerability in Linux:
+# https://ruderich.org/simon/notes/su-sudo-from-root-tty-hijacking
+# It has to mitigate this drawback of Linux, and to do this, 'su' command is creating it's own pseudo-terminal
+# and forwarding commands. Due to some ridiculous curcumstances, it does not work in Docker (or it does)
+# and for these reasons people are using alternatives to the 'su' command in Docker,
+# that don't mess with the terminal, don't care about closing the opened files, etc...
+# but can only be safe to drop privileges inside Docker.
+# The question - what implementation of 'su' command to use.
+# It should be a simple script doing about just two syscalls.
+# Some people tend to use 'gosu' tool that is written in Go.
+# It is not used for several reasons:
+# 1. Dependency on some foreign code in yet another programming language - does not sound alright.
+# 2. Anselmo D. Adams suggested not to use it due to false positive alarms in some undisclosed security scanners.
+
+COPY su-exec.c /su-exec.c
 RUN groupdel systemd-journal
-# ARG for quick switch to a given ubuntu mirror
 RUN groupadd -r clickhouse --gid=101 \
     && useradd -r -g clickhouse --uid=101 --home-dir=/var/lib/clickhouse --shell=/bin/bash clickhouse \
     && apt-get update \
@@ -17,64 +57,45 @@ RUN groupadd -r clickhouse --gid=101 \
         locales \
         wget \
         tzdata \
-    && apt-get clean
-
-ARG REPO_CHANNEL="stable"
-ARG VERSION="22.3.2"
-ARG PACKAGES="clickhouse-client clickhouse-server clickhouse-common-static"
-
-# set non-empty deb_location_url url to create a docker image
-# from debs created by CI build, for example:
-# docker build . --network host --build-arg version="21.4.1.6282" --build-arg deb_location_url="https://..." -t ...
-ARG deb_location_url=""
-
-# set non-empty single_binary_location_url to create docker image
-# from a single binary url (useful for non-standard builds - with sanitizers, for arm64).
-ARG single_binary_location_url=""
-
-# user/group precreated explicitly with fixed uid/gid on purpose.
-# It is especially important for rootless containers: in that case entrypoint
-# can't do chown and owners of mounted volumes should be configured externally.
-# We do that in advance at the begining of Dockerfile before any packages will be
-# installed to prevent picking those uid / gid by some unrelated software.
-# The same uid / gid (101) is used both for alpine and ubuntu.
-
-ARG TARGETARCH
-
-RUN arch=${TARGETARCH:-amd64} \
-    && if [ -n "${deb_location_url}" ]; then \
-        echo "installing from custom url with deb packages: ${deb_location_url}" \
-        rm -rf /tmp/clickhouse_debs \
-        && mkdir -p /tmp/clickhouse_debs \
-	&& wget ${deb_location_url} \
-	&& tar -zxf deb.tar.gz -C /tmp/clickhouse_debs --strip-components=2 \
-	&& rm /tmp/clickhouse_debs/clickhouse-common-static-dbg_${VERSION}_loongarch64.deb \
-	&& rm deb.tar.gz  \
-        && dpkg -i /tmp/clickhouse_debs/*.deb ; \
-    elif [ -n "${single_binary_location_url}" ]; then \
-        echo "installing from single binary url: ${single_binary_location_url}" \
-        && rm -rf /tmp/clickhouse_binary \
-        && mkdir -p /tmp/clickhouse_binary \
-        && wget --progress=bar:force:noscroll "${single_binary_location_url}" -O /tmp/clickhouse_binary/clickhouse \
-        && chmod +x /tmp/clickhouse_binary/clickhouse \
-        && /tmp/clickhouse_binary/clickhouse install --user "clickhouse" --group "clickhouse" ; \
-    else \
-        mkdir -p /etc/apt/sources.list.d \
-        && apt-key adv --keyserver keyserver.ubuntu.com --recv 8919F6BD2B48D754 \
-        && echo ${REPOSITORY} > /etc/apt/sources.list.d/clickhouse.list \
-        && echo "installing from repository: ${REPOSITORY}" \
-        && apt-get update \
-        && apt-get --yes -o "Dpkg::Options::=--force-confdef" -o "Dpkg::Options::=--force-confold" upgrade \
-        && for package in ${PACKAGES}; do \
-            packages="${packages} ${package}=${VERSION}" \
-        ; done \
-        && apt-get install --allow-unauthenticated --yes --no-install-recommends ${packages} || exit 1 \
-    ; fi \
+#    && mkdir -p /etc/apt/sources.list.d \
+#    && apt-key adv --keyserver keyserver.ubuntu.com --recv 8919F6BD2B48D754 \
+#    && echo $repository > /etc/apt/sources.list.d/clickhouse.list \
+    && if [ -n "$deb_location_url" ]; then \
+            echo "installing from custom url with deb packages: $deb_location_url" \
+            rm -rf /tmp/clickhouse_debs \
+            && mkdir -p /tmp/clickhouse_debs \
+	    && wget ${deb_location_url} \
+	    && tar -zxf deb.tar.gz -C /tmp/clickhouse_debs --strip-components=2 \
+	    && rm /tmp/clickhouse_debs/clickhouse-common-static-dbg_22.3.2_loongarch64.deb \
+	    && rm deb.tar.gz \
+            && dpkg -i /tmp/clickhouse_debs/*.deb ; \
+       elif [ -n "$single_binary_location_url" ]; then \
+            echo "installing from single binary url: $single_binary_location_url" \
+            && rm -rf /tmp/clickhouse_binary \
+            && mkdir -p /tmp/clickhouse_binary \
+            && wget --progress=bar:force:noscroll "$single_binary_location_url" -O /tmp/clickhouse_binary/clickhouse \
+            && chmod +x /tmp/clickhouse_binary/clickhouse \
+            && /tmp/clickhouse_binary/clickhouse install --user "clickhouse" --group "clickhouse" ; \
+       else \
+           echo "installing from repository: $repository" \
+           && apt-get update \
+           && apt-get --yes -o "Dpkg::Options::=--force-confdef" -o "Dpkg::Options::=--force-confold" upgrade \
+           && apt-get install --allow-unauthenticated --yes --no-install-recommends \
+                clickhouse-common-static=$version \
+                clickhouse-client=$version \
+                clickhouse-server=$version ; \
+       fi \
+    && apt-get install -y --no-install-recommends gcc libc-dev && \
+        gcc /su-exec.c -o /bin/su-exec && \
+        chown root:root /bin/su-exec && \
+        chmod 0755 /bin/su-exec && \
+        rm /su-exec.c  \
     && clickhouse-local -q 'SELECT * FROM system.build_options' \
     && rm -rf \
         /var/lib/apt/lists/* \
         /var/cache/debconf \
         /tmp/* \
+    && apt-get clean \
     && mkdir -p /var/lib/clickhouse /var/log/clickhouse-server /etc/clickhouse-server /etc/clickhouse-client \
     && chmod ugo+Xrw -R /var/lib/clickhouse /var/log/clickhouse-server /etc/clickhouse-server /etc/clickhouse-client
 
