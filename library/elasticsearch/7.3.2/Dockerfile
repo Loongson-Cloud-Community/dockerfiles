@@ -24,14 +24,11 @@ FROM cr.loongnix.cn/loongson/loongnix-server:8.4.0 AS builder
 RUN mkdir /usr/share/elasticsearch
 WORKDIR /usr/share/elasticsearch
 
-RUN groupadd -g 1000 elasticsearch && \
-    adduser -u 1000 -g 1000 -d /usr/share/elasticsearch elasticsearch
 
 #RUN curl --retry 10 -S -L --output /opt/elasticsearch.tar.gz https://github.com/Loongson-Cloud-Community/elasticsearch/releases/download/v7.13.0/elasticsearch-7.13.0-SNAPSHOT-linux-loongarch64-jdk11.tar.gz
 
-COPY elasticsearch-7.3.2-SNAPSHOT-linux-loongarch64-jdk11.tar.gz /opt/elasticsearch.tar.gz
-
-RUN tar -zxf /opt/elasticsearch.tar.gz --strip-components=1
+RUN curl --retry 10 -S -L --output /opt/elasticsearch.tar.gz https://github.com/Loongson-Cloud-Community/elasticsearch/releases/download/v7.3.2/elasticsearch-7.3.2-SNAPSHOT-linux-loongarch64-jdk11.tar.gz \
+	&& tar -zxf /opt/elasticsearch.tar.gz --strip-components=1 && rm /opt/elasticsearch.tar.gz
 
 RUN grep ES_DISTRIBUTION_TYPE=tar /usr/share/elasticsearch/bin/elasticsearch-env \
     && sed -ie 's/ES_DISTRIBUTION_TYPE=tar/ES_DISTRIBUTION_TYPE=docker/' /usr/share/elasticsearch/bin/elasticsearch-env
