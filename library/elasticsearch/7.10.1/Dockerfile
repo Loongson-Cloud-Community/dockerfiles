@@ -24,11 +24,10 @@ RUN set -eux ; \
 RUN mkdir /usr/share/elasticsearch
 WORKDIR /usr/share/elasticsearch
 
-RUN curl --retry 10 -S -L --output /opt/elasticsearch.tar.gz https://github.com/Loongson-Cloud-Community/elasticsearch/releases/download/v7.13.0/elasticsearch-7.13.0-SNAPSHOT-linux-loong64-jdk11.tar.gz \
+RUN curl --retry 10 -S -L --output /opt/elasticsearch.tar.gz https://github.com/Loongson-Cloud-Community/elasticsearch/releases/download/v7.10.1/elasticsearch-7.10.1-linux-loongarch64-jdk11-jna5-5-0.tar.gz \
 	&& tar -zxf /opt/elasticsearch.tar.gz --strip-components=1 \
 	&& rm /opt/elasticsearch.tar.gz
-
-RUN rm -rf data/* logs/*
+RUN rm -rf logs/* data/*
 # The distribution includes a `config` directory, no need to create it
 COPY config/elasticsearch.yml config/
 COPY config/log4j2.properties config/log4j2.docker.properties
@@ -102,7 +101,7 @@ RUN chmod g=u /etc/passwd && \
 
 EXPOSE 9200 9300
 
-LABEL org.label-schema.build-date="2021-05-19T22:22:26.081971330Z" \
+LABEL org.label-schema.build-date="2024-03-28T22:22:26.081971330Z" \
   org.label-schema.license="Elastic-License-2.0" \
   org.label-schema.name="Elasticsearch" \
   org.label-schema.schema-version="1.0" \
@@ -111,7 +110,7 @@ LABEL org.label-schema.build-date="2021-05-19T22:22:26.081971330Z" \
   org.label-schema.vcs-ref="5ca8591c6fcdb1260ce95b08a8e023559635c6f3" \
   org.label-schema.vcs-url="https://github.com/elastic/elasticsearch" \
   org.label-schema.vendor="Elastic" \
-  org.label-schema.version="7.13.0" \
+  org.label-schema.version="7.10.1" \
   org.opencontainers.image.created="2021-05-19T22:22:26.081971330Z" \
   org.opencontainers.image.documentation="https://www.elastic.co/guide/en/elasticsearch/reference/index.html" \
   org.opencontainers.image.licenses="Elastic-License-2.0" \
@@ -120,7 +119,7 @@ LABEL org.label-schema.build-date="2021-05-19T22:22:26.081971330Z" \
   org.opencontainers.image.title="Elasticsearch" \
   org.opencontainers.image.url="https://www.elastic.co/products/elasticsearch" \
   org.opencontainers.image.vendor="Elastic" \
-  org.opencontainers.image.version="7.13.0"
+  org.opencontainers.image.version="7.10.1"
 
 ENTRYPOINT ["/bin/tini", "--", "/usr/local/bin/docker-entrypoint.sh"]
 # Dummy overridable parameter parsed by entrypoint
