@@ -1,0 +1,15 @@
+---
+# vim: ft=yaml:ai:ts=2:sw=2:et
+extends: default
+
+rules:
+  braces: disable
+  brackets: disable
+  colons: disable
+  indentation:
+    indent-sequences: false
+    level: error
+    spaces: 2
+  key-duplicates: enable
+  key-ordering: enable
+  line-length: disable
