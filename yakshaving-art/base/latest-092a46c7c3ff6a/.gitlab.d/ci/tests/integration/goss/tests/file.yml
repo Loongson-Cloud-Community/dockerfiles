@@ -1,0 +1,9 @@
+---
+file:
+  /usr/local/bin/unhoard.sh:
+    exists: true
+    filetype: file
+    group: root
+    mode: "0666"
+    owner: root
+    sha256: 29b42649e2d1cba98141ced455f3b782ab2f3a7f75d1daf1aba30d01dd78477a

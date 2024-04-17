@@ -1,0 +1,28 @@
+---
+# yamllint disable rule:key-ordering
+image: registry.gitlab.com/yakshaving.art/dockerfiles/docker-builder:master
+
+variables:
+  MUCHOS_ARCHES: "linux/amd64 linux/arm64"
+  # TRIGGERS is a space separated string of projects which will be triggered if pipeline succeeds
+  TRIGGERS: "yakshaving.art/dockerfiles/docker-builder yakshaving.art/dockerfiles/packer-builder yakshaving.art/dockerfiles/go-builder yakshaving.art/dockerfiles/durrdurr yakshaving.art/dockerfiles/critic yakshaving.art/dockerfiles/cloud-tools yakshaving.art/dockerfiles/testcafe"
+
+services:
+- docker:dind
+
+stages:
+- all-the-things
+
+all-the-things:
+  # NOTE: the order is important
+  script:
+  # Sanity and security checks for the repo and configs first
+  - bash .gitlab.d/ci/scripts/check_sanity.sh
+  - bash .gitlab.d/ci/scripts/check_skkrty.sh
+
+  # Next, build, test, and publish all the things (NOTE: this is a potentially multi-arch build)
+  - bash .gitlab.d/ci/scripts/build.sh
+
+  # Finally, trigger rebuilds of the dependent images
+  - bash .gitlab.d/ci/scripts/trigger_dependencies.sh
+  stage: all-the-things

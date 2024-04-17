@@ -1,0 +1,12 @@
+---
+package:
+  bash:                   { installed: true, versions: { semver-constraint: "> 5.0.0" } }
+  ca-certificates:        { installed: true }
+  coreutils:              { installed: true }
+  curl:                   { installed: true }
+  jq:                     { installed: true }
+  musl:                   { installed: true }
+  openssh-client-default: { installed: true }
+  openssh-server:         { installed: false }
+  parallel:               { installed: true }
+  sed:                    { installed: true }

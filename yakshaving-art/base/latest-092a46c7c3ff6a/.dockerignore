@@ -1,0 +1,22 @@
+# Ignore everything
+**
+
+# Allow all Dockerfiles with extensions
+!Dockerfile
+!Dockerfile.*
+
+# Allow bind mounting of the scripts and tests directories from CI context
+# (so that we don't pollute the image with their contents if copying them)
+!.gitlab.d/ci
+
+# Allow copying of the unhoard.sh script into the image
+!unhoard.sh
+
+# Allow bind-mounting selected binaries
+!goss
+!trivy
+
+# Allow bind-mounting of .trivyignore
+!.trivyignore
+
+# Anything else? Drop it below

@@ -1,0 +1,6 @@
+---
+command:
+  echo "look morty, I turned myself into an integration test":
+    exit-status: 0
+    stderr: []
+    stdout: [ "morty" ]
