@@ -11,8 +11,6 @@ IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):$(TAG)
 default: image
 
 image:
-	https_proxy=$(https_proxy) wget https://github.com/Loongson-Cloud-Community/prometheus-operator/releases/download/v0.39.0/prometheus-operator-abi1.0 -O operator
-	chmod +x operator
 	docker build \
 		--build-arg http_proxy=$(http_proxy) \
 		--build-arg https_proxy=$(https_proxy) \
