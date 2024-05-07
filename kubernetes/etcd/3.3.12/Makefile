@@ -12,10 +12,6 @@ default: image
 
 
 image: 
-	https_proxy=$(https_proxy) wget https://github.com/Loongson-Cloud-Community/etcd/releases/download/v3.3.12/etcd-3.3.12-abi1.0 -O etcd
-	https_proxy=$(https_proxy) wget https://github.com/Loongson-Cloud-Community/etcd/releases/download/v3.3.12/etcdctl-3.3.12-abi1.0 -O etcdctl
-	chmod +x etcd
-	chmod +x etcdctl
 	docker build \
 		--build-arg http_proxy=$(http_proxy) \
 		--build-arg https_proxy=$(https_proxy) \
