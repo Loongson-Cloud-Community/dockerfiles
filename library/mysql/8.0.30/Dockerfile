@@ -21,7 +21,11 @@ RUN set -eux; \
 #	yum install -y 	perl-interpreter; \
 	\
 #       yum install -y perl-JSON perl-Memoize perl-Time-HiRes libaio-devel mecab-devel mecab-devel numactl-devel mecab-ipadic mecab-ipadic-EUCJP lz4 perl-CPAN ; \
-        yum install -y libaio-devel numactl-devel;
+	#mysql mysqld
+        yum install -y libaio-devel numactl-devel; \
+	#mysqlsh
+	yum install -y libssh python38 glibc-langpack-en; \
+	pip3 install certifi pyyaml;
 
 # add gosu for easy step-down from root  && install mysql
 # https://github.com/tianon/gosu/releases
@@ -36,8 +40,12 @@ RUN set -eux; \
 	wget https://github.com/Loongson-Cloud-Community/mysql-rpm/releases/download/v8.0.30/mysql-8.0.30-LA-RPMS-minimal.tar.gz; \
 	tar -xf mysql-8.0.30-LA-RPMS-minimal.tar.gz; \
 	rpm -ivh --nodeps  mysql-8.0.30-LA-RPMS-minimal/loongarch64/*.rpm; \
-	rm -rf mysql-8.0.30-LA-RPMS-minimal.tar.gz mysql-8.0.30-LA-RPMS-minimal;
-
+	rm -rf mysql-8.0.30-LA-RPMS-minimal.tar.gz mysql-8.0.30-LA-RPMS-minimal; \
+	\
+	wget https://github.com/Loongson-Cloud-Community/mysql-shell-rpm/releases/download/v8.0.30/mysql-shell-8.0.30-LA-RPMS-mininal.tar.gz; \
+	tar -xf mysql-shell-8.0.30-LA-RPMS-mininal.tar.gz; \
+	rpm -ivh --nodeps  mysql-shell-8.0.30-LA-RPMS-mininal/loongarch64/*.rpm; \
+	rm -rf  mysql-shell-8.0.30-LA-RPMS-mininal mysql-shell-8.0.30-LA-RPMS-mininal.tar.gz;
 
 
 ENV MYSQL_MAJOR 8.0
@@ -68,6 +76,7 @@ RUN set -eux; \
         \
         mysqld --version; \
         mysql --version; \
+	mysqlsh --version; \
         yum clean packages 
 
 
