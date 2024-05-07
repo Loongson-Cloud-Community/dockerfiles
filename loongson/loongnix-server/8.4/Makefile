@@ -12,6 +12,7 @@ ROOTFS=Loongnix-server-8.4.0.rootfs.loongarch64.tar.xz
 default: image
 
 image:
+	https_proxy=$(https_proxy) wget -O $(ROOTFS) https://github.com/Loongson-Cloud-Community/loongson-rootfs/releases/download/Loongnix-server-8.4.0/Loongnix-server-8.4.0.rootfs.loongarch64.tar.xz
 	docker build \
 		--build-arg ROOTFS=$(ROOTFS) \
 		-t $(IMAGE) \
