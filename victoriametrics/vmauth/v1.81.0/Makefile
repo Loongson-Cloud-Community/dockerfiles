@@ -12,9 +12,9 @@ default: image
 
 image:
 	docker build \
+		--build-arg http_proxy=$(http_proxy) \
+		--build-arg https_proxy=$(https_proxy) \
 		-t $(IMAGE) \
-		--build-arg base_image=cr.loongnix.cn/victoriametrics/base:1.1.3-alpine_3.11-alpine_3.11 \
-		--build-arg src_binary=vmauth-prod \
 		.
 
 push:
