@@ -4,7 +4,7 @@ REGISTRY?=cr.loongnix.cn
 ORGANIZATION?=minio
 REPOSITORY?=minio
 
-MC_VERSION?=RELEASE.2024-01-05T05-04-32Z
+MC_VERSION?=RELEASE.2024-04-29T09-56-05Z
 TAG?=$(MC_VERSION)
 
 IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):$(TAG)
@@ -15,6 +15,8 @@ default: image
 
 image:
 	docker build \
+		--build-arg http_proxy=$(http_proxy) \
+		--build-arg http_proxy=$(http_proxy) \
 		--build-arg MC_VERSION=$(MC_VERSION) \
 		-t $(IMAGE) \
 		-t $(LATEST_IMAGE) \
