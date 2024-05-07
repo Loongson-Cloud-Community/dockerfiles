@@ -1,3 +1,18 @@
+FROM cr.loongnix.cn/loongson/loongnix-server:8.4.0 AS builder
+
+ARG DEPENDENCIES="\
+            wget"
+
+RUN set -ex \
+    && yum install -y ${DEPENDENCIES}
+
+ENV OPERATOR=/usr/local/bin/jaeger-operator
+
+RUN set -ex \
+    && wget -q -O ${OPERATOR} https://github.com/Loongson-Cloud-Community/jaeger-operator/releases/download/release%2Fv1.22.0/jaeger-operator \
+    && chmod +x ${OPERATOR}
+
+
 FROM cr.loongnix.cn/loongson/loongnix-server:8.4.0
 
 ENV OPERATOR=/usr/local/bin/jaeger-operator \
@@ -16,7 +31,7 @@ RUN INSTALL_PKGS=" \
 COPY scripts/* /scripts/
 
 # install operator binary
-COPY jaeger-operator ${OPERATOR}
+COPY --from=builder ${OPERATOR} ${OPERATOR}
 
 ENTRYPOINT ["/usr/local/bin/jaeger-operator"]
 

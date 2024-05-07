@@ -11,8 +11,6 @@ IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):$(TAG)
 default: image
 
 image:
-	https_proxy=$(https_proxy) wget https://github.com/Loongson-Cloud-Community/jaeger-operator/releases/download/release%2Fv1.22.0/jaeger-operator -O jaeger-operator
-	chmod +x jaeger-operator
 	docker build \
 		--build-arg http_proxy=$(http_proxy) \
 		--build-arg https_proxy=$(https_proxy) \
