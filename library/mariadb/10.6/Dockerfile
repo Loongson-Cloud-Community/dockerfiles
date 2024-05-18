@@ -43,6 +43,7 @@ RUN set -eux; \
 			;; \
 		"loongarch64") \
 			wget -q -O /usr/local/bin/gosu "https://github.com/Loongson-Cloud-Community/gosu/releases/download/loongarch64-old-abi-$GOSU_VERSION/gosu-$dpkgArch"; \
+			wget -qO - https://dl.cloudsmith.io/public/jumpserver/mariadb-10-6-18/gpg.0B9FEFB5BA36602C.key | gpg --dearmor > /etc/apt/trusted.gpg.d/mariadb-loongarch64.gpg; \
 			;; \
 		*) \
 			echo >&2 "error: unsupported architecture: ${dpkgArch}"; \
@@ -55,7 +56,6 @@ RUN set -eux; \
 		gpg --batch --keyserver keyserver.ubuntu.com --recv-keys "$key"; \
 	done; \
 	gpg --batch --export "$GPG_KEYS" > /etc/apt/trusted.gpg.d/mariadb.gpg; \
-	wget -qO - https://dl.cloudsmith.io/public/jumpserver/mariadb-10-6-17/gpg.13C7B05B05FFF144.key | gpg --dearmor > /etc/apt/trusted.gpg.d/jumpserver-mariadb.gpg; \
 	if command -v gpgconf >/dev/null; then \
 		gpgconf --kill all; \
 	fi; \
@@ -82,13 +82,13 @@ LABEL org.opencontainers.image.authors="MariaDB Community" \
       org.opencontainers.image.licenses="GPL-2.0" \
       org.opencontainers.image.source="https://github.com/Loongson-Cloud-Community/dockerfiles" \
       org.opencontainers.image.vendor="MariaDB Community" \
-      org.opencontainers.image.version="10.6.17" \
+      org.opencontainers.image.version="10.6.18" \
       org.opencontainers.image.url="https://github.com/Loongson-Cloud-Community/dockerfiles"
 
 # bashbrew-architectures: amd64 arm64 loong64
 ARG MARIADB_MAJOR=10.6
 ENV MARIADB_MAJOR $MARIADB_MAJOR
-ARG MARIADB_VERSION=1:10.6.17+maria~deb10
+ARG MARIADB_VERSION=1:10.6.18+maria~deb10
 ENV MARIADB_VERSION $MARIADB_VERSION
 # release-status:Stable
 # release-support-type:Long Term Support
@@ -99,12 +99,12 @@ RUN set -e;\
 	dpkgArch="$(dpkg --print-architecture | awk -F- '{ print $NF }')"; \
 	case $dpkgArch in \
 		"amd64"|"arm64") \
-		    REPOSITORY="http://archive.mariadb.org/mariadb-10.6.17/repo/debian/ buster main main/debug"; \
+		    REPOSITORY="http://archive.mariadb.org/mariadb-10.6.18/repo/debian/ buster main main/debug"; \
 			echo "deb ${REPOSITORY}" > /etc/apt/sources.list.d/mariadb.list; \
 			;; \
 		"loongarch64") \
 			# https://github.com/wojiushixiaobai/mariadb-loongarch64
-			REPOSITORY="https://dl.cloudsmith.io/public/jumpserver/mariadb-10-6-17/deb/debian/ buster main"; \
+			REPOSITORY="https://dl.cloudsmith.io/public/jumpserver/mariadb-10-6-18/deb/debian/ buster main"; \
 			echo "deb ${REPOSITORY}" > /etc/apt/sources.list.d/mariadb.list; \
 			;; \
 		*) \
