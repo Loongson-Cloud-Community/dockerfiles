@@ -20,10 +20,10 @@ push: alias
 	docker push $(IMAGE)
 	docker push $(ALIAS)
 
-	@if [ -n $(LATEST) ]; then \
-		docker tag $(IMAGE) $(LATEST); \
-		docker push $(LATEST); \
-	fi
+ifneq ($(LATEST),)
+	docker tag $(IMAGE) $(LATEST)
+	docker push $(LATEST)
+endif
 
 alias:
 	docker tag $(IMAGE) $(ALIAS)
