@@ -14,8 +14,7 @@ RUN set -eux; \
 	rm -rf /var/lib/apt/lists/*
 
 ENV PATH /usr/local/go/bin:$PATH
-
-ENV GOLANG_VERSION 1.22.4
+ENV GOLANGVERSION 1.22.4
 
 RUN set -eux; \
 	url='http://ftp.loongnix.cn/toolchain/golang/go-1.22/abi1.0/go1.22.4.linux-loong64.tar.gz'; \
