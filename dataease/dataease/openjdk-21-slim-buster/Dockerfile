@@ -28,7 +28,7 @@ RUN set -ex \
     && wget https://github.com/fabric8io-images/run-java-sh/raw/master/fish-pepper/run-java-sh/fp-files/run-java.sh \
     && chmod +x run-java.sh
 
-ARG VERSION=v2.6.1
+ARG VERSION=v2.7.0
 
 RUN set -ex \
     && wget https://github.com/wojiushixiaobai/dataease/releases/download/${VERSION}/dataease-${VERSION}.tar.gz \
@@ -38,7 +38,7 @@ RUN set -ex \
     && cd /opt/apps/config \
     && wget https://github.com/wojiushixiaobai/dataease/raw/master/config/application.yml
 
-FROM cr.loongnix.cn/library/openjdk:17-slim-buster
+FROM cr.loongnix.cn/library/openjdk:21-slim-buster
 ARG TARGETARCH
 
 ARG DEPENDENCIES="                    \
@@ -48,8 +48,8 @@ RUN set -ex \
     && apt-get update \
     && apt-get install -y --no-install-recommends ${DEPENDENCIES} \
     && echo "no" | dpkg-reconfigure dash \
-    && echo "securerandom.source=file:/dev/urandom" >> /usr/local/openjdk-17/conf/security/java.security \
-    && sed -i "s@jdk.tls.disabledAlgorithms=SSLv3, TLSv1, TLSv1.1@jdk.tls.disabledAlgorithms=SSLv3@" /usr/local/openjdk-17/conf/security/java.security \
+    && echo "securerandom.source=file:/dev/urandom" >> /usr/local/openjdk-21/conf/security/java.security \
+    && sed -i "s@jdk.tls.disabledAlgorithms=SSLv3, TLSv1, TLSv1.1@jdk.tls.disabledAlgorithms=SSLv3@" /usr/local/openjdk-21/conf/security/java.security \
     && sed -i "s@# export @export @g" ~/.bashrc \
     && sed -i "s@# alias @alias @g" ~/.bashrc \
     && apt-get clean all \

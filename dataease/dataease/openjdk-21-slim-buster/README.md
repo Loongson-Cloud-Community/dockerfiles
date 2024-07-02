@@ -72,7 +72,10 @@ services:
     ports:
       - ${HTTP_PORT:-8100}:8100
     volumes:
-      - ${VOLUME_DIR:-./data}/core/data:/opt/dataease2.0/data
+      - ${VOLUME_DIR:-./data}/core/data/static-resource:/opt/dataease2.0/data/static-resource
+      - ${VOLUME_DIR:-./data}/core/data/geo:/opt/dataease2.0/data/geo
+      - ${VOLUME_DIR:-./data}/core/data/appearance:/opt/dataease2.0/data/appearance
+      - ${VOLUME_DIR:-./data}/core/data/exportData:/opt/dataease2.0/data/exportData
       - ${VOLUME_DIR:-./data}/core/logs:/opt/dataease2.0/logs
       - ${VOLUME_DIR:-./data}/core/cache:/opt/dataease2.0/cache
     healthcheck:
