@@ -1,0 +1,82 @@
+From bd6b2f4a97deeb4fec0d8054ef7fddd78b9be919 Mon Sep 17 00:00:00 2001
+From: Lan Liang <gcslyp@gmail.com>
+Date: Tue, 9 Jul 2024 03:59:09 +0000
+Subject: [PATCH] support-loong64
+
+Signed-off-by: Lan Liang <gcslyp@gmail.com>
+---
+ Dockerfile-release.loong64 | 15 +++++++++++++++
+ Makefile                   |  8 +++++---
+ server/etcdmain/etcd.go    |  1 +
+ 3 files changed, 21 insertions(+), 3 deletions(-)
+ create mode 100644 Dockerfile-release.loong64
+
+diff --git a/Dockerfile-release.loong64 b/Dockerfile-release.loong64
+new file mode 100644
+index 000000000..cd94364bb
+--- /dev/null
++++ b/Dockerfile-release.loong64
+@@ -0,0 +1,15 @@
++ARG BASE_IMG=cr.loongnix.cn/prometheus/busybox:glibc
++FROM ${BASE_IMG}
++ENV ETCD_UNSUPPORTED_ARCH=loong64
++
++COPY etcd /usr/local/bin/
++COPY etcdctl /usr/local/bin/
++COPY etcdutl /usr/local/bin/
++
++WORKDIR /var/etcd/
++WORKDIR /var/lib/etcd/
++
++EXPOSE 2379 2380
++
++# Define default command.
++CMD ["/usr/local/bin/etcd"]
+\ No newline at end of file
+diff --git a/Makefile b/Makefile
+index 8cfd790e0..f122e3d7f 100644
+--- a/Makefile
++++ b/Makefile
+@@ -53,7 +53,8 @@ docker-remove:
+ 	docker rm --force `docker ps -a -q` || true
+ 	docker rmi --force `docker images -q` || true
+ 
+-
++IMAGE ?= gcr.io/etcd-development/etcd:$(ETCD_VERSION)
++BASE_IMG ?= cr.loongnix.cn/prometheus/busybox:glibc
+ 
+ GO_VERSION ?= $(shell cat .go-version)
+ ETCD_VERSION ?= $(shell git rev-parse --short HEAD || echo "GitNotFound")
+@@ -223,14 +224,15 @@ build-docker-release-main:
+ 	cp ./Dockerfile-release.$(ARCH) ./bin/Dockerfile-release.$(ARCH)
+ 	docker build \
+ 	  --network=host \
+-	  --tag gcr.io/etcd-development/etcd:$(ETCD_VERSION) \
++	  --build-arg BASE_IMG=$(BASE_IMG) \
++	  --tag $(IMAGE) \
+ 	  --file ./bin/Dockerfile-release.$(ARCH) \
+ 	  ./bin
+ 	rm -f ./bin/Dockerfile-release.$(ARCH)
+ 
+ 	docker run \
+ 	  --rm \
+-	  gcr.io/etcd-development/etcd:$(ETCD_VERSION) \
++	  $(IMAGE) \
+ 	  /bin/sh -c "/usr/local/bin/etcd --version && /usr/local/bin/etcdctl version && /usr/local/bin/etcdutl version"
+ 
+ push-docker-release-main:
+diff --git a/server/etcdmain/etcd.go b/server/etcdmain/etcd.go
+index 9921b89df..0ac9c6737 100644
+--- a/server/etcdmain/etcd.go
++++ b/server/etcdmain/etcd.go
+@@ -471,6 +471,7 @@ func checkSupportArch() {
+ 	// to add a new platform, check https://github.com/etcd-io/website/blob/main/content/en/docs/next/op-guide/supported-platform.md
+ 	if runtime.GOARCH == "amd64" ||
+ 		runtime.GOARCH == "arm64" ||
++		runtime.GOARCH == "loong64" ||
+ 		runtime.GOARCH == "ppc64le" ||
+ 		runtime.GOARCH == "s390x" {
+ 		return
+-- 
+2.45.2
+
