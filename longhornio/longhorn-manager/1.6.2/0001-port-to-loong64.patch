@@ -1,0 +1,43 @@
+diff --git a/Makefile b/Makefile
+index 78839b9..2200d04 100644
+--- a/Makefile
++++ b/Makefile
+@@ -2,7 +2,8 @@ TARGETS := $(shell ls scripts)
+ 
+ .dapper:
+ 	@echo Downloading dapper
+-	@curl -sL https://releases.rancher.com/dapper/latest/dapper-`uname -s`-`uname -m` > .dapper.tmp
++#	@curl -sL https://releases.rancher.com/dapper/latest/dapper-`uname -s`-`uname -m` > .dapper.tmp
++	@curl -sL https://github.com/Loongson-Cloud-Community/dapper/releases/download/v0.6.0/dapper-Linux-loongarch64 > .dapper.tmp
+ 	@@chmod +x .dapper.tmp
+ 	@./.dapper.tmp -v
+ 	@mv .dapper.tmp .dapper
+diff --git a/package/Dockerfile b/package/Dockerfile
+index 53a7649..3573173 100644
+--- a/package/Dockerfile
++++ b/package/Dockerfile
+@@ -1,7 +1,6 @@
+-FROM registry.suse.com/bci/bci-base:15.5
++FROM cr.loongnix.cn/openanolis/anolisos:8.9
+ 
+-RUN zypper -n install iputils iproute2 nfs-client cifs-utils bind-utils e2fsprogs xfsprogs zip unzip && \
+-    rm -rf /var/cache/zypp/*
++RUN yum install -y iputils iproute nfs-utils cifs-utils bind-utils e2fsprogs xfsprogs zip unzip
+ 
+ COPY bin package/launch-manager package/nsmounter /usr/local/sbin/
+ 
+diff --git a/scripts/package b/scripts/package
+index f276177..475e420 100755
+--- a/scripts/package
++++ b/scripts/package
+@@ -10,8 +10,8 @@ SUFFIX=""
+ [ "${ARCH}" != "amd64" ] && SUFFIX="_${ARCH}"
+ 
+ TAG=${TAG:-${IMAGE_TAG_PREFIX}${SUFFIX}}
+-REPO=${REPO:-longhornio}
+-IMAGE=${IMAGE:-${REPO}/longhorn-manager:${TAG}}
++REPO=${REPO:-cr.loongnix.cn/longhornio}
++IMAGE=${IMAGE:-${REPO}/longhorn-manager:1.6.2}
+ 
+ if [ ! -e ./bin/longhorn-manager ]; then
+     ./scripts/build
