@@ -7,7 +7,7 @@ TAG          ?= 1.21-buster
 
 IMAGE  = $(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):$(TAG)
 ALIAS  = $(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):1.21
-LATEST = $(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):latest
+LATEST =
 
 default: image
 
@@ -20,10 +20,10 @@ push: alias
 	docker push $(IMAGE)
 	docker push $(ALIAS)
 
-	@if [ -n $(LATEST) ]; then \
-		docker tag $(IMAGE) $(LATEST); \
-		docker push $(LATEST); \
-	fi
+ifneq ($(LATEST),)
+	docker tag $(IMAGE) $(LATEST)
+	docker push $(LATEST)
+endif
 
 alias:
 	docker tag $(IMAGE) $(ALIAS)
