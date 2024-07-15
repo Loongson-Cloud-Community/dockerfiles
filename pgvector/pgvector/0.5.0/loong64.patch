@@ -1,0 +1,22 @@
+diff --git a/Dockerfile.loongarch64 b/Dockerfile.loongarch64
+new file mode 100644
+index 0000000..29309ed
+--- /dev/null
++++ b/Dockerfile.loongarch64
+@@ -0,0 +1,16 @@
++ARG PG_MAJOR=15
++FROM cr.loongnix.cn/library/postgres:15-alpine
++ARG PG_MAJOR
++
++COPY . /tmp/pgvector
++
++RUN cd /tmp/pgvector && \
++		apk add --no-cache --virtual .build-postgres-cache build-base && \
++		make clean && \
++		make OPTFLAGS="" && \
++		make install && \
++		mkdir -p /usr/share/doc/pgvector && \
++		cp LICENSE README.md /usr/share/doc/pgvector && \
++		rm -r /tmp/pgvector && \
++		apk del --no-network .build-postgres-cache
++	
