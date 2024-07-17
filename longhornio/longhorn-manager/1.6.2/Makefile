@@ -4,7 +4,7 @@ REGISTRY?=cr.loongnix.cn
 ORGANIZATION?=longhornio
 REPOSITORY?=longhorn-manager
 TAG?=1.6.2
-LATEST?=true
+LATEST?=false
 
 IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):$(TAG)
 LATEST_IMAGE=$(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):latest
@@ -19,9 +19,16 @@ PATCH=0001-port-to-loong64.patch
 
 default: image
 
-image: src/$(SOURCE)
-# Commands for building.
-	cd src/$(SOURCE) && bash scripts/package 
+image: go-env src/$(SOURCE)
+	cd src/$(SOURCE) && \
+	wget  https://github.com/Loongson-Cloud-Community/longhorn-manager/releases/download/v1.6.2/longhorn-manager && \
+	chmod +x longhorn-manager && mkdir bin && mv longhorn-manager bin/ && \
+	bash scripts/package 
+
+go-env:
+	cd /usr/local && \
+        wget http://ftp.loongnix.cn/toolchain/golang/go-1.22/abi1.0/go1.22.4.linux-loong64.tar.gz && tar xf go1.22.4.linux-loong64.tar.gz && \
+        export PATH=/usr/local/go/bin:$(PATH)
 
 src/$(SOURCE):
 	git clone -q -b v$(TAG) --depth=1 $(SOURCE_URL) $@
@@ -37,4 +44,4 @@ push:
 	fi
 
 clean:
-	rm -rf src
+	rm -rf src  /usr/local/go1.22.4.linux-loong64.tar.gz /usr/local/go
