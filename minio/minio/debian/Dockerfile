@@ -1,6 +1,6 @@
 FROM cr.loongnix.cn/library/golang:1.21-buster AS builder-mc
 ARG TARGETARCH
-ARG MC_VERSION=RELEASE.2024-07-03T20-17-25Z
+ARG MC_VERSION=RELEASE.2024-07-15T17-46-06Z
 
 WORKDIR /opt
 RUN set -ex \
@@ -14,7 +14,7 @@ RUN set -ex \
 
 FROM cr.loongnix.cn/library/golang:1.21-buster AS build
 ARG TARGETARCH
-ARG MINIO_VERSION=RELEASE.2024-07-04T14-25-45Z
+ARG MINIO_VERSION=RELEASE.2024-07-16T23-46-41Z
 
 WORKDIR /opt
 RUN set -ex \
