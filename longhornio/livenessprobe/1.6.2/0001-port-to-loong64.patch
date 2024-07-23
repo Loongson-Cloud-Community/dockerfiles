@@ -1,0 +1,36 @@
+diff --git a/Dockerfile b/Dockerfile
+index 64986b9..e2f7e8e 100644
+--- a/Dockerfile
++++ b/Dockerfile
+@@ -12,7 +12,8 @@
+ # See the License for the specific language governing permissions and
+ # limitations under the License.
+ 
+-FROM gcr.io/distroless/static:latest
++FROM cr.loongnix.cn/distroless/static:latest
++#FROM gcr.io/distroless/static:latest
+ LABEL maintainers="Kubernetes Authors"
+ LABEL description="CSI Driver liveness probe"
+ ARG binary=./bin/livenessprobe
+diff --git a/release-tools/build.make b/release-tools/build.make
+index bceab34..2b14ad8 100644
+--- a/release-tools/build.make
++++ b/release-tools/build.make
+@@ -27,7 +27,7 @@ CMDS_DIR ?= cmd
+ 
+ # This is the default. It can be overridden in the main Makefile after
+ # including build.make.
+-REGISTRY_NAME?=quay.io/k8scsi
++REGISTRY_NAME?=cr.loongnix.cn
+ 
+ # Can be set to -mod=vendor to ensure that the "vendor" directory is used.
+ GOFLAGS_VENDOR=
+@@ -148,7 +148,7 @@ DOCKER_BUILDX_CREATE_ARGS ?=
+ $(CMDS:%=push-multiarch-%): push-multiarch-%: check-pull-base-ref build-%
+ 	set -ex; \
+ 	export DOCKER_CLI_EXPERIMENTAL=enabled; \
+-	docker buildx create $(DOCKER_BUILDX_CREATE_ARGS) --use --name multiarchimage-buildertest --driver-opt image=moby/buildkit:v0.10.6; \
++	docker buildx create $(DOCKER_BUILDX_CREATE_ARGS) --use --name multiarchimage-buildertest --driver-opt image=cr.loongnix.cn/library/buildkit:0.12.3; \
+ 	trap "docker buildx rm multiarchimage-buildertest" EXIT; \
+ 	dockerfile_linux=$$(if [ -e ./$(CMDS_DIR)/$*/Dockerfile ]; then echo ./$(CMDS_DIR)/$*/Dockerfile; else echo Dockerfile; fi); \
+ 	dockerfile_windows=$$(if [ -e ./$(CMDS_DIR)/$*/Dockerfile.Windows ]; then echo ./$(CMDS_DIR)/$*/Dockerfile.Windows; else echo Dockerfile.Windows; fi); \
