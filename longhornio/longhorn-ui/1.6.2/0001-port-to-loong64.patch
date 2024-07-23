@@ -1,0 +1,48 @@
+diff --git a/Dockerfile b/Dockerfile
+index 2258ce8..4334cba 100644
+--- a/Dockerfile
++++ b/Dockerfile
+@@ -1,4 +1,4 @@
+-FROM node:16.16 as builder
++FROM cr.loongnix.cn/library/node:16.20 as builder
+ RUN apt-get update -y && \
+     apt-get install -y gettext-base
+ RUN mkdir /web
+@@ -8,13 +8,14 @@ RUN npm ci
+ ARG VERSION
+ ENV VERSION ${VERSION}
+ RUN envsubst '${VERSION}' < /web/src/utils/config.js > /web/src/utils/config.js.subst && mv /web/src/utils/config.js.subst /web/src/utils/config.js
+-RUN npm run build
++RUN npx update-browserslist-db@latest && npm run build
+ 
+-FROM registry.suse.com/bci/bci-base:15.5
++FROM cr.loongnix.cn/openanolis/anolisos:8.9
+ 
+-RUN zypper -n ref && \
+-	zypper -n install curl libxml2 bash gettext shadow nginx && \
+-    rm -f /bin/sh && ln -s /bin/bash /bin/sh
++RUN yum update -y && yum install -y curl libxml2 bash gettext shadow-utils nginx
++#RUN zypper -n ref && \
++#	zypper -n install curl libxml2 bash gettext shadow nginx && \
++#    rm -f /bin/sh && ln -s /bin/bash /bin/sh
+ 
+ RUN mkdir -p web/dist
+ WORKDIR /web
+diff --git a/Makefile b/Makefile
+index ad2115f..03474d3 100644
+--- a/Makefile
++++ b/Makefile
+@@ -1,11 +1,11 @@
+ VERSION = $(shell ./scripts/version)
+ 
+-REPO = longhornio
++REPO = cr.loongnix.cn/longhornio
+ NAME = longhorn-ui
+ INSTANCE = default
+ LONHORN_MANAGER_IP = http://localhost:9500
+ PORT = 8000
+-IMAGE = $(REPO)/$(NAME):$(VERSION)
++IMAGE = $(REPO)/$(NAME):1.6.2
+ 
+ BASE_IMAGE = $(shell grep FROM Dockerfile | grep -vi ' AS ' | awk '{print $$2}' )
+ 
