@@ -1,0 +1,57 @@
+diff --git a/package/Dockerfile b/package/Dockerfile
+index 898ff49..5b3a845 100644
+--- a/package/Dockerfile
++++ b/package/Dockerfile
+@@ -1,22 +1,17 @@
+-FROM registry.suse.com/bci/bci-base:15.5
++FROM cr.loongnix.cn/openanolis/anolisos:8.9
+ 
+ ARG ARCH=amd64
+ 
+-RUN zypper -n addrepo --refresh https://download.opensuse.org/repositories/system:/snappy/SLE_15/system:snappy.repo && \
+-    zypper -n addrepo --refresh https://download.opensuse.org/repositories/network:/utilities/SLE_15_SP5/network:utilities.repo && \
+-    zypper --gpg-auto-import-keys ref
+-
+-RUN zypper -n install kmod curl wget nfs-client nfs4-acl-tools fuse \
+-	librdmacm1 librdmacm-utils libibverbs perl-Config-General libaio-devel sg3_utils \
+-     iputils telnet iperf qemu-tools iproute2 e2fsprogs e2fsprogs-devel xfsprogs xfsprogs-devel
+-
++RUN yum install -y kmod curl wget nfs-utils nfs4-acl-tools fuse \
++	librdmacm librdmacm-utils libibverbs perl-Config-AutoConf libaio-devel sg3_utils \
++     iputils telnet iperf3 qemu-kvm iproute e2fsprogs e2fsprogs-devel xfsprogs xfsprogs-devel
+ COPY bin/backing-image-manager /usr/local/bin/
+ 
+ VOLUME /usr/local/bin
+ 
+ # Add Tini
+ ENV TINI_VERSION v0.19.0
+-ADD https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini-${ARCH} /tini
++ADD https://github.com/Loongson-Cloud-Community/tini/releases/download/v0.19.0/tini-static /tini
+ RUN chmod +x /tini
+ ENTRYPOINT ["/tini", "--"]
+ 
+diff --git a/scripts/package b/scripts/package
+index 1297c98..dba8128 100755
+--- a/scripts/package
++++ b/scripts/package
+@@ -17,6 +17,9 @@ case $(uname -m) in
+   s390x)
+     ARCH=s390x
+     ;;
++  loongarch64)
++    ARCH=loong64
++    ;;
+   *)
+     echo "$(uname -a): unsupported architecture"
+     exit 1
+@@ -28,8 +31,8 @@ fi
+ 
+ APIVERSION=`./bin/backing-image-manager version --client-only|jq ".clientVersion.backingImageManagerAPIVersion"`
+ TAG="v${APIVERSION}_`date -u +%Y%m%d`"
+-REPO=${REPO:-longhornio}
+-IMAGE=${REPO}/${PROJECT}:${TAG}
++REPO=${REPO:-cr.loongnix.cn/longhornio}
++IMAGE=${REPO}/${PROJECT}:1.6.2
+ 
+ docker build --build-arg ARCH=${ARCH} --no-cache -t ${IMAGE} -f package/Dockerfile .
+ 
