@@ -1,18 +1,14 @@
-From 01c54783d51cd28ed6a04f2465b9f7212b2a426a Mon Sep 17 00:00:00 2001
-From: zhangguanzhang <zhangguanzhang@qq.com>
-Date: Mon, 4 Dec 2023 14:31:04 +0800
-Subject: [PATCH] support loong64
-
----
- Dockerfile | 34 +++++++---------------------------
- Makefile   | 11 ++++++-----
- 2 files changed, 13 insertions(+), 32 deletions(-)
-
 diff --git a/Dockerfile b/Dockerfile
-index fc73ee1d65..43b03089df 100644
+index fc73ee1..f2eb7b4 100644
 --- a/Dockerfile
 +++ b/Dockerfile
-@@ -10,26 +10,6 @@ ARG JS_SRC=js-builder
+@@ -1,5 +1,3 @@
+-# syntax=docker/dockerfile:1
+-
+ ARG BASE_IMAGE=alpine:3.18.3
+ ARG JS_IMAGE=node:18-alpine3.18
+ ARG JS_PLATFORM=linux/amd64
+@@ -10,26 +8,6 @@ ARG JS_SRC=js-builder
  
  FROM --platform=${JS_PLATFORM} ${JS_IMAGE} as js-builder
  
@@ -39,16 +35,18 @@ index fc73ee1d65..43b03089df 100644
  FROM ${GO_IMAGE} as go-builder
  
  ARG COMMIT_SHA=""
-@@ -49,7 +29,7 @@ COPY go.* ./
+@@ -48,8 +26,8 @@ WORKDIR /tmp/grafana
+ COPY go.* ./
  COPY .bingo .bingo
  
- RUN go mod download
+-RUN go mod download
 -RUN if [[ "$BINGO" = "true" ]]; then \
++RUN export GOPROXY=https://goproxy.cn && go mod download
 +RUN if [ "$BINGO" = "true" ]; then \
        go install github.com/bwplotka/bingo@latest && \
        bingo get -v; \
      fi
-@@ -72,16 +52,16 @@ ENV BUILD_BRANCH=${BUILD_BRANCH}
+@@ -72,16 +50,16 @@ ENV BUILD_BRANCH=${BUILD_BRANCH}
  
  RUN make build-go GO_BUILD_TAGS=${GO_BUILD_TAGS} WIRE_TAGS=${WIRE_TAGS}
  
@@ -70,7 +68,7 @@ index fc73ee1d65..43b03089df 100644
  
  # helpers for COPY --from
  FROM ${GO_SRC} as go-src
-@@ -166,7 +146,7 @@ RUN if [ ! $(getent group "$GF_GID") ]; then \
+@@ -166,7 +144,7 @@ RUN if [ ! $(getent group "$GF_GID") ]; then \
      chmod -R 777 "$GF_PATHS_DATA" "$GF_PATHS_HOME/.aws" "$GF_PATHS_LOGS" "$GF_PATHS_PLUGINS" "$GF_PATHS_PROVISIONING"
  
  COPY --from=go-src /tmp/grafana/bin/grafana* /tmp/grafana/bin/*/grafana* ./bin/
@@ -80,7 +78,7 @@ index fc73ee1d65..43b03089df 100644
  
  EXPOSE 3000
 diff --git a/Makefile b/Makefile
-index 54287b0ff0..c998f84389 100644
+index 54287b0..c998f84 100644
 --- a/Makefile
 +++ b/Makefile
 @@ -212,25 +212,26 @@ shellcheck: $(SH_FILES) ## Run checks for shell scripts.
@@ -123,6 +121,3 @@ index 54287b0ff0..c998f84389 100644
  	$(DOCKER_BUILD_ARGS)
  
  ##@ Services
--- 
-2.25.1
-
