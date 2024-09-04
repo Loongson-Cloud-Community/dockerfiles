@@ -1,18 +1,14 @@
-From 936538b789b495b4adf20bc9c32481acae0ddacb Mon Sep 17 00:00:00 2001
-From: zhangguanzhang <zhangguanzhang@qq.com>
-Date: Mon, 25 Mar 2024 10:35:34 +0800
-Subject: [PATCH] support loong64
-
----
- Dockerfile | 37 ++++++++-----------------------------
- Makefile   |  7 ++++---
- 2 files changed, 12 insertions(+), 32 deletions(-)
-
 diff --git a/Dockerfile b/Dockerfile
-index 5c1564966b..e6374752cc 100644
+index 5c156496..a65340ee 100644
 --- a/Dockerfile
 +++ b/Dockerfile
-@@ -10,27 +10,6 @@ ARG JS_SRC=js-builder
+@@ -1,5 +1,3 @@
+-# syntax=docker/dockerfile:1
+-
+ ARG BASE_IMAGE=alpine:3.19.1
+ ARG JS_IMAGE=node:20-alpine
+ ARG JS_PLATFORM=linux/amd64
+@@ -10,30 +8,9 @@ ARG JS_SRC=js-builder
  
  FROM --platform=${JS_PLATFORM} ${JS_IMAGE} as js-builder
  
@@ -39,8 +35,12 @@ index 5c1564966b..e6374752cc 100644
 -RUN yarn build
  
  FROM ${GO_IMAGE} as go-builder
- 
-@@ -54,7 +33,7 @@ COPY .bingo .bingo
+-
++ARG GOPROXY=https://goproxy.cn
+ ARG COMMIT_SHA=""
+ ARG BUILD_BRANCH=""
+ ARG GO_BUILD_TAGS="oss"
+@@ -54,7 +31,7 @@ COPY .bingo .bingo
  COPY pkg/util/xorm/go.* pkg/util/xorm/
  
  RUN go mod download
@@ -49,7 +49,7 @@ index 5c1564966b..e6374752cc 100644
        go install github.com/bwplotka/bingo@latest && \
        bingo get -v; \
      fi
-@@ -77,16 +56,16 @@ ENV BUILD_BRANCH=${BUILD_BRANCH}
+@@ -77,16 +54,16 @@ ENV BUILD_BRANCH=${BUILD_BRANCH}
  
  RUN make build-go GO_BUILD_TAGS=${GO_BUILD_TAGS} WIRE_TAGS=${WIRE_TAGS}
  
@@ -72,7 +72,7 @@ index 5c1564966b..e6374752cc 100644
  
  # helpers for COPY --from
  FROM ${GO_SRC} as go-src
-@@ -171,7 +150,7 @@ RUN if [ ! $(getent group "$GF_GID") ]; then \
+@@ -171,7 +148,7 @@ RUN if [ ! $(getent group "$GF_GID") ]; then \
      chmod -R 777 "$GF_PATHS_DATA" "$GF_PATHS_HOME/.aws" "$GF_PATHS_LOGS" "$GF_PATHS_PLUGINS" "$GF_PATHS_PROVISIONING"
  
  COPY --from=go-src /tmp/grafana/bin/grafana* /tmp/grafana/bin/*/grafana* ./bin/
@@ -82,7 +82,7 @@ index 5c1564966b..e6374752cc 100644
  
  EXPOSE 3000
 diff --git a/Makefile b/Makefile
-index 25904afef5..ab1b5cfe1c 100644
+index 25904afe..ab1b5cfe 100644
 --- a/Makefile
 +++ b/Makefile
 @@ -230,19 +230,20 @@ shellcheck: $(SH_FILES) ## Run checks for shell scripts.
@@ -109,6 +109,3 @@ index 25904afef5..ab1b5cfe1c 100644
  	$(DOCKER_BUILD_ARGS)
  
  build-docker-full-ubuntu: ## Build Docker image based on Ubuntu for development.
--- 
-2.25.1
-
