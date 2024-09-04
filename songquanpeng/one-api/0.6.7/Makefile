@@ -20,7 +20,7 @@ image:
 
 push:
 	docker push $(IMAGE)
-	#latest image
+	
 	@if [ $(LATEST) = "true" ]; \
 		then \
 		docker tag $(IMAGE) $(LATEST_IMAGE); \
