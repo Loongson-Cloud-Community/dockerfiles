@@ -1,0 +1,170 @@
+# Stage 1: Build PHP
+FROM cr.loongnix.cn/library/debian:buster-slim AS build
+
+# prevent Debian's PHP packages from being installed
+RUN set -eux; \
+    { \
+        echo 'Package: php*'; \
+        echo 'Pin: release *'; \
+        echo 'Pin-Priority: -1'; \
+    } > /etc/apt/preferences.d/no-debian-php
+COPY docker-php-source /usr/local/bin
+# dependencies required for running "phpize"
+ENV PHPIZE_DEPS \
+        autoconf \
+        dpkg-dev \
+        file \
+        g++ \
+        gcc \
+        libc-dev \
+        make \
+        pkg-config \
+        re2c
+
+# persistent / runtime deps
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+        $PHPIZE_DEPS \
+        ca-certificates \
+        curl \
+	wget \
+        xz-utils \
+        gnupg dirmngr \
+        libargon2-dev \
+        libcurl4-openssl-dev \
+        libedit-dev \
+        libsodium-dev \
+        libsqlite3-dev \
+        libssl-dev \
+        libxml2-dev \
+        zlib1g-dev \
+    ; \
+    rm -rf /var/lib/apt/lists/*
+
+ENV PHP_INI_DIR /usr/local/etc/php
+RUN set -eux; \
+    mkdir -p "$PHP_INI_DIR/conf.d"; \
+    mkdir -p /usr/src; \
+    cd /usr/src; \
+    \
+    # Download and verify PHP source code
+    curl -fsSL -o php.tar.xz "https://www.php.net/get/php-7.3.8.tar.xz/from/this/mirror"; \
+    curl -fsSL -o php.tar.xz.asc "https://www.php.net/get/php-7.3.8.tar.xz.asc/from/this/mirror"; \
+    export GNUPGHOME="$(mktemp -d)"; \
+#    gpg --batch --keyserver ha.pool.sks-keyservers.net --recv-keys CBAF69F173A0FEA4B537F470D66C9593118BCCB6 F38252826ACD957EF380D39F2F7956BC5DA04B5D; \
+#    gpg --batch --verify php.tar.xz.asc php.tar.xz; \
+#    gpgconf --kill all; \
+#    rm -rf "$GNUPGHOME"; \
+#    \
+    # Extract and build PHP
+    tar -xf php.tar.xz; \
+    cd php-7.3.8; \
+    gnuArch="$(dpkg-architecture --query DEB_BUILD_GNU_TYPE)"; \
+    debMultiarch="$(dpkg-architecture --query DEB_BUILD_MULTIARCH)"; \
+    wget -O config.guess 'https://git.savannah.gnu.org/gitweb/?p=config.git;a=blob_plain;f=config.guess;hb=HEAD'; \
+     wget -O config.sub 'https://git.savannah.gnu.org/gitweb/?p=config.git;a=blob_plain;f=config.sub;hb=HEAD'     ; \
+    ./configure \
+        --build="$gnuArch" \
+	--with-config-file-path="$PHP_INI_DIR" \
+        --with-config-file-scan-dir="$PHP_INI_DIR/conf.d" \
+        --enable-option-checking=fatal \
+        --with-mhash \
+        --enable-ftp \
+        --enable-mbstring \
+        --enable-mysqlnd \
+        --with-password-argon2 \
+        --with-sodium=shared \
+        --with-curl \
+        --with-libedit \
+        --with-openssl \
+        --with-zlib \
+	$(test "$gnuArch" = 'loongarch64-linux-gnu' && echo '--without-pcre-jit') \
+        --with-libdir="lib/$debMultiarch" \
+         \
+        ${PHP_EXTRA_CONFIGURE_ARGS:-} \
+#        --with-libdir="lib/$(dpkg-architecture --query DEB_BUILD_MULTIARCH)" \
+#        --with-apxs2 \
+    ; \
+    make -j "$(nproc)"; \
+    make install; \
+    cp -v php.ini-* "$PHP_INI_DIR/"; \
+    make clean; \
+    docker-php-source delete; \
+    \
+    ldd /usr/local/bin/php | awk '/=>/ { print $(NF-1) }' | sort -u > /usr/src/libs.txt; \
+    mkdir -p /usr/src/libs; \
+    xargs -a /usr/src/libs.txt -I{} cp --parents {} /usr/src/libs/; \
+    # Clean up unnecessary files and packages
+    rm -rf /var/lib/apt/lists/*; \
+    pecl update-channels; \
+    rm -rf /tmp/pear ~/.pearrc; \
+    php --version
+
+# Stage 2: Final image with Apache and PHP
+FROM cr.loongnix.cn/library/debian:buster-slim
+
+# Set environment variables
+ENV PHP_INI_DIR /usr/local/etc/php
+ENV APACHE_CONFDIR /etc/apache2
+ENV APACHE_ENVVARS $APACHE_CONFDIR/envvars
+
+# Install runtime dependencies and Apache
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends apache2 libsodium-dev; \
+    rm -rf /var/lib/apt/lists/*; \
+    \
+    # Setup directories and permissions
+    mkdir -p /var/www/html; \
+    chown www-data:www-data /var/www/html; \
+    chmod 777 /var/www/html; \
+    \
+    # Delete default index.html
+    rm -rvf /var/www/html/*; \
+    \
+    # Logs should go to stdout / stderr
+    ln -sfT /dev/stderr /var/log/apache2/error.log; \
+    ln -sfT /dev/stdout /var/log/apache2/access.log; \
+    ln -sfT /dev/stdout /var/log/apache2/other_vhosts_access.log; \
+    \
+    # Enable Apache modules
+    a2dismod mpm_event && a2enmod mpm_prefork; \
+    { \
+        echo '<FilesMatch \.php$>'; \
+        echo '\tSetHandler application/x-httpd-php'; \
+        echo '</FilesMatch>'; \
+        echo; \
+        echo 'DirectoryIndex disabled'; \
+        echo 'DirectoryIndex index.php index.html'; \
+        echo; \
+        echo '<Directory /var/www/>'; \
+        echo '\tOptions -Indexes'; \
+        echo '\tAllowOverride All'; \
+        echo '</Directory>'; \
+    } | tee "$APACHE_CONFDIR/conf-available/docker-php.conf" \
+    && a2enconf docker-php; 
+    # Copy PHP from the build stage
+    COPY --from=build /usr/local /usr/local
+    COPY --from=build /usr/src /usr/src
+    COPY --from=build /usr/src/libs/lib/loongarch64-linux-gnu/libbsd.so.0 /lib/loongarch64-linux-gnu/
+    COPY --from=build /usr/src/libs/lib/loongarch64-linux-gnu/libargon2.so.1 /lib/loongarch64-linux-gnu/
+    COPY --from=build /usr/src/libs/lib/loongarch64-linux-gnu/libedit.so.2 /lib/loongarch64-linux-gnu/
+#    COPY --from=build /usr/src/libs/lib/loongarch64-linux-gnu/libsodium.so.23 /lib/loongarch64-linux-gnu/
+    # Copy entrypoints and set permissions
+    COPY docker-php-ext-* docker-php-entrypoint /usr/local/bin/ 
+
+    RUN docker-php-ext-enable sodium
+    
+    RUN { echo '#!/bin/sh'; echo 'exec pkg-config "$@" freetype2'; } > /usr/local/bin/freetype-config && chmod +x /usr/local/bin/freetype-config
+
+    ENTRYPOINT ["docker-php-entrypoint"]
+        
+    COPY apache2-foreground /usr/local/bin/ 
+    
+    WORKDIR /var/www/html
+
+    EXPOSE 80
+
+    CMD ["apache2-foreground"]
+
