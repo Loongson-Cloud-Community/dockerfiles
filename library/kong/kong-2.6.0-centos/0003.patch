@@ -1,0 +1,25 @@
+From c0048fd37274cc055b8fea2c08cd64c8d516fbc4 Mon Sep 17 00:00:00 2001
+From: yzewei <yangzewei@loongson.cn>
+Date: Fri, 28 Jun 2024 17:25:30 +0800
+Subject: [PATCH] addl
+
+Signed-off-by: yzewei <yangzewei@loongson.cn>
+---
+ kong/meta.lua | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/kong/meta.lua b/kong/meta.lua
+index a3b8921..d9c18f0 100644
+--- a/kong/meta.lua
++++ b/kong/meta.lua
+@@ -20,6 +20,6 @@ return {
+   -- third-party dependencies' required version, as they would be specified
+   -- to lua-version's `set()` in the form {from, to}
+   _DEPENDENCIES = {
+-    nginx = { "1.19.3.1", "1.19.9.1" },
++    nginx = { "1.19.3.1", "1.25.3.1" },
+   }
+ }
+-- 
+2.38.1
+
