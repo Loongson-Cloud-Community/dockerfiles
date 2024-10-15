@@ -1,0 +1,385 @@
+diff --git a/Makefile b/Makefile
+index 0f4a4fe..59b5155 100644
+--- a/Makefile
++++ b/Makefile
+@@ -23,9 +23,9 @@ endif
+ VARS_OLD = $(filter-out $(MAKEFILE_VARS),$(.VARIABLES))
+ 
+ VERBOSE?=false
+-RESTY_IMAGE_BASE?=ubuntu
+-RESTY_IMAGE_TAG?=20.04
+-PACKAGE_TYPE?=deb
++RESTY_IMAGE_BASE?=centos
++RESTY_IMAGE_TAG?=8.4.0
++PACKAGE_TYPE?=rpm
+ PACKAGE_TYPE?=debian
+ 
+ SSL_PROVIDER?=openssl
+@@ -138,9 +138,11 @@ else ifeq ($(RESTY_IMAGE_BASE),alpine)
+ 	CACHE_COMMAND=false
+ 	BUILDX=true
+ endif
++CACHE=true
++BUILDX=false
+ 
+ ifeq ($(BUILDX),false)
+-	DOCKER_COMMAND?=docker buildx build --progress=$(DOCKER_BUILD_PROGRESS) $(KONG_EE_PORTS_FLAG) --platform="linux/amd64" $(DOCKER_LABELS)
++	DOCKER_COMMAND?=docker build
+ else
+ 	DOCKER_COMMAND?=docker buildx build --progress=$(DOCKER_BUILD_PROGRESS) $(KONG_EE_PORTS_FLAG) --push --platform="linux/amd64,linux/arm64" $(DOCKER_LABELS)
+ endif
+@@ -168,6 +170,9 @@ AWS_VPC ?= vpc-0316062370efe1cff
+ # us-east-1 bionic 18.04 amd64 hvm-ssd 20220308
+ AWS_AMI ?= ami-0d73480446600f555
+ 
++HTTP_PROXY=$(shell echo $$http_proxy)
++HTTPS_PROXY=$(shell echo $$https_proxy)
++
+ # this prints out variables defined within this Makefile by filtering out
+ # from pre-existing ones ($VARS_OLD), then echoing both the unexpanded variable
+ # value (within single quotes) and the expanded variable value (without quotes)
+@@ -225,7 +230,6 @@ ifeq ($(RESTY_IMAGE_BASE),src)
+ 	@echo "nothing to be done"
+ else
+ 	-rm github-token
+-	$(CACHE_COMMAND) $(DOCKER_REPOSITORY):openresty-$(PACKAGE_TYPE)-$(DOCKER_OPENRESTY_SUFFIX) || \
+ 	( \
+ 		echo $$GITHUB_TOKEN > github-token; \
+ 		docker pull --quiet $$(sed -ne 's;FROM \(.*$(PACKAGE_TYPE).*\) as.*;\1;p' dockerfiles/Dockerfile.openresty); \
+@@ -251,6 +255,8 @@ else
+ 		--build-arg OPENRESTY_PATCHES=$(OPENRESTY_PATCHES) \
+ 		--build-arg DEBUG=$(DEBUG) \
+ 		--build-arg BUILDKIT_INLINE_CACHE=1 \
++		--build-arg http_proxy=$(HTTP_PROXY) \
++		--build-arg https_proxy=$(HTTPS_PROXY) \
+ 		-t $(DOCKER_REPOSITORY):openresty-$(PACKAGE_TYPE)-$(DOCKER_OPENRESTY_SUFFIX) . && \
+ 		( \
+ 			rm github-token || true \
+@@ -265,7 +271,7 @@ else
+ package-kong: actual-package-kong
+ endif
+ 
+-actual-package-kong: cleanup setup-build
++actual-package-kong: setup-build
+ ifeq ($(DEBUG),1)
+ 	exit 1
+ endif
+@@ -285,6 +291,8 @@ endif
+ 	--build-arg PACKAGE_PROVIDES=$(PACKAGE_PROVIDES) \
+ 	--build-arg PACKAGE_REPLACES=$(PACKAGE_REPLACES) \
+ 	--build-arg SSL_PROVIDER=$(SSL_PROVIDER) \
++	--build-arg http_proxy=$(HTTP_PROXY) \
++	--build-arg https_proxy=$(HTTPS_PROXY) \
+ 	--build-arg PRIVATE_KEY_FILE=kong.private.gpg-key.asc \
+ 	--build-arg PRIVATE_KEY_PASSPHRASE="$(PRIVATE_KEY_PASSPHRASE)" \
+ 	-t $(DOCKER_REPOSITORY):kong-packaged-$(PACKAGE_TYPE)-$(DOCKER_KONG_SUFFIX) .
+@@ -318,7 +326,6 @@ kong-ci-cache-key:
+ 
+ actual-build-kong: setup-kong-source
+ 	touch id_rsa.private
+-	$(CACHE_COMMAND) $(DOCKER_REPOSITORY):kong-$(PACKAGE_TYPE)-$(DOCKER_KONG_SUFFIX) || \
+ 	( $(MAKE) build-openresty && \
+ 	-rm github-token; \
+ 	echo $$GITHUB_TOKEN > github-token; \
+@@ -328,6 +335,8 @@ actual-build-kong: setup-kong-source
+ 	--build-arg DOCKER_REPOSITORY=$(DOCKER_REPOSITORY) \
+ 	--build-arg DOCKER_OPENRESTY_SUFFIX=$(DOCKER_OPENRESTY_SUFFIX) \
+ 	--build-arg ENABLE_LJBC=$(ENABLE_LJBC) \
++	--build-arg http_proxy=$(HTTP_PROXY) \
++	--build-arg https_proxy=$(HTTPS_PROXY) \
+ 	--build-arg BUILDKIT_INLINE_CACHE=1 \
+ 	--build-arg SSL_PROVIDER=$(SSL_PROVIDER) \
+ 	-t $(DOCKER_REPOSITORY):kong-$(PACKAGE_TYPE)-$(DOCKER_KONG_SUFFIX) . )
+diff --git a/build-kong.sh b/build-kong.sh
+index af75650..7093c45 100755
+--- a/build-kong.sh
++++ b/build-kong.sh
+@@ -1,7 +1,6 @@
+ #!/bin/bash
+ 
+ set -e
+-
+ source /common.sh
+ 
+ ROCKS_CONFIG=$(mktemp)
+@@ -64,7 +63,7 @@ pushd /kong
+     cp kong/pluginsocket.proto /tmp/build/usr/local/kong/include/kong
+   fi
+ 
+-  with_backoff curl -fsSLo /tmp/protoc.zip https://github.com/protocolbuffers/protobuf/releases/download/v3.19.0/protoc-3.19.0-linux-x86_64.zip
++  with_backoff curl -fsSLo /tmp/protoc.zip https://github.com/Loongson-Cloud-Community/protobuf/releases/download/v3.19.0/protoc-3.19.0-linux-loongarch_64.zip
+   unzip -o /tmp/protoc.zip -d /tmp/protoc 'include/*'
+   cp -r /tmp/protoc/include/google /tmp/build/usr/local/kong/include/
+ popd
+diff --git a/dockerfiles/Dockerfile.kong b/dockerfiles/Dockerfile.kong
+index 69f8138..c38aa99 100644
+--- a/dockerfiles/Dockerfile.kong
++++ b/dockerfiles/Dockerfile.kong
+@@ -6,6 +6,9 @@ ARG DOCKER_REPOSITORY
+ 
+ FROM ${DOCKER_REPOSITORY}:openresty-${PACKAGE_TYPE}-${DOCKER_OPENRESTY_SUFFIX}
+ 
++ARG http_proxy
++ARG https_proxy
++
+ ARG ENABLE_LJBC=
+ ENV ENABLE_LJBC $ENABLE_LJBC
+ 
+@@ -22,4 +25,5 @@ RUN --mount=type=secret,id=github-token if [ -f "/distribution/post-install.sh"
+ WORKDIR /kong
+ COPY openresty-build-tools/common.sh /common.sh
+ COPY build-kong.sh /build-kong.sh
++RUN git config --global url."https://".insteadOf git://
+ RUN /build-kong.sh
+diff --git a/dockerfiles/Dockerfile.openresty b/dockerfiles/Dockerfile.openresty
+index 85e9ea9..2923370 100644
+--- a/dockerfiles/Dockerfile.openresty
++++ b/dockerfiles/Dockerfile.openresty
+@@ -4,9 +4,9 @@ ARG DOCKER_BASE_SUFFIX
+ ARG DOCKER_REPOSITORY
+ ARG PACKAGE_TYPE
+ 
+-FROM kong/kong-build-tools:apk-1.8.1 as APK
+-FROM kong/kong-build-tools:deb-1.8.1 as DEB
+-FROM kong/kong-build-tools:rpm-1.8.1 as RPM
++#FROM kong/kong-build-tools:apk-1.8.1 as APK
++#FROM kong/kong-build-tools:deb-1.8.1 as DEB
++FROM cr.loongnix.cn/kong/kong-build-tools:rpm-1.8.1 as RPM
+ 
+ FROM $PACKAGE_TYPE
+ 
+diff --git a/dockerfiles/Dockerfile.package b/dockerfiles/Dockerfile.package
+index 26af7db..df7aacc 100644
+--- a/dockerfiles/Dockerfile.package
++++ b/dockerfiles/Dockerfile.package
+@@ -5,7 +5,7 @@ ARG DOCKER_REPOSITORY
+ 
+ FROM ${DOCKER_REPOSITORY}:kong-${PACKAGE_TYPE}-${DOCKER_KONG_SUFFIX} as KONG
+ 
+-FROM kong/fpm:0.5.1 as FPM
++FROM cr.loongnix.cn/kong/fpm:0.5.1 as FPM
+ 
+ COPY --from=KONG /tmp/build /tmp/build
+ COPY fpm-entrypoint.sh sign-rpm.exp .rpmmacros /
+@@ -46,5 +46,5 @@ COPY kong.logrotate /tmp/build/etc/kong/kong.logrotate
+ 
+ RUN /fpm-entrypoint.sh
+ 
+-FROM alpine
++FROM cr.loongnix.cn/library/alpine:3.11
+ COPY --from=FPM /output /output
+diff --git a/id_rsa b/id_rsa
+deleted file mode 120000
+index 32b331c..0000000
+--- a/id_rsa
++++ /dev/null
+@@ -1 +0,0 @@
+-id_rsa.private
+\ No newline at end of file
+diff --git a/id_rsa b/id_rsa
+new file mode 100644
+index 0000000..e69de29
+diff --git a/openresty-build-tools/kong-ngx-build b/openresty-build-tools/kong-ngx-build
+index 73b2cb6..0302e5a 100755
+--- a/openresty-build-tools/kong-ngx-build
++++ b/openresty-build-tools/kong-ngx-build
+@@ -1,6 +1,6 @@
+ #!/usr/bin/env bash
+ 
+-set -e
++set -ex
+ 
+ SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+ source $SCRIPT_DIR/common.sh
+@@ -257,7 +257,9 @@ main() {
+       package_architecture=x86_64
+       if [ "$(arch)" == "aarch64" ]; then
+         package_architecture=aarch64
+-      fi
++      #elif [ "$(arch)" == "loongarch64" ]; then
++      #  package_architecture=loongarch64
++      fi 
+       with_backoff curl --fail -sSLo openssl.tar.gz https://github.com/Kong/kong-openssl/releases/download/$KONG_OPENSSL_VER/$package_architecture-$OSTYPE.tar.gz
+       tar -C /tmp/build -xvf openssl.tar.gz
+     elif [ "$OPENSSL_VER" != 0 -a "$SSL_PROVIDER" = "openssl" ]; then
+@@ -324,6 +326,16 @@ main() {
+           notice "Downloaded: $(sha256sum "openresty-$OPENRESTY_VER.tar.gz")"
+         fi
+         tar -xzf openresty-$OPENRESTY_VER.tar.gz
++        pushd openresty-$OPENRESTY_VER/bundle 
++		if [ -e LuaJIT-2.1-20201027 ];then
++        	rm -r LuaJIT-2.1-20201027 
++		fi
++        https_proxy=http://10.2.10.197:7890 git clone -b v2.1-agentzh-larch64 --depth 1 https://github.com/loongson/luajit2.git 
++        mv luajit2 LuaJIT-2.1-20201027
++		if [ -e LuaJIT-2.1-20210510 ];then
++	        rm -r LuaJIT-2.1-20210510 
++		fi
++        popd
+         ln -s openresty-$OPENRESTY_VER openresty
+ 
+         # use unreleased version of lua-resty-dns
+@@ -368,6 +380,10 @@ main() {
+           notice "Downloaded: $(sha256sum "pcre-${PCRE_VER}.tar.gz")"
+         fi
+         tar -xzf pcre-${PCRE_VER}.tar.gz
++        pushd pcre-${PCRE_VER}
++          wget -O ./config.sub "git.savannah.gnu.org/gitweb/?p=config.git;a=blob_plain;f=config.sub;hb=HEAD"
++          wget -O ./config.guess "git.savannah.gnu.org/gitweb/?p=config.git;a=blob_plain;f=config.guess;hb=HEAD"
++        popd
+         ln -s pcre-${PCRE_VER} pcre
+       fi
+     fi
+@@ -769,7 +785,7 @@ main() {
+ 
+         OPENRESTY_OPTS=(
+           "--prefix=$OPENRESTY_PREFIX"
+-          "--with-pcre-jit"
++          #"--with-pcre-jit"
+           "--with-http_ssl_module"
+           "--with-http_sub_module"
+           "--with-http_realip_module"
+diff --git a/openresty-patches/patches/1.19.9.1/LuaJIT-2.1-20210510_01-ffi-arm64-macos-fix-vararg-call-handling.patch b/openresty-patches/patches/1.19.9.1/LuaJIT-2.1-20210510_01-ffi-arm64-macos-fix-vararg-call-handling.patch
+deleted file mode 100644
+index b2037cc..0000000
+--- a/openresty-patches/patches/1.19.9.1/LuaJIT-2.1-20210510_01-ffi-arm64-macos-fix-vararg-call-handling.patch
++++ /dev/null
+@@ -1,62 +0,0 @@
+-From 521b367567dc5d91d7f9ae29c257998953e24e53 Mon Sep 17 00:00:00 2001
+-From: Mike Pall <mike>
+-Date: Sun, 2 May 2021 22:11:05 +0200
+-Subject: [PATCH] FFI/ARM64/OSX: Fix vararg call handling.
+-
+-Thanks to Igor Munkin.
+----
+- LuaJIT-2.1-20210510/src/lj_ccall.c     | 8 ++++----
+- LuaJIT-2.1-20210510/src/lj_ccallback.c | 2 +-
+- 2 files changed, 5 insertions(+), 5 deletions(-)
+-
+-diff --git a/LuaJIT-2.1-20210510/src/lj_ccall.c b/LuaJIT-2.1-20210510/src/lj_ccall.c
+-index a91ffc7e..3c029823 100644
+---- a/LuaJIT-2.1-20210510/src/lj_ccall.c
+-+++ b/LuaJIT-2.1-20210510/src/lj_ccall.c
+-@@ -334,7 +334,7 @@
+-   isfp = sz == 2*sizeof(float) ? 2 : 1;
+- 
+- #define CCALL_HANDLE_REGARG \
+--  if (LJ_TARGET_IOS && isva) { \
+-+  if (LJ_TARGET_OSX && isva) { \
+-     /* IOS: All variadic arguments are on the stack. */ \
+-   } else if (isfp) {  /* Try to pass argument in FPRs. */ \
+-     int n2 = ctype_isvector(d->info) ? 1 : \
+-@@ -345,10 +345,10 @@
+-       goto done; \
+-     } else { \
+-       nfpr = CCALL_NARG_FPR;  /* Prevent reordering. */ \
+--      if (LJ_TARGET_IOS && d->size < 8) goto err_nyi; \
+-+      if (LJ_TARGET_OSX && d->size < 8) goto err_nyi; \
+-     } \
+-   } else {  /* Try to pass argument in GPRs. */ \
+--    if (!LJ_TARGET_IOS && (d->info & CTF_ALIGN) > CTALIGN_PTR) \
+-+    if (!LJ_TARGET_OSX && (d->info & CTF_ALIGN) > CTALIGN_PTR) \
+-       ngpr = (ngpr + 1u) & ~1u;  /* Align to regpair. */ \
+-     if (ngpr + n <= maxgpr) { \
+-       dp = &cc->gpr[ngpr]; \
+-@@ -356,7 +356,7 @@
+-       goto done; \
+-     } else { \
+-       ngpr = maxgpr;  /* Prevent reordering. */ \
+--      if (LJ_TARGET_IOS && d->size < 8) goto err_nyi; \
+-+      if (LJ_TARGET_OSX && d->size < 8) goto err_nyi; \
+-     } \
+-   }
+- 
+-diff --git a/LuaJIT-2.1-20210510/src/lj_ccallback.c b/LuaJIT-2.1-20210510/src/lj_ccallback.c
+-index 8d6cb737..80d738c6 100644
+---- a/LuaJIT-2.1-20210510/src/lj_ccallback.c
+-+++ b/LuaJIT-2.1-20210510/src/lj_ccallback.c
+-@@ -460,7 +460,7 @@ void lj_ccallback_mcode_free(CTState *cts)
+-       nfpr = CCALL_NARG_FPR;  /* Prevent reordering. */ \
+-     } \
+-   } else { \
+--    if (!LJ_TARGET_IOS && n > 1) \
+-+    if (!LJ_TARGET_OSX && n > 1) \
+-       ngpr = (ngpr + 1u) & ~1u;  /* Align to regpair. */ \
+-     if (ngpr + n <= maxgpr) { \
+-       sp = &cts->cb.gpr[ngpr]; \
+--- 
+-2.34.1
+-
+diff --git a/openresty-patches/patches/1.19.9.1/LuaJIT-2.1-20210510_02-arm64-fix-pcall-error-case.patch b/openresty-patches/patches/1.19.9.1/LuaJIT-2.1-20210510_02-arm64-fix-pcall-error-case.patch
+deleted file mode 100644
+index 9c35376..0000000
+--- a/openresty-patches/patches/1.19.9.1/LuaJIT-2.1-20210510_02-arm64-fix-pcall-error-case.patch
++++ /dev/null
+@@ -1,29 +0,0 @@
+-From b4b2dce9fc3ffaaaede39b36d06415311e2aa516 Mon Sep 17 00:00:00 2001
+-From: Mike Pall <mike>
+-Date: Wed, 27 Oct 2021 21:56:07 +0200
+-Subject: [PATCH] ARM64: Fix pcall() error case.
+-
+-Reported by Alex Orlenko.
+----
+- src/vm_arm64.dasc | 3 ++-
+- 1 file changed, 2 insertions(+), 1 deletion(-)
+-
+-diff --git a/LuaJIT-2.1-20210510/src/vm_arm64.dasc b/LuaJIT-2.1-20210510/src/vm_arm64.dasc
+-index c7090ca3..eb87857f 100644
+---- a/LuaJIT-2.1-20210510/src/vm_arm64.dasc
+-+++ b/LuaJIT-2.1-20210510/src/vm_arm64.dasc
+-@@ -1163,9 +1163,10 @@ static void build_subroutines(BuildCtx *ctx)
+-   |//-- Base library: catch errors ----------------------------------------
+-   |
+-   |.ffunc pcall
+-+  |   cmp NARGS8:RC, #8
+-   |  ldrb TMP0w, GL->hookmask
+--  |   subs NARGS8:RC, NARGS8:RC, #8
+-   |   blo ->fff_fallback
+-+  |   sub NARGS8:RC, NARGS8:RC, #8
+-   |    mov RB, BASE
+-   |    add BASE, BASE, #16
+-   |  ubfx TMP0w, TMP0w, #HOOK_ACTIVE_SHIFT, #1
+--- 
+-2.34.1
+-
+diff --git a/openresty-patches/patches/1.19.9.1/LuaJIT-2.1-20210510_03_patch_macro_luajit_version.patch b/openresty-patches/patches/1.19.9.1/LuaJIT-2.1-20210510_03_patch_macro_luajit_version.patch
+deleted file mode 100644
+index a5498c6..0000000
+--- a/openresty-patches/patches/1.19.9.1/LuaJIT-2.1-20210510_03_patch_macro_luajit_version.patch
++++ /dev/null
+@@ -1,27 +0,0 @@
+-From f53c8fa441f4233b9a3f19fcd870207fe8795456 Mon Sep 17 00:00:00 2001
+-From: Qi <add_sp@outlook.com>
+-Date: Wed, 25 May 2022 18:35:08 +0800
+-Subject: [PATCH] Patch macro `LUAJIT_VERSION`
+-
+----
+- src/luajit.h | 2 ++
+- 1 file changed, 2 insertions(+)
+-
+-diff --git a/LuaJIT-2.1-20210510/src/luajit.h b/LuaJIT-2.1-20210510/src/luajit.h
+-index a4d33001..e35f4e7e 100644
+---- a/LuaJIT-2.1-20210510/src/luajit.h
+-+++ b/LuaJIT-2.1-20210510/src/luajit.h
+-@@ -32,7 +32,9 @@
+-
+- #define OPENRESTY_LUAJIT
+-
+-+#ifndef LUAJIT_VERSION
+- #define LUAJIT_VERSION		"LuaJIT 2.1.0-beta3"
+-+#endif
+- #define LUAJIT_VERSION_NUM	20100  /* Version 2.1.0 = 02.01.00. */
+- #define LUAJIT_VERSION_SYM	luaJIT_version_2_1_0_beta3
+- #define LUAJIT_COPYRIGHT	"Copyright (C) 2005-2022 Mike Pall"
+---
+-2.34.1
+-
+-
+diff --git a/test/kong_license.json b/test/kong_license.json
+deleted file mode 120000
+index 0799913..0000000
+--- a/test/kong_license.json
++++ /dev/null
+@@ -1 +0,0 @@
+-kong_license.private
+\ No newline at end of file

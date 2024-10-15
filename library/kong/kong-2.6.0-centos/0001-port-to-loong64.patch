@@ -1,0 +1,49 @@
+diff --git a/Makefile b/Makefile
+index 082c5a7..f5e64ce 100644
+--- a/Makefile
++++ b/Makefile
+@@ -1,8 +1,8 @@
+-KONG_BUILD_TOOLS?=4.21.0
++KONG_BUILD_TOOLS?=4.42.0
+ BASE?=centos
+ 
+ build:
+-	docker build --no-cache -t kong-$(BASE) $(BASE)/
++	docker build --no-cache -t cr.loongnix.cn/library/kong:2.6.0-$(BASE)-yzewei $(BASE)/
+ 
+ .PHONY: test
+ test:
+diff --git a/centos/Dockerfile b/centos/Dockerfile
+index d09b5e5..c57cbc1 100644
+--- a/centos/Dockerfile
++++ b/centos/Dockerfile
+@@ -1,5 +1,5 @@
+-FROM centos:8
+-LABEL maintainer="Kong <support@konghq.com>"
++FROM cr.loongnix.cn/openanolis/anolisos:8.9
++LABEL maintainer="wangweijie@loongson.cn"
+ 
+ ARG ASSET=ce
+ ENV ASSET $ASSET
+@@ -18,11 +18,7 @@ RUN set -ex; \
+     sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-Linux-* || true; \
+     sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-Linux-* || true; \
+     yum clean all; \
+-    if [ "$ASSET" = "ce" ] ; then \
+-      curl -fL https://download.konghq.com/gateway-${KONG_VERSION%%.*}.x-centos-7/Packages/k/kong-$KONG_VERSION.el7.amd64.rpm -o /tmp/kong.rpm \
+-      && echo "$KONG_SHA256  /tmp/kong.rpm" | sha256sum -c -; \
+-    fi; \
+-    yum install -y -q unzip shadow-utils git \
++    yum install -y -q unzip shadow-utils git make gcc  \
+     && yum clean all -q \
+     && rm -fr /var/cache/yum/* /tmp/yum_save*.yumtx /root/.pki \
+     # Please update the centos install docs if the below line is changed so that
+@@ -43,7 +39,7 @@ RUN set -ex; \
+ 
+ COPY docker-entrypoint.sh /docker-entrypoint.sh
+ 
+-USER kong
++USER root
+ 
+ ENTRYPOINT ["/docker-entrypoint.sh"]
+ 
