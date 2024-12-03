@@ -1,0 +1,6 @@
+[epel]
+name=Extra Packages for Enterprise Linux $releasever - $basearch
+baseurl=http://pkg.loongnix.cn/loongnix-server/$releasever/epel/$basearch/release/Everything/
+enabled=1
+gpgcheck=0
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-LOONGNIX

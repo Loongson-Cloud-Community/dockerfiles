@@ -1,0 +1,11 @@
+--- CMakeLists.txt.orig	2024-12-02 14:03:07.659927820 +0800
++++ CMakeLists.txt	2024-12-02 14:04:15.634361948 +0800
+@@ -2342,7 +2342,7 @@
+   ENDIF()
+ ENDIF()
+ 
+-INCLUDE(cmake/abi_check.cmake)
++#INCLUDE(cmake/abi_check.cmake)
+ INCLUDE(cmake/tags.cmake)
+ 
+ CONFIGURE_FILE(config.h.cmake   ${CMAKE_BINARY_DIR}/include/my_config.h)

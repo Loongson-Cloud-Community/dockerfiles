@@ -1,0 +1,83 @@
+#
+# NOTE: THIS DOCKERFILE IS GENERATED VIA "apply-templates.sh"
+#
+# PLEASE DO NOT EDIT IT DIRECTLY.
+#
+
+#FROM oraclelinux:9-slim
+#FROM cr.loongnix.cn/loongson/loongnix-server:8.4
+FROM cr.loongnix.cn/openanolis/anolisos:8.9
+
+RUN set -eux; \
+	groupadd --system --gid 1000 mysql; \
+	useradd --system --uid 1000 --gid 1000 --home-dir /var/lib/mysql --no-create-home mysql
+
+# add gosu for easy step-down from root
+# https://github.com/tianon/gosu/releases
+ENV GOSU_VERSION 1.14
+# 安装 MySQL Shell
+RUN set -eux; \
+        dnf makecache && dnf install -y \
+	wget \
+	tar;
+
+RUN wget https://github.com/Loongson-Cloud-Community/mysql-shell-rpm/releases/download/v8.0.30/mysql-shell-8.0.30-LA-RPMS-mininal.tar.gz && \
+    tar -xf mysql-shell-8.0.30-LA-RPMS-mininal.tar.gz && \
+    rpm -ivh --nodeps mysql-shell-8.0.30-LA-RPMS-mininal/loongarch64/*.rpm && \
+    rm -rf mysql-shell-8.0.30-LA-RPMS-mininal mysql-shell-8.0.30-LA-RPMS-mininal.tar.gz && \
+    wget -O /usr/local/bin/gosu "https://github.com/Loongson-Cloud-Community/gosu/releases/download/loongson-1.14/gosu-loongarch64" && \
+    chmod +x /usr/local/bin/gosu && \
+    gosu --version && \
+    gosu nobody true;
+
+RUN set -eux; \
+	dnf install -y \
+		bzip2 \
+		gzip \
+		openssl \
+		xz \
+		zstd \
+		findutils \
+	; \
+	dnf clean all
+
+
+ENV MYSQL_MAJOR 8.0
+ENV MYSQL_VERSION 8.0.40-1.el9
+
+# 下载mysql rpm包
+RUN wget https://github.com/Loongson-Cloud-Community/mysql-rpm/releases/download/8.0.40/mysql-8.0.40-rpm.tar.gz && \
+    tar xf mysql-8.0.40-rpm.tar.gz && \
+    rpm -ivh --nodeps mysql-8.0.40/loongarch64/*.rpm && \
+    rm -rf mysql-8.0.40-rpm.tar.gz mysql-8.0.40;
+# 安装mysql
+RUN     grep -F 'socket=/var/lib/mysql/mysql.sock' /etc/my.cnf; \
+	sed -i 's!^socket=.*!socket=/var/run/mysqld/mysqld.sock!' /etc/my.cnf; \
+	grep -F 'socket=/var/run/mysqld/mysqld.sock' /etc/my.cnf; \
+	{ echo '[client]'; echo 'socket=/var/run/mysqld/mysqld.sock'; } >> /etc/my.cnf; \
+	\
+# make sure users dumping files in "/etc/mysql/conf.d" still works
+	! grep -F '!includedir' /etc/my.cnf; \
+	{ echo; echo '!includedir /etc/mysql/conf.d/'; } >> /etc/my.cnf; \
+	mkdir -p /etc/mysql/conf.d; \
+# ensure these directories exist and have useful permissions
+# the rpm package has different opinions on the mode of `/var/run/mysqld`, so this needs to be after install
+	mkdir -p /var/lib/mysql /var/run/mysqld; \
+	chown mysql:mysql /var/lib/mysql /var/run/mysqld; \
+# ensure that /var/run/mysqld (used for socket and lock files) is writable regardless of the UID our mysqld instance ends up having at runtime
+	chmod 1777 /var/lib/mysql /var/run/mysqld; \
+	\
+	mkdir /docker-entrypoint-initdb.d; \
+	\
+	mysqld --version; \
+	mysql --version; \
+	mysqlsh --version;
+
+VOLUME /var/lib/mysql
+
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN ln -s usr/local/bin/docker-entrypoint.sh /entrypoint.sh # backwards compat
+ENTRYPOINT ["docker-entrypoint.sh"]
+
+EXPOSE 3306 33060
+CMD ["mysqld"]
