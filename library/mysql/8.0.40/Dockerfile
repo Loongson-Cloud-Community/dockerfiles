@@ -5,8 +5,8 @@ FROM cr.loongnix.cn/loongson/loongnix-server:8.4 AS builder
 RUN yum install -y wget gnupg2 patch bzip2 openssl xz zstd rpm
 
 # 复制 MySQL 源代码和补丁文件
-#COPY mysql-boost-8.0.40.tar.gz /tmp
-RUN wget https://cdn.mysql.com/Downloads/MySQL-8.0/mysql-boost-8.0.40.tar.gz -O /tmp/mysql-boost-8.0.40.tar.gz 
+COPY mysql-boost-8.0.40.tar.gz /tmp
+#RUN wget https://cdn.mysql.com/Downloads/MySQL-8.0/mysql-boost-8.0.40.tar.gz -O /tmp/mysql-boost-8.0.40.tar.gz 
 COPY no_check_abi.patch /tmp
 COPY build_and_install_mysql.sh /tmp
 COPY epel-modular.repo /etc/yum.repos.d/
@@ -78,7 +78,7 @@ RUN set -eux; \
 # ensure these directories exist and have useful permissions
 # the rpm package has different opinions on the mode of `/var/run/mysqld`, so this needs to be after install
         mkdir -p /var/lib/mysql /var/run/mysqld; \
-        chown mysql:mysql /var/lib/mysql /var/run/mysqld; \
+        chown mysql:mysql /var/lib/mysql /var/run/mysqld /usr/local/mysql; \
 # ensure that /var/run/mysqld (used for socket and lock files) is writable regardless of the UID our mysqld instance ends up having at runtime
         chmod 1777 /var/lib/mysql /var/run/mysqld; \
         \
@@ -89,7 +89,6 @@ RUN set -eux; \
 	mysqlsh --version; \
         yum clean packages
 
-RUN chown -R mysql:mysql /usr/local/mysql
 # Expose MySQL 服务端口
 EXPOSE 3306 33060
 
