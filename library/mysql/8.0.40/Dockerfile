@@ -30,7 +30,8 @@ RUN yum install -y python38-devel libssh wget tar glibc-common && \
 
 # 从构建阶段复制 MySQL 到运行时镜像
 COPY --from=builder /usr/local/mysql /usr/local/mysql
-COPY --from=builder /etc/my.cnf /etc/my.cnf
+#COPY --from=builder /etc/my.cnf /etc/my.cnf
+COPY config/conf.d/my.cnf /etc/my.cnf
 COPY --from=builder /etc/my.cnf.d /etc/my.cnf.d
 COPY --from=builder /etc/logrotate.d/mysql /etc/logrotate.d/mysql
 
@@ -88,6 +89,7 @@ RUN set -eux; \
 	mysqlsh --version; \
         yum clean packages
 
+RUN chown -R mysql:mysql /usr/local/mysql
 # Expose MySQL 服务端口
 EXPOSE 3306 33060
 
