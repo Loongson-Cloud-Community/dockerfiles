@@ -4,11 +4,12 @@ ORGANIZATION?=calico
 REPOSITORY?=fastdfs
 TAG?=5.05
 
-FASTDFS_SRC_URL=https://github.com/liujie-666/fastdfs.git
+FASTDFS_SRC_URL=https://github.com/happyfish100/fastdfs.git
 NGINX_SRC_URL=https://github.com/nginx/nginx.git
 NGINX_MODULE_URL=https://github.com/happyfish100/fastdfs-nginx-module.git
 LIBFAST_COMMON_SRC_URL=https://github.com/happyfish100/libfastcommon.git
 
+FASTDFS_COMMIT=9a47139
 NGINX_COMMIT=0ddad64
 NGINX_MODULE_COMMIT=10d1729
 LIBFAST_COMMON_COMMIT=906c9e8
@@ -21,7 +22,7 @@ default:image
 image: $(foreach dir, $(SUBDIR), src/$(dir))
 	docker build -t $(IMAGE_NAME) .
 src/fastdfs:
-	git clone $(FASTDFS_SRC_URL) $@ 
+	git clone $(FASTDFS_SRC_URL) $@ && cd $@ && git checkout ${FASTDFS_COMMIT} && git apply ../../fastdfsV5.05_patch.patch
 src/nginx:
 	git clone $(NGINX_SRC_URL) $@ && cd $@ && git checkout ${NGINX_COMMITI}
 src/nginx_module:
