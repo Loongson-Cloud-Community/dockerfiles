@@ -24,11 +24,5 @@ src/mc:
 
 push:
 	@docker push $(IMAGE)
-	#latest image
-	@if [ $(LATEST) = "true" ]; \
-		then \
-		docker tag $(IMAGE) $(LATEST_IMAGE); \
-		docker push $(LATEST_IMAGE); \
-	fi
 clean:
 	@rm -rf src
