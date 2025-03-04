@@ -11,6 +11,8 @@ RUN set -eux; \
 	apt-get install -y --no-install-recommends \
 # utilities for keeping Debian and OpenJDK CA certificates in sync
 		ca-certificates p11-kit \
+# needed by /usr/local/openjdk*/lib/libfontmanager.so
+		libfreetype6-dev \
 	; \
 	rm -rf /var/lib/apt/lists/*
 
