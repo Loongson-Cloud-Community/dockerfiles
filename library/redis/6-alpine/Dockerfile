@@ -25,7 +25,7 @@ ENV GOSU_VERSION 1.17
 RUN set -eux; \
         apk add --no-cache --virtual .gosu-deps wget; \
         wget -O /usr/local/bin/gosu https://github.com/Loongson-Cloud-Community/gosu/releases/download/loongarch64-old-abi-1.17/gosu-loongarch64; \
-        apk del --no-network .gosu-deps wget; \
+        apk del --no-network .gosu-deps; \
 		chmod +x /usr/local/bin/gosu; \
 	gosu --version; \
 	gosu nobody true
