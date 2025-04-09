@@ -1,17 +1,17 @@
 #!/bin/bash
-set -e
+set -ex
 
 : ${DISTRO:="loongnix"}
 : ${RELEASE:=DaoXiangHu-stable}
-: ${MIRROR_ADDRESS:=http://pkg.loongnix.cn/loongnix}
+: ${MIRROR_ADDRESS:=https://pkg.loongnix.cn/loongnix}
 : ${ROOTFS:="rootfs.tar.xz"}
-: ${APT_CONF_URL:="https://raw.githubusercontent.com/GoogleContainerTools/base-images-docker/master/debian/reproducible/overlay/etc/apt/apt.conf.d/"}
+: ${APT_CONF_URL:="https://raw.githubusercontent.com/GoogleContainerTools/base-images-docker/master/debian/reproducible/overlay/etc/apt/apt.conf.d"}
 
 OUTPUT=$(cd "$(dirname $0)";pwd)
 cd ${OUTPUT?}
 
-apt update -y
-apt install -y debootstrap curl xz-utils
+apt update -y > /dev/null 2>&1
+apt install -y debootstrap curl xz-utils > /dev/null 2>&1
 if [ ! -f /usr/share/debootstrap/scripts/$RELEASE ]; then
 	ln -s /usr/share/debootstrap/scripts/sid /usr/share/debootstrap/scripts/$RELEASE
 fi
@@ -19,8 +19,8 @@ fi
 TMPDIR=$(mktemp -d)
 
 # install packages
-debootstrap --no-check-gpg --variant=minbase --components=main,non-free,contrib --arch=loongarch64 --foreign $RELEASE $TMPDIR $MIRROR_ADDRESS
-chroot $TMPDIR debootstrap/debootstrap --second-stage
+debootstrap --no-check-gpg --variant=minbase --components=main,non-free,contrib --arch=loongarch64 --foreign $RELEASE $TMPDIR $MIRROR_ADDRESS > /dev/null 2>&1
+chroot $TMPDIR debootstrap/debootstrap --second-stage > /dev/null 2>&1
 
 # https://github.com/GoogleContainerTools/base-images-docker/tree/master/debian/reproducible/overlay/etc/apt/apt.conf.d
 apt_conf=(
@@ -43,7 +43,7 @@ slimExcludes=( $(sed '/^#/d;/^$/d' .slimify-excludes | sort -u) )
 
 # package excludes
 pkgExcludes='loongnix-gpu-driver-service,loonggpu-compiler,loonggl-dev'
-pkgIncludes='libncursesw6,libseccomp2,sysvinit-utils'
+pkgIncludes='libncursesw6,libseccomp2,sysvinit-utils,ca-certificates'
 
 chroot $TMPDIR bash -c '
   apt-get -o apt-get -o Acquire::Check-Valid-Until=false update -qq
@@ -86,7 +86,7 @@ for slimExclude in "${slimExcludes[@]}"; do
                         -depth -mindepth 1 \
                         -not \( -type d -o -type l \) \
                         -not "${findMatchIncludes[@]}" \
-                        -exec rm -f '{}' ';' \
+                        -exec rm -rf '{}' ';' \
                         || echo "${slimExclude} not found"
         }
 done
