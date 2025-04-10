@@ -1,0 +1,45 @@
+diff --git a/3.5/debian-11/Dockerfile b/3.5/debian-11/Dockerfile
+index d3beed1..4a04063 100644
+--- a/3.5/debian-11/Dockerfile
++++ b/3.5/debian-11/Dockerfile
+@@ -1,5 +1,5 @@
+ #FROM docker.io/bitnami/minideb:bullseye
+-FROM lcr.loongnix.cn/library/debian:sid
++FROM cr.loongnix.cn/loongson/loongnix:20
+ 
+ ARG TARGETARCH
+ 
+@@ -21,16 +21,24 @@ ENV HOME="/" \
+ COPY prebuildfs /
+ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+ # Install required system packages and dependencies
+-RUN install_packages ca-certificates curl procps
++RUN install_packages ca-certificates curl procps wget
+ RUN mkdir -p /tmp/bitnami/pkg/cache/ && cd /tmp/bitnami/pkg/cache/ &&  mkdir -p /opt/bitnami/etcd/bin && \
+-      curl -OL http://cloud.loongnix.cn/releases/loongarch64/etcd-io/etcd/3.5.5/etcd-v3.5.5-linux-loong64.tar.gz &&  tar -zxf etcd-v3.5.5-linux-loong64.tar.gz  && \
+-      mv etcd-v3.5.5-linux-loong64/etcd* /opt/bitnami/etcd/bin/ && rm -rf etcd-v3.5.5-linux-loong64* && \
+-      curl -OL https://github.com/Loongson-Cloud-Community/gosu/releases/download/1.17/gosu-loong64 && mv gosu-loong64 /opt/bitnami/gosu && \
+-      curl -OL http://cloud.loongnix.cn/releases/loongarch64/mikefarah/yq/4.30.8/yq && mv yq /opt/bitnami/ ;
+-
+-RUN apt-get autoremove --purge -y curl ca-certificates && \
+-    apt-get update && apt-get upgrade -y && \
+-    apt-get clean && rm -rf /var/lib/apt/lists /var/cache/apt/archives
++#      wget  http://cloud.loongnix.cn/releases/loongarch64abi1/etcd-io/etcd/3.5.5/etcd-3.5.5-loongarch64.tar.gz &&  tar xf etcd-3.5.5-loongarch64.tar.gz  && \
++      wget https://github.com/Loongson-Cloud-Community/etcd/releases/download/v3.5.5/etcd-3.5.5-loongarch64.tar.gz &&  tar xf etcd-3.5.5-loongarch64.tar.gz  && \
++      mv etcd/bin/* /opt/bitnami/etcd/bin/ && rm -rf etcd-v3.5.5-linux-loong64* && \
++      curl -OL https://github.com/Loongson-Cloud-Community/gosu/releases/download/loongarch64-old-abi-1.17/gosu-loongarch64 && mv gosu-loongarch64 /opt/bitnami/gosu && \
++      curl -OL http://cloud.loongnix.cn/releases/loongarch64abi1/mikefarah/yq/4.30.8/yq && mv yq /opt/bitnami/ ;
++
++# 不卸载 ca-certificates，如果一定要清理也放在最后
++RUN apt-get update && \
++    apt-get install -y curl ca-certificates && \
++    export TERM=xterm && \
++    apt-get upgrade -y && \
++    apt-get clean && rm -rf /var/lib/apt/lists/*
++
++#RUN unset https_proxy && apt-get autoremove --purge -y curl ca-certificates && \
++#    apt-get update && apt-get upgrade -y && \
++#    apt-get clean && rm -rf /var/lib/apt/lists /var/cache/apt/archives
+ RUN chmod g+rwX /opt/bitnami
+ 
+ COPY rootfs /
