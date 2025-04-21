@@ -28,7 +28,7 @@ index d3beed1..4a04063 100644
 +      wget https://github.com/Loongson-Cloud-Community/etcd/releases/download/v3.5.5/etcd-3.5.5-loongarch64.tar.gz &&  tar xf etcd-3.5.5-loongarch64.tar.gz  && \
 +      mv etcd/bin/* /opt/bitnami/etcd/bin/ && rm -rf etcd-v3.5.5-linux-loong64* && \
 +      curl -OL https://github.com/Loongson-Cloud-Community/gosu/releases/download/loongarch64-old-abi-1.17/gosu-loongarch64 && mv gosu-loongarch64 /opt/bitnami/gosu && \
-+      curl -OL http://cloud.loongnix.cn/releases/loongarch64abi1/mikefarah/yq/4.30.8/yq && mv yq /opt/bitnami/ ;
++      curl -OL https://github.com/Loongson-Cloud-Community/yq/releases/download/v4.30.8/yq-loong64-abi1 && mv yq-loong64-abi1 /opt/bitnami/ ;
 +
 +# 不卸载 ca-certificates，如果一定要清理也放在最后
 +RUN apt-get update && \
