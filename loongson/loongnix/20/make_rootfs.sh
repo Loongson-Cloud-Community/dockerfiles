@@ -3,7 +3,7 @@
 
 set -ex
 
-: ${MIRROR_ADDRESS:="http://pkg.loongnix.cn/loongnix"}
+: ${MIRROR_ADDRESS:="https://pkg.loongnix.cn/loongnix"}
 : ${RELEASE:="DaoXiangHu-stable"}
 : ${ROOTFS:="rootfs.tar.xz"}
 : ${APT_CONF_URL:="https://raw.githubusercontent.com/GoogleContainerTools/base-images-docker/master/debian/reproducible/overlay/etc/apt/apt.conf.d/"}
@@ -40,7 +40,7 @@ for apt_file in ${apt_conf[@]};do
 done
 
 pkgExcludes='loongnix-gpu-driver-service,loonggpu-compiler,loonggl-dev'
-pkgIncludes='libncursesw6,libseccomp2,sysvinit-utils'
+pkgIncludes='libncursesw6,libseccomp2,sysvinit-utils,ca-certificates'
 chroot $TMPDIR bash -c '
   apt-get -o apt-get -o Acquire::Check-Valid-Until=false update -qq
   if apt-mark --help &> /dev/null; then

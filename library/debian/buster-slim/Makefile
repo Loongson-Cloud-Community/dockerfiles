@@ -24,5 +24,8 @@ $(ROOTFS):
 	docker run --rm \
 		-v `pwd`:/wk \
 		--privileged \
+		-e https_proxy=$(https_proxy) \
+		-e http_proxy=$(http_proxy) \
+		-e no_proxy='pkg.loongnix.cn' \
 		cr.loongnix.cn/library/debian:buster \
 		/bin/bash -c "/wk/make_rootfs.sh"
