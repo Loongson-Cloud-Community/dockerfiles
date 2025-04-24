@@ -210,7 +210,7 @@ index 73b2cb6..0302e5a 100755
 +		if [ -e LuaJIT-2.1-20201027 ];then
 +        	rm -r LuaJIT-2.1-20201027 
 +		fi
-+        https_proxy=http://10.2.10.197:7890 git clone -b v2.1-agentzh-larch64 --depth 1 https://github.com/loongson/luajit2.git 
++        git clone -b v2.1-agentzh-loongarch64 --depth 1 https://github.com/loongson/luajit2.git 
 +        mv luajit2 LuaJIT-2.1-20201027
 +		if [ -e LuaJIT-2.1-20210510 ];then
 +	        rm -r LuaJIT-2.1-20210510 
