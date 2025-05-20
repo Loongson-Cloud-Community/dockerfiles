@@ -10,11 +10,11 @@ RUN [ ! -e /etc/nsswitch.conf ] && echo 'hosts: files dns' > /etc/nsswitch.conf
 
 ENV PATH /usr/local/go/bin:$PATH
 
-ENV GOLANG_VERSION 1.23.3
+ENV GOLANG_VERSION 1.23.9
 
 RUN set -eux; \
-	url='http://ftp.loongnix.cn/toolchain/golang/go-1.23/abi1.0/go1.23.3.linux-loong64.tar.gz'; \
-	sha256='eab40399e36f967c21f3cab26a201f23f4bf45e45f85a281183ffb25dc71897c'; \
+	url='http://ftp.loongnix.cn/toolchain/golang/go-1.23/abi1.0/go1.23.9.linux-loong64.tar.gz'; \
+	sha256='8beff84388103f615914cdcd82a4c2b303870adbeccef3f1c09db13278ae6a68'; \
 	wget -O go.tgz "$url" --progress=dot:giga; \
 	echo "$sha256 *go.tgz" | sha256sum -c -; \
 	tar -C /usr/local -xzf go.tgz; \
