@@ -126,6 +126,7 @@ RUN chmod g=u /etc/passwd && \
 # stays up-to-date with changes to Ubuntu's store)
 COPY bin/docker-openjdk /etc/ca-certificates/update.d/docker-openjdk
 RUN /etc/ca-certificates/update.d/docker-openjdk
+RUN chown -R 1000:0 /usr/share/elasticsearch/config /usr/share/elasticsearch/data
 
 EXPOSE 9200 9300
 
