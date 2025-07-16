@@ -1,0 +1,21 @@
+oceanbase-ce:
+  servers:
+  - 127.0.0.1
+  global:
+    home_path: /root/demo
+    appname: obcluster
+    cluster_id: 1
+    scenario: express_oltp
+    datafile_size: 256M
+    datafile_next: 256M
+    datafile_maxsize: 1G
+    log_disk_size: 5G
+    enable_syslog_recycle: true
+    enable_syslog_wf: false
+    max_syslog_file_count: 4
+    memory_limit: 6144M
+    production_mode: false
+    __min_full_resource_pool_memory: 1073741824
+    system_memory: 1024M
+    cpu_count: 20
+    root_password: ""
