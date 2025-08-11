@@ -1,21 +1,25 @@
 oceanbase-ce:
   servers:
-  - 127.0.0.1
+    - 127.0.0.1
   global:
     home_path: /root/demo
     appname: obcluster
-    cluster_id: 1
+    devname: lo
+    zone: zone1
     scenario: express_oltp
-    datafile_size: 256M
-    datafile_next: 256M
-    datafile_maxsize: 1G
-    log_disk_size: 5G
-    enable_syslog_recycle: true
-    enable_syslog_wf: false
-    max_syslog_file_count: 4
-    memory_limit: 6144M
+    mysql_port: 2881
+    rpc_port: 2882
+    obshell_port: 2886
+    cluster_id: 1
+    memory_limit: 6G
+    system_memory: 1G
+    datafile_size: 2G
+    datafile_next: 2G
+    datafile_maxsize: 10G
+    log_disk_size: 10G
+    cpu_count: 16
     production_mode: false
-    __min_full_resource_pool_memory: 1073741824
-    system_memory: 1024M
-    cpu_count: 20
+    enable_syslog_wf: false
+    enable_syslog_recycle: true
+    max_syslog_file_count: 4
     root_password: ""
