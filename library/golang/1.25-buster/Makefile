@@ -3,11 +3,11 @@
 REGISTRY     ?= cr.loongnix.cn
 ORGANIZATION ?= library
 REPOSITORY   ?= golang
-TAG          ?= 1.24-buster
+TAG          ?= 1.25-buster
 
 IMAGE  = $(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):$(TAG)
-ALIAS  = $(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):1.24
-LATEST =
+ALIAS  = $(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):1.25
+LATEST = $(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):latest
 
 default: image
 
