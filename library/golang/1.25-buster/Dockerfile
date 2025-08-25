@@ -3,6 +3,7 @@ FROM cr.loongnix.cn/library/buildpack-deps:buster-scm
 # install cgo-related dependencies
 RUN set -eux; \
 	apt-get update; \
+	apt-get dist-upgrade -y; \
 	apt-get install -y --no-install-recommends \
 		g++ \
 		gcc \

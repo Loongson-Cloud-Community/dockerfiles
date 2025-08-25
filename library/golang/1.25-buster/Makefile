@@ -12,9 +12,7 @@ LATEST = $(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):latest
 default: image
 
 image:
-	docker build \
-		-t $(IMAGE) \
-		.
+	docker build -t $(IMAGE) .
 
 push: alias
 	docker push $(IMAGE)
