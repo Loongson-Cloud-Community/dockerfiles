@@ -1,0 +1,114 @@
+#!/usr/bin/env bash
+# http://redsymbol.net/articles/unofficial-bash-strict-mode/
+
+#########################################################################################
+#  SCRIPT: clear-docker-cache.sh
+#  Description: Used to cleanup unused docker containers and volumes
+######################################################################################
+IFS=$'\n\t'
+set -euo pipefail
+
+if ! [ -x "$(command -v docker)" ]; then
+  echo -e "INFO: Docker installation not found, skipping clear-docker-cache"
+  exit 0
+fi
+
+DOCKER_API_VERSION=$(docker version --format '{{.Client.APIVersion}}')
+DOCKER_CLIENT_VERSION=$(docker version --format '{{.Client.Version}}')
+REQUIRED_DOCKER_API_VERSION=1.25
+FILTER_FLAG="${FILTER_FLAG:-label=com.gitlab.gitlab-runner.managed=true}"
+
+usage() {
+  echo -e "\nUsage: $0 prune-volumes|prune|space|help\n"
+  echo -e "\tprune-volumes    Remove all unused containers (both dangling and unreferenced) and volumes"
+  echo -e "\tprune            Remove all unused containers (both dangling and unreferenced)"
+  echo -e "\tspace            Show docker disk usage"
+  echo -e "\thelp             Show usage"
+  exit 1
+}
+
+if awk "BEGIN {exit !(\"$DOCKER_API_VERSION\" < \"$REQUIRED_DOCKER_API_VERSION\")}"; then
+  echo -e "ERROR: Your current API version is lower than ${REQUIRED_DOCKER_API_VERSION}. The client and daemon API must both be at least ${REQUIRED_DOCKER_API_VERSION}+ to run these commands. Kindly upgrade your docker version."
+  exit 1
+fi
+
+# Docker 23.0 changed the existing `docker system prune` behaviour, and the workaround
+# for now is to fallback to the older behaviour by explicitly specifying the older API
+# version: https://github.com/docker/cli/issues/4028#issuecomment-1429538145
+# We should be able to use DOCKER_API_VERSION 1.41, as this problem was only introduced
+# in Docker 23.0 which uses 1.42.
+PRUNE_DOCKER_API_VERSION=$DOCKER_API_VERSION
+if awk "BEGIN {exit !(\"$DOCKER_API_VERSION\" > \"1.41\")}"; then
+  PRUNE_DOCKER_API_VERSION=1.41
+fi
+
+COMMAND="${1:-prune-volumes}"
+
+case "$COMMAND" in
+
+  prune)
+
+    echo -e "\nCheck and remove all unused containers (both dangling and unreferenced)"
+    echo -e "-----------------------------------------------------------------------"
+
+    if awk "BEGIN {exit !(\"$DOCKER_CLIENT_VERSION\" < \"17.06.1\")}"; then
+      # The docker system prune command without pruning volumes does not exist before 17.06.1, so we need to use docker rm
+      CONTAINERS=$(docker ps -a -q \
+                  --filter=status=exited \
+                  --filter=status=dead \
+                  --filter="$FILTER_FLAG")
+
+      if [ -n "${CONTAINERS}" ]; then
+        docker rm "${CONTAINERS}"
+      fi
+    else
+      DOCKER_API_VERSION=$PRUNE_DOCKER_API_VERSION docker system prune -af --filter "$FILTER_FLAG"
+    fi
+
+    exit 0
+    ;;
+
+  space)
+
+    echo -e "\nShow docker disk usage"
+    echo -e "----------------------"
+    docker system df
+
+    exit 0
+    ;;
+
+  help)
+
+    usage
+    ;;
+
+  prune-volumes)
+
+    echo -e "\nCheck and remove all unused containers (both dangling and unreferenced) including volumes."
+    echo -e "------------------------------------------------------------------------------------------"
+    VOLUMES_FLAG='--volumes'
+
+    if awk "BEGIN {exit !(\"$DOCKER_CLIENT_VERSION\" < \"17.06.1\")}"; then
+      # The --volumes flag is not supported before 17.06.1 (it was implicit in those versions), so we need to remove the --volumes flag in that case
+      VOLUMES_FLAG=''
+
+      if awk "BEGIN {exit !(\"$DOCKER_CLIENT_VERSION\" < \"17.04.0\")}"; then
+        # The --filter flag is not supported in docker system prune before 17.04.0, so we need to use docker rm
+        CONTAINERS=$(docker ps -a -q \
+                    --filter=status=exited \
+                    --filter=status=dead \
+                    --filter="$FILTER_FLAG")
+
+        if [ -n "${CONTAINERS}" ]; then
+          docker rm -v "${CONTAINERS}"
+        fi
+
+        exit 0
+      fi
+    fi
+    DOCKER_API_VERSION=$PRUNE_DOCKER_API_VERSION docker system prune "$VOLUMES_FLAG" -af --filter "$FILTER_FLAG"
+
+    exit 0
+    ;;
+
+esac

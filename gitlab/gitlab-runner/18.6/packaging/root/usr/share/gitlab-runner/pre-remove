@@ -1,0 +1,5 @@
+#!/bin/sh
+
+gitlab-runner stop >/dev/null 2>/dev/null
+gitlab-runner uninstall >/dev/null 2>/dev/null
+exit 0
