@@ -1,0 +1,252 @@
+diff --git a/Makefile b/Makefile
+index a9740f4..80efeec 100644
+--- a/Makefile
++++ b/Makefile
+@@ -32,8 +32,8 @@ dashboard_repo="https://github.com/apache/apisix-dashboard"
+ 
+ ### set the default image for deb package
+ ifeq ($(type), deb)
+-image_base="ubuntu"
+-image_tag="20.04"
++image_base="cr.loongnix.cn/library/debian"
++image_tag="buster-slim"
+ endif
+ 
+ buildx=0
+@@ -80,13 +80,14 @@ endif
+ ### $(4) is code path
+ ifneq ($(buildx), True)
+ define build_runtime
+-	docker build -t apache/$(1)-$(3):$(runtime_version) \
++	docker build -t cr.loongnix.cn/apache/$(1)-$(3):$(runtime_version) \
+ 		--build-arg checkout_v=$(checkout) \
+ 		--build-arg VERSION=$(version) \
+ 		--build-arg RUNTIME_VERSION=$(runtime_version) \
+-		--build-arg IMAGE_BASE=$(image_base) \
+-		--build-arg IMAGE_TAG=$(image_tag) \
+ 		--build-arg CODE_PATH=$(4) \
++		--build-arg https_proxy=$(https_proxy) \
++                --build-arg http_proxy=$(http_proxy) \
++                --build-arg no_proxy=$(no_proxy) \
+ 		-f ./dockerfiles/Dockerfile.$(2).$(3) .
+ endef
+ else
+diff --git a/build-apisix-runtime.sh b/build-apisix-runtime.sh
+index 8895b3d..073e5a3 100755
+--- a/build-apisix-runtime.sh
++++ b/build-apisix-runtime.sh
+@@ -24,7 +24,7 @@ OPENSSL_VERSION=${OPENSSL_VERSION:-"3.2.0"}
+ OPENRESTY_VERSION="1.25.3.1"
+ ngx_multi_upstream_module_ver="1.2.0"
+ mod_dubbo_ver="1.0.2"
+-apisix_nginx_module_ver="1.16.0"
++apisix_nginx_module_ver="1.16.2"
+ wasm_nginx_module_ver="0.7.0"
+ lua_var_nginx_module_ver="v0.5.3"
+ lua_resty_events_ver="0.2.0"
+@@ -111,13 +111,13 @@ else
+         apisix-nginx-module-${apisix_nginx_module_ver}
+ fi
+ 
+-if [ "$repo" == wasm-nginx-module ]; then
+-    cp -r "$prev_workdir" ./wasm-nginx-module-${wasm_nginx_module_ver}
+-else
+-    git clone --depth=1 -b $wasm_nginx_module_ver \
+-        https://github.com/api7/wasm-nginx-module.git \
+-        wasm-nginx-module-${wasm_nginx_module_ver}
+-fi
++#if [ "$repo" == wasm-nginx-module ]; then
++#    cp -r "$prev_workdir" ./wasm-nginx-module-${wasm_nginx_module_ver}
++#else
++#    git clone --depth=1 -b $wasm_nginx_module_ver \
++#        https://github.com/api7/wasm-nginx-module.git \
++#        wasm-nginx-module-${wasm_nginx_module_ver}
++#fi
+ 
+ if [ "$repo" == lua-var-nginx-module ]; then
+     cp -r "$prev_workdir" ./lua-var-nginx-module-${lua_var_nginx_module_ver}
+@@ -135,9 +135,9 @@ cd apisix-nginx-module-${apisix_nginx_module_ver}/patch || exit 1
+ ./patch.sh ../../openresty-${OPENRESTY_VERSION}
+ cd ../..
+ 
+-cd wasm-nginx-module-${wasm_nginx_module_ver} || exit 1
+-./install-wasmtime.sh
+-cd ..
++#cd wasm-nginx-module-${wasm_nginx_module_ver} || exit 1
++#./install-wasmtime.sh
++#cd ..
+ 
+ 
+ luajit_xcflags=${luajit_xcflags:="-DLUAJIT_NUMMODE=2 -DLUAJIT_ENABLE_LUA52COMPAT"}
+@@ -145,6 +145,12 @@ no_pool_patch=${no_pool_patch:-}
+ 
+ cd openresty-${OPENRESTY_VERSION} || exit 1
+ 
++# 替换 luajit
++OR_LUAJIT_DIR=$(ls bundle | grep LuaJIT)
++rm -rf bundle/$OR_LUAJIT_DIR
++git clone -b v2.1-agentzh-loongarch64 https://github.com/loongson/luajit2.git
++mv luajit2 bundle/$OR_LUAJIT_DIR
++
+ or_limit_ver=0.09
+ if [ ! -d "bundle/lua-resty-limit-traffic-$or_limit_ver" ]; then
+     echo "ERROR: the official repository of lua-resty-limit-traffic has been updated, please sync to API7's repository." >&2
+@@ -157,17 +163,16 @@ else
+     mv lua-resty-limit-traffic-$limit_ver bundle/lua-resty-limit-traffic-$or_limit_ver
+ fi
+ 
+-
++rpath_dirs="/usr/local/openresty/luajit/lib:/usr/local/openresty/zlib/lib:/usr/local/openresty/pcre/lib:/usr/local/openresty/openssl3/lib"
+ ./configure --prefix="$OR_PREFIX" \
+     --with-cc-opt="-DAPISIX_RUNTIME_VER=$runtime_version $cc_opt" \
+-    --with-ld-opt="-Wl,-rpath,$OR_PREFIX/wasmtime-c-api/lib $ld_opt" \
++    --with-ld-opt="-Wl,-rpath,$rpath_dirs $ld_opt" \
+     $debug_args \
+     --add-module=../mod_dubbo-${mod_dubbo_ver} \
+     --add-module=../ngx_multi_upstream_module-${ngx_multi_upstream_module_ver} \
+     --add-module=../apisix-nginx-module-${apisix_nginx_module_ver} \
+     --add-module=../apisix-nginx-module-${apisix_nginx_module_ver}/src/stream \
+     --add-module=../apisix-nginx-module-${apisix_nginx_module_ver}/src/meta \
+-    --add-module=../wasm-nginx-module-${wasm_nginx_module_ver} \
+     --add-module=../lua-var-nginx-module-${lua_var_nginx_module_ver} \
+     --add-module=../lua-resty-events-${lua_resty_events_ver} \
+     --with-poll_module \
+@@ -216,21 +221,25 @@ cd apisix-nginx-module-${apisix_nginx_module_ver} || exit 1
+ sudo OPENRESTY_PREFIX="$OR_PREFIX" make install
+ cd ..
+ 
+-cd wasm-nginx-module-${wasm_nginx_module_ver} || exit 1
+-sudo OPENRESTY_PREFIX="$OR_PREFIX" make install
+-cd ..
++#cd wasm-nginx-module-${wasm_nginx_module_ver} || exit 1
++#sudo OPENRESTY_PREFIX="$OR_PREFIX" make install
++#cd ..
+ 
+ # package etcdctl
+-ETCD_ARCH="amd64"
+-ETCD_VERSION=${ETCD_VERSION:-'3.5.4'}
++ETCD_ARCH="loongarch64"
++ETCD_VERSION=${ETCD_VERSION:-'3.5.5'}
+ ARCH=${ARCH:-$(uname -m | tr '[:upper:]' '[:lower:]')}
+ 
+ if [[ $ARCH == "arm64" ]] || [[ $ARCH == "aarch64" ]]; then
+     ETCD_ARCH="arm64"
+ fi
++if [[ $ARCH == "loongarch64" ]]; then
++    ETCD_ARCH="loongarch64"
++fi
+ 
+-wget -q https://github.com/etcd-io/etcd/releases/download/v${ETCD_VERSION}/etcd-v${ETCD_VERSION}-linux-${ETCD_ARCH}.tar.gz
+-tar xf etcd-v${ETCD_VERSION}-linux-${ETCD_ARCH}.tar.gz
++wget -q https://cloud.loongnix.cn/releases/loongarch64abi1/etcd-io/etcd/${ETCD_VERSION}/etcd-${ETCD_VERSION}-${ETCD_ARCH}.tar.gz
++mkdir -p etcd-${ETCD_VERSION}
++tar xf etcd-${ETCD_VERSION}-${ETCD_ARCH}.tar.gz -C etcd-${ETCD_VERSION} --strip-components=1
+ # ship etcdctl under the same bin dir of openresty so we can package it easily
+-sudo cp etcd-v${ETCD_VERSION}-linux-${ETCD_ARCH}/etcdctl "$OR_PREFIX"/bin/
+-rm -rf etcd-v${ETCD_VERSION}-linux-${ETCD_ARCH}
++sudo cp etcd-${ETCD_VERSION}/bin/etcdctl "$OR_PREFIX"/bin/
++rm -rf etcd-${ETCD_VERSION} etcd-${ETCD_VERSION}-${ETCD_ARCH}.tar.gz
+diff --git a/dockerfiles/Dockerfile.apisix-runtime.deb b/dockerfiles/Dockerfile.apisix-runtime.deb
+index cda3dfe..8d12948 100644
+--- a/dockerfiles/Dockerfile.apisix-runtime.deb
++++ b/dockerfiles/Dockerfile.apisix-runtime.deb
+@@ -1,5 +1,5 @@
+-ARG IMAGE_BASE="debian"
+-ARG IMAGE_TAG="bullseye-slim"
++ARG IMAGE_BASE="cr.loongnix.cn/library/debian"
++ARG IMAGE_TAG="buster-slim"
+ 
+ FROM ${IMAGE_BASE}:${IMAGE_TAG} as build
+ 
+@@ -12,6 +12,9 @@ ARG IMAGE_TAG
+ ARG BUILD_LATEST
+ ARG CODE_PATH
+ 
++ENV HTTP_PROXY=${http_proxy}
++ENV HTTPS_PROXY=${https_proxy}
++ENV NO_PROXY=${no_proxy}
+ ENV IMAGE_BASE=${IMAGE_BASE}
+ ENV IMAGE_TAG=${IMAGE_TAG}
+ ENV version=${VERSION}
+diff --git a/utils/build-common.sh b/utils/build-common.sh
+index affeccb..58731f2 100755
+--- a/utils/build-common.sh
++++ b/utils/build-common.sh
+@@ -104,18 +104,35 @@ build_apisix_runtime_deb() {
+     DEBIAN_FRONTEND=noninteractive apt-get update --fix-missing
+     DEBIAN_FRONTEND=noninteractive apt-get install -y sudo git libreadline-dev lsb-release libssl-dev perl build-essential gcc g++ xz-utils curl cpanminus
+     DEBIAN_FRONTEND=noninteractive apt-get -y install --no-install-recommends wget gnupg ca-certificates 
+-    wget -O - https://openresty.org/package/pubkey.gpg | apt-key add -
+-
+-    if [[ $IMAGE_BASE == "ubuntu" ]]; then
+-        echo "deb http://openresty.org/package/${arch_path}ubuntu $(lsb_release -sc) main" | tee /etc/apt/sources.list.d/openresty.list
+-    fi
+ 
+-    if [[ $IMAGE_BASE == "debian" ]]; then
+-        echo "deb http://openresty.org/package/${arch_path}debian $(lsb_release -sc) openresty" | tee /etc/apt/sources.list.d/openresty.list
+-    fi
+-
+-    DEBIAN_FRONTEND=noninteractive apt-get update
+-    DEBIAN_FRONTEND=noninteractive apt-get install -y openresty-pcre-dev openresty-zlib-dev
++    # zlib / pcre
++    PREFIX_DIR=/usr/local/openresty
++
++    ZLIB_VERSION="1.3.1"
++    wget "https://github.com/madler/zlib/archive/refs/tags/v${ZLIB_VERSION}.tar.gz" -O zlib-${ZLIB_VERSION}.tar.gz
++    tar xf zlib-${ZLIB_VERSION}.tar.gz
++    cd zlib-${ZLIB_VERSION}
++    ./configure --prefix=${PREFIX_DIR}/zlib
++    make -j $(nproc)
++    make install
++    cd ..
++    rm -rf zlib-${ZLIB_VERSION}.tar.gz zlib-${ZLIB_VERSION}
++
++    PCRE_VERSION="8.45"
++    wget "https://downloads.sourceforge.net/project/pcre/pcre/${PCRE_VERSION}/pcre-${PCRE_VERSION}.tar.gz"
++    tar xf pcre-${PCRE_VERSION}.tar.gz
++    cd pcre-${PCRE_VERSION}
++    rm -f config.guess config.sub
++    curl -fSL 'https://git.savannah.gnu.org/gitweb/?p=config.git;a=blob_plain;f=config.guess;hb=HEAD' -o config.guess
++    curl -fSL 'https://git.savannah.gnu.org/gitweb/?p=config.git;a=blob_plain;f=config.sub;hb=HEAD' -o config.sub
++    ./configure --prefix=${PREFIX_DIR}/pcre \
++	--disable-cpp \
++        --enable-utf \
++        --enable-unicode-properties
++    make -j $(nproc)
++    make install
++    cd ..
++    rm -rf pcre-${PCRE_VERSION}.tar.gz pcre-${PCRE_VERSION}
+ 
+     export_openresty_variables
+     # fix OR_PREFIX
+diff --git a/utils/install-common.sh b/utils/install-common.sh
+index f46b13c..2013f67 100755
+--- a/utils/install-common.sh
++++ b/utils/install-common.sh
+@@ -118,12 +118,15 @@ install_apisix() {
+ }
+ 
+ install_golang() {
+-    GO_VERSION="1.19.6"
+-    GO_ARCH="amd64"
++    GO_VERSION="1.19.7"
++    GO_ARCH="loong64"
++    if [[ $ARCH == "loongarch64" ]] ; then
++	GO_ARCH="loong64"
++    fi
+     if [[ $ARCH == "arm64" ]] || [[ $ARCH == "aarch64" ]]; then
+         GO_ARCH="arm64"
+     fi
+-    wget https://dl.google.com/go/go"${GO_VERSION}".linux-"${GO_ARCH}".tar.gz
++    wget https://ftp.loongnix.cn/toolchain/golang/go-1.19/abi1.0/go1.19.7.linux-loong64.tar.gz
+     tar -xzf go"${GO_VERSION}".linux-"${GO_ARCH}".tar.gz
+     mv go /usr/local
+ }
+@@ -203,4 +206,7 @@ install_dashboard)
+ install_luarocks)
+     install_luarocks
+     ;;
++install_go)
++    install_golang
++    ;;
+ esac
