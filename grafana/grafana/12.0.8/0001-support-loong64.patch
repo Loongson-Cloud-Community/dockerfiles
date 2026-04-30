@@ -1,0 +1,222 @@
+diff --git a/Dockerfile b/Dockerfile
+index 7c396354..c27b8742 100644
+--- a/Dockerfile
++++ b/Dockerfile
+@@ -1,10 +1,9 @@
+-# syntax=docker/dockerfile:1
+ 
+ # to maintain formatting of multiline commands in vscode, add the following to settings.json:
+ # "docker.languageserver.formatter.ignoreMultilineInstructions": true
+ 
+-ARG BASE_IMAGE=alpine-base
+-ARG GO_IMAGE=go-builder-base
++ARG BASE_IMAGE=alpine:3.11
++ARG GO_IMAGE=golang:1.25-alpine
+ ARG JS_IMAGE=js-builder-base
+ ARG JS_PLATFORM=linux/amd64
+ 
+@@ -14,37 +13,11 @@ ARG JS_SRC=js-builder
+ 
+ # Dependabot cannot update dependencies listed in ARGs
+ # By using FROM instructions we can delegate dependency updates to dependabot
+-FROM alpine:3.23.0 AS alpine-base
+-FROM ubuntu:22.04 AS ubuntu-base
+-FROM golang:1.25.5-alpine AS go-builder-base
+-FROM --platform=${JS_PLATFORM} node:22-alpine AS js-builder-base
++
+ 
+ # Javascript build stage
+ FROM --platform=${JS_PLATFORM} ${JS_IMAGE} AS js-builder
+ 
+-ENV NODE_OPTIONS=--max_old_space_size=8000
+-
+-WORKDIR /tmp/grafana
+-
+-COPY package.json project.json nx.json yarn.lock .yarnrc.yml ./
+-COPY .yarn .yarn
+-COPY packages packages
+-COPY public public
+-COPY LICENSE ./
+-COPY conf/defaults.ini ./conf/defaults.ini
+-COPY e2e e2e
+-
+-RUN apk add --no-cache make build-base python3
+-
+-RUN yarn install --immutable
+-
+-COPY tsconfig.json eslint.config.js .editorconfig .browserslistrc .prettierrc.js ./
+-COPY scripts scripts
+-COPY emails emails
+-
+-ENV NODE_ENV=production
+-RUN yarn build
+-
+ # Golang build stage
+ FROM ${GO_IMAGE} AS go-builder
+ 
+@@ -53,15 +26,24 @@ ARG BUILD_BRANCH=""
+ ARG GO_BUILD_TAGS="oss"
+ ARG WIRE_TAGS="oss"
+ ARG BINGO="true"
++ARG GOPROXY=""
+ 
+-RUN if grep -i -q alpine /etc/issue; then \
+-  apk add --no-cache \
+-  # This is required to allow building on arm64 due to https://github.com/golang/go/issues/22040
+-  binutils-gold \
+-  bash \
+-  # Install build dependencies
+-  gcc g++ make git; \
+-  fi
++RUN set -eux; \
++  if grep -i -q alpine /etc/issue; then \
++    sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories; \
++    apk add --no-cache \
++    bash \
++    # Install build dependencies
++    gcc g++ make git; \
++    ver=`awk -F '[=.]+' '$1=="VERSION_ID"{print $3}' /etc/os-release`; \
++    if [ "${ver}" -ge 23 ];then \
++      apk add --no-cache \
++      # This is required to allow building on arm64 due to https://github.com/golang/go/issues/22040
++      binutils; \
++    fi; \
++  fi;
++
++ENV GOTOOLCHAIN=local
+ 
+ WORKDIR /tmp/grafana
+ 
+@@ -71,17 +53,18 @@ COPY .citools .citools
+ 
+ # Include vendored dependencies
+ COPY pkg/util/xorm pkg/util/xorm
+-COPY pkg/apis/folder pkg/apis/folder
+-COPY pkg/apis/secret pkg/apis/secret
+-COPY pkg/apiserver pkg/apiserver
+-COPY pkg/apimachinery pkg/apimachinery
+-COPY pkg/build pkg/build
+-COPY pkg/build/wire pkg/build/wire
+-COPY pkg/promlib pkg/promlib
+-COPY pkg/storage/unified/resource pkg/storage/unified/resource
+-COPY pkg/storage/unified/apistore pkg/storage/unified/apistore
+-COPY pkg/semconv pkg/semconv
+-COPY pkg/aggregator pkg/aggregator
++#COPY pkg/apis/folder pkg/apis/folder
++#COPY pkg/apis/secret pkg/apis/secret
++#COPY pkg/apiserver pkg/apiserver
++#COPY pkg/apimachinery pkg/apimachinery
++#COPY pkg/build pkg/build
++#COPY pkg/build/wire pkg/build/wire
++#COPY pkg/promlib pkg/promlib
++#COPY pkg/storage/unified/resource pkg/storage/unified/resource
++#COPY pkg/storage/unified/apistore pkg/storage/unified/apistore
++#COPY pkg/semconv pkg/semconv
++#COPY pkg/aggregator pkg/aggregator
++COPY pkg pkg
+ COPY apps/playlist apps/playlist
+ COPY apps/investigations apps/investigations
+ COPY apps/advisor apps/advisor
+@@ -90,9 +73,10 @@ COPY apps/folder apps/folder
+ COPY apps apps
+ COPY kindsv2 kindsv2
+ COPY apps/alerting/notifications apps/alerting/notifications
+-COPY pkg/codegen pkg/codegen
+-COPY pkg/plugins/codegen pkg/plugins/codegen
++#COPY pkg/codegen pkg/codegen
++#COPY pkg/plugins/codegen pkg/plugins/codegen
+ 
++ENV GOPROXY=${GOPROXY}
+ RUN go mod download
+ RUN if [[ "$BINGO" = "true" ]]; then \
+   go install github.com/bwplotka/bingo@latest && \
+@@ -106,7 +90,7 @@ COPY local local
+ COPY packages/grafana-schema packages/grafana-schema
+ COPY public/app/plugins public/app/plugins
+ COPY public/api-merged.json public/api-merged.json
+-COPY pkg pkg
++#COPY pkg pkg
+ COPY scripts scripts
+ COPY conf conf
+ COPY .github .github
+@@ -116,17 +100,6 @@ ENV BUILD_BRANCH=${BUILD_BRANCH}
+ 
+ RUN make build-go GO_BUILD_TAGS=${GO_BUILD_TAGS} WIRE_TAGS=${WIRE_TAGS}
+ 
+-# From-tarball build stage
+-FROM ${BASE_IMAGE} AS tgz-builder
+-
+-WORKDIR /tmp/grafana
+-
+-ARG GRAFANA_TGZ="grafana-latest.linux-x64-musl.tar.gz"
+-
+-COPY ${GRAFANA_TGZ} /tmp/grafana.tar.gz
+-
+-# add -v to make tar print every file it extracts
+-RUN tar x -z -f /tmp/grafana.tar.gz --strip-components=1
+ 
+ # helpers for COPY --from
+ FROM ${GO_SRC} AS go-src
+@@ -153,6 +126,7 @@ WORKDIR $GF_PATHS_HOME
+ 
+ # Install dependencies
+ RUN if grep -i -q alpine /etc/issue; then \
++  sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories && \
+   apk add --no-cache ca-certificates bash curl tzdata musl-utils && \
+   apk info -vv | sort; \
+   elif grep -i -q ubuntu /etc/issue; then \
+@@ -213,8 +187,8 @@ RUN if [ ! $(getent group "$GF_GID") ]; then \
+   chmod -R 777 "$GF_PATHS_DATA" "$GF_PATHS_HOME/.aws" "$GF_PATHS_LOGS" "$GF_PATHS_PLUGINS" "$GF_PATHS_PROVISIONING"
+ 
+ COPY --from=go-src /tmp/grafana/bin/grafana* /tmp/grafana/bin/*/grafana* ./bin/
+-COPY --from=js-src /tmp/grafana/public ./public
+-COPY --from=js-src /tmp/grafana/LICENSE ./
++COPY --from=js-src $GF_PATHS_HOME/public ./public
++COPY --from=js-src $GF_PATHS_HOME/LICENSE ./
+ 
+ EXPOSE 3000
+ 
+diff --git a/Makefile b/Makefile
+index 44b64fcb..f121117e 100644
+--- a/Makefile
++++ b/Makefile
+@@ -377,20 +377,21 @@ shellcheck: $(SH_FILES) ## Run checks for shell scripts.
+ ##@ Docker
+ 
+ TAG_SUFFIX=$(if $(WIRE_TAGS)!=oss,-$(WIRE_TAGS))
+-PLATFORM=linux/amd64
++PLATFORM ?= linux/amd64
++IMG_NAME ?= grafana/grafana$(TAG_SUFFIX):dev
+ 
+ .PHONY: build-docker-full
+ build-docker-full: ## Build Docker image for development.
+ 	@echo "build docker container"
+ 	tar -ch . | \
+-	docker buildx build - \
++	docker build - \
+ 	--platform $(PLATFORM) \
+ 	--build-arg BINGO=false \
+ 	--build-arg GO_BUILD_TAGS=$(GO_BUILD_TAGS) \
+ 	--build-arg WIRE_TAGS=$(WIRE_TAGS) \
+ 	--build-arg COMMIT_SHA=$$(git rev-parse HEAD) \
+ 	--build-arg BUILD_BRANCH=$$(git rev-parse --abbrev-ref HEAD) \
+-	--tag grafana/grafana$(TAG_SUFFIX):dev \
++	--tag $(IMG_NAME) \
+ 	$(DOCKER_BUILD_ARGS)
+ 
+ .PHONY: build-docker-full-ubuntu
+diff --git a/pkg/build/cmd.go b/pkg/build/cmd.go
+index 1bad7828..0433a5c4 100644
+--- a/pkg/build/cmd.go
++++ b/pkg/build/cmd.go
+@@ -308,6 +308,10 @@ func setBuildEnv(opts BuildOpts) error {
+ 	}
+ 
+ 	if opts.cgo {
++		if err := os.Setenv("CGO_CFLAGS", "-O2 -g -fno-plt"); err != nil {
++			return err
++		}
++
+ 		if err := os.Setenv("CGO_ENABLED", "1"); err != nil {
+ 			return err
+ 		}
