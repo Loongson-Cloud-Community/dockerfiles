@@ -1,0 +1,118 @@
+From e856591fb8fbfb28562dc41f6965e47be4571376 Mon Sep 17 00:00:00 2001
+From: zhangguanzhang <zhangguanzhang@qq.com>
+Date: Fri, 8 May 2026 14:14:30 +0800
+Subject: [PATCH] support loong64
+
+Signed-off-by: zhangguanzhang <zhangguanzhang@qq.com>
+---
+ Makefile                     |  3 +++
+ app/victoria-traces/Makefile |  9 +++++++++
+ deployment/docker/Makefile   | 35 +++++++++++++++++++++++++++++++----
+ 3 files changed, 43 insertions(+), 4 deletions(-)
+
+diff --git a/Makefile b/Makefile
+index 813cb19ee..f025a65a7 100644
+--- a/Makefile
++++ b/Makefile
+@@ -91,6 +91,9 @@ release-victoria-traces-linux-arm:
+ release-victoria-traces-linux-arm64:
+ 	GOOS=linux GOARCH=arm64 $(MAKE) release-victoria-traces-goos-goarch
+ 
++release-victoria-traces-linux-loong64:
++	GOOS=linux GOARCH=loong64 $(MAKE) release-victoria-traces-goos-goarch
++
+ release-victoria-traces-linux-s390x:
+ 	GOOS=linux GOARCH=s390x $(MAKE) release-victoria-traces-goos-goarch
+ 
+diff --git a/app/victoria-traces/Makefile b/app/victoria-traces/Makefile
+index 9161754c1..6c2bf6e0e 100644
+--- a/app/victoria-traces/Makefile
++++ b/app/victoria-traces/Makefile
+@@ -21,6 +21,9 @@ victoria-traces-linux-arm-prod:
+ victoria-traces-linux-arm64-prod:
+ 	APP_NAME=victoria-traces $(MAKE) app-via-docker-linux-arm64
+ 
++victoria-traces-linux-loong64-prod:
++	APP_NAME=victoria-traces $(MAKE) app-via-docker-linux-loong64
++
+ victoria-traces-linux-ppc64le-prod:
+ 	APP_NAME=victoria-traces $(MAKE) app-via-docker-linux-ppc64le
+ 
+@@ -60,6 +63,9 @@ package-victoria-traces-arm:
+ package-victoria-traces-arm64:
+ 	APP_NAME=victoria-traces $(MAKE) package-via-docker-arm64
+ 
++package-victoria-traces-loong64:
++	APP_NAME=victoria-traces $(MAKE) package-via-docker-loong64
++
+ package-victoria-traces-ppc64le:
+ 	APP_NAME=victoria-traces $(MAKE) package-via-docker-ppc64le
+ 
+@@ -78,6 +84,9 @@ victoria-traces-linux-arm:
+ victoria-traces-linux-arm64:
+ 	APP_NAME=victoria-traces CGO_ENABLED=0 GOOS=linux GOARCH=arm64 $(MAKE) app-local-goos-goarch
+ 
++victoria-traces-linux-loong64:
++	APP_NAME=victoria-traces CGO_ENABLED=0 GOOS=linux GOARCH=loong64 $(MAKE) app-local-goos-goarch
++
+ victoria-traces-linux-ppc64le:
+ 	APP_NAME=victoria-traces CGO_ENABLED=0 GOOS=linux GOARCH=ppc64le $(MAKE) app-local-goos-goarch
+ 
+diff --git a/deployment/docker/Makefile b/deployment/docker/Makefile
+index 82f4a2844..e9b560f0a 100644
+--- a/deployment/docker/Makefile
++++ b/deployment/docker/Makefile
+@@ -4,12 +4,12 @@ DOCKER_REGISTRIES ?= docker.io quay.io
+ DOCKER_NAMESPACE ?= victoriametrics
+ 
+ ROOT_IMAGE ?= alpine:3.23.3
+-CERTS_IMAGE := alpine:3.23.3
++CERTS_IMAGE ?= alpine:3.23.3
+ 
+-GO_BUILDER_IMAGE := golang:1.26.0
++GO_BUILDER_IMAGE ?= golang:1.26.0
+ 
+-BUILDER_IMAGE := local/builder:2.0.0-$(shell echo $(GO_BUILDER_IMAGE) | tr :/ __)-1
+-BASE_IMAGE := local/base:1.1.4-$(shell echo $(ROOT_IMAGE) | tr :/ __)-$(shell echo $(CERTS_IMAGE) | tr :/ __)
++BUILDER_IMAGE ?= local/builder:2.0.0-$(shell echo $(GO_BUILDER_IMAGE) | tr :/ __)-1
++BASE_IMAGE ?= local/base:1.1.4-$(shell echo $(ROOT_IMAGE) | tr :/ __)-$(shell echo $(CERTS_IMAGE) | tr :/ __)
+ DOCKER ?= docker
+ DOCKER_RUN ?= $(DOCKER) run
+ DOCKER_BUILD ?= $(DOCKER) build
+@@ -76,6 +76,33 @@ package-via-docker: package-base
+ 			--tag $(DOCKER_NAMESPACE)/$(APP_NAME):$(PKG_TAG)$(APP_SUFFIX)$(RACE) \
+ 			-f app/$(APP_NAME)/deployment/Dockerfile bin)
+ 
++package-via-docker-loong64: package-base
++	mkdir -p gocache-for-docker
++	$(DOCKER_RUN) --rm \
++		--user $(shell id -u):$(shell id -g) \
++		--mount type=bind,src="$(shell pwd)",dst=/VictoriaMetrics \
++		-w /VictoriaMetrics \
++		--mount type=bind,src="$(shell pwd)/gocache-for-docker",dst=/gocache \
++		--env GOCACHE=/gocache \
++		$(DOCKER_OPTS) \
++		$(BUILDER_IMAGE) \
++		go build $(RACE) -trimpath -buildvcs=false \
++			-ldflags "-s -w -extldflags '-static' $(GO_BUILDINFO)" \
++			-tags 'netgo osusergo' \
++			-o bin/$(APP_NAME)$(APP_SUFFIX)-prod $(PKG_PREFIX)/app/$(APP_NAME)
++	($(DOCKER_IMAGE_LS) | grep -q '$(DOCKER_NAMESPACE)/$(APP_NAME):$(PKG_TAG)$(APP_SUFFIX)$(RACE)$$') || (\
++		$(DOCKER_BUILD) \
++			--build-arg src_binary=$(APP_NAME)$(APP_SUFFIX)-prod \
++			--build-arg base_image=$(BASE_IMAGE) \
++			--label "org.opencontainers.image.source=https://github.com/VictoriaMetrics/VictoriaTraces" \
++			--label "org.opencontainers.image.documentation=https://docs.victoriametrics.com/victoriatraces" \
++			--label "org.opencontainers.image.title=$(APP_NAME)" \
++			--label "org.opencontainers.image.vendor=VictoriaMetrics" \
++			--label "org.opencontainers.image.version=$(PKG_TAG)" \
++			--label "org.opencontainers.image.created=$(shell date -u +"%Y-%m-%dT%H:%M:%SZ")" \
++			--tag $(DOCKER_NAMESPACE)/$(APP_NAME):$(PKG_TAG)$(APP_SUFFIX)$(RACE) \
++			-f app/$(APP_NAME)/deployment/Dockerfile bin)
++
+ publish-via-docker:
+ 	$(MAKE_PARALLEL) app-via-docker-linux-amd64 \
+ 		app-via-docker-linux-arm \
+-- 
+2.50.1
+

@@ -1,0 +1,74 @@
+From 5fe8b77bd1624a665605100ac068d145908c6be0 Mon Sep 17 00:00:00 2001
+From: zhangguanzhang <zhangguanzhang@qq.com>
+Date: Tue, 23 Dec 2025 14:34:12 +0800
+Subject: [PATCH] support loong64
+
+Signed-off-by: zhangguanzhang <zhangguanzhang@qq.com>
+---
+ Dockerfile      | 10 ++++------
+ Makefile.common |  8 +++++---
+ 2 files changed, 9 insertions(+), 9 deletions(-)
+
+diff --git a/Dockerfile b/Dockerfile
+index 9bee906..1414f70 100644
+--- a/Dockerfile
++++ b/Dockerfile
+@@ -1,11 +1,9 @@
+-ARG ARCH="amd64"
+-ARG OS="linux"
+-FROM quay.io/prometheus/busybox-${OS}-${ARCH}:latest
++ARG BASE_IMAGE=quay.io/prometheus/busybox
++
++FROM ${BASE_IMAGE}
+ LABEL maintainer="The Prometheus Authors <prometheus-developers@googlegroups.com>"
+ 
+-ARG ARCH="amd64"
+-ARG OS="linux"
+-COPY --chown=nobody:nobody .build/${OS}-${ARCH}/pushgateway /bin/pushgateway
++COPY --chown=nobody:nobody pushgateway /bin/pushgateway
+ 
+ EXPOSE 9091
+ RUN mkdir -p /pushgateway && chown nobody:nobody /pushgateway
+diff --git a/Makefile.common b/Makefile.common
+index cbb5d86..1af6537 100644
+--- a/Makefile.common
++++ b/Makefile.common
+@@ -56,7 +56,8 @@ endif
+ endif
+ 
+ PROMU_VERSION ?= 0.17.0
+-PROMU_URL     := https://github.com/prometheus/promu/releases/download/v$(PROMU_VERSION)/promu-$(PROMU_VERSION).$(GO_BUILD_PLATFORM).tar.gz
++ABI ?= 2.0
++PROMU_URL     ?= https://github.com/Loongson-Cloud-Community/promu/releases/download/v$(PROMU_VERSION)/promu-$(PROMU_VERSION).linux-loong64-abi$(ABI).tar.gz
+ 
+ SKIP_GOLANGCI_LINT :=
+ GOLANGCI_LINT :=
+@@ -86,6 +87,7 @@ DOCKERBUILD_CONTEXT     ?= ./
+ DOCKER_REPO             ?= prom
+ 
+ DOCKER_ARCHS            ?= amd64
++DOCKER_IMG_NAME			?= $(DOCKER_REPO)/$(DOCKER_IMAGE_NAME):$(DOCKER_IMAGE_TAG)
+ 
+ BUILD_DOCKER_ARCHS = $(addprefix common-docker-,$(DOCKER_ARCHS))
+ PUBLISH_DOCKER_ARCHS = $(addprefix common-docker-publish-,$(DOCKER_ARCHS))
+@@ -215,7 +217,7 @@ common-docker-repo-name:
+ .PHONY: common-docker $(BUILD_DOCKER_ARCHS)
+ common-docker: $(BUILD_DOCKER_ARCHS)
+ $(BUILD_DOCKER_ARCHS): common-docker-%:
+-	docker build -t "$(DOCKER_REPO)/$(DOCKER_IMAGE_NAME)-linux-$*:$(SANITIZED_DOCKER_IMAGE_TAG)" \
++	docker build $(DOCKER_BUILD_ARGS) -t "$(DOCKER_IMG_NAME)" \
+ 		-f $(DOCKERFILE_PATH) \
+ 		--build-arg ARCH="$*" \
+ 		--build-arg OS="linux" \
+@@ -245,7 +247,7 @@ $(PROMU):
+ 	$(eval PROMU_TMP := $(shell mktemp -d))
+ 	curl -s -L $(PROMU_URL) | tar -xvzf - -C $(PROMU_TMP)
+ 	mkdir -p $(FIRST_GOPATH)/bin
+-	cp $(PROMU_TMP)/promu-$(PROMU_VERSION).$(GO_BUILD_PLATFORM)/promu $(FIRST_GOPATH)/bin/promu
++	find $(PROMU_TMP)/ -type f -name promu -exec mv {} $(FIRST_GOPATH)/bin/promu \;
+ 	rm -r $(PROMU_TMP)
+ 
+ .PHONY: proto
+-- 
+2.50.1
+
