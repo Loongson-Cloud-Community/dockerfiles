@@ -1,0 +1,262 @@
+From 74941e22082df5f318e1faf1f951a0f1f904975f Mon Sep 17 00:00:00 2001
+From: zhangguanzhang <zhangguanzhang@qq.com>
+Date: Tue, 23 Dec 2025 15:19:03 +0800
+Subject: [PATCH] support loong64
+
+Signed-off-by: zhangguanzhang <zhangguanzhang@qq.com>
+---
+ app/victoria-metrics/Makefile |  6 ++++++
+ app/vmagent/Makefile          |  6 ++++++
+ app/vmalert-tool/Makefile     |  6 ++++++
+ app/vmalert/Makefile          |  6 ++++++
+ app/vmauth/Makefile           |  6 ++++++
+ app/vmbackup/Makefile         |  6 ++++++
+ app/vmctl/Makefile            |  6 ++++++
+ app/vmrestore/Makefile        |  6 ++++++
+ deployment/docker/Makefile    | 29 ++++++++++++++++++++++++++---
+ 9 files changed, 74 insertions(+), 3 deletions(-)
+
+diff --git a/app/victoria-metrics/Makefile b/app/victoria-metrics/Makefile
+index d63644bc3..c21904804 100644
+--- a/app/victoria-metrics/Makefile
++++ b/app/victoria-metrics/Makefile
+@@ -15,6 +15,9 @@ victoria-metrics-pure-prod:
+ victoria-metrics-linux-amd64-prod:
+ 	APP_NAME=victoria-metrics $(MAKE) app-via-docker-linux-amd64
+ 
++victoria-metrics-linux-loong64-prod:
++	APP_NAME=victoria-metrics $(MAKE) app-via-docker-linux-loong64
++
+ victoria-metrics-linux-arm-prod:
+ 	APP_NAME=victoria-metrics $(MAKE) app-via-docker-linux-arm
+ 
+@@ -54,6 +57,9 @@ package-victoria-metrics-pure:
+ package-victoria-metrics-amd64:
+ 	APP_NAME=victoria-metrics $(MAKE) package-via-docker-amd64
+ 
++package-victoria-metrics-loong64:
++	APP_NAME=victoria-metrics $(MAKE) package-via-docker-loong64
++
+ package-victoria-metrics-arm:
+ 	APP_NAME=victoria-metrics $(MAKE) package-via-docker-arm
+ 
+diff --git a/app/vmagent/Makefile b/app/vmagent/Makefile
+index 9ef12e2c2..087aaa718 100644
+--- a/app/vmagent/Makefile
++++ b/app/vmagent/Makefile
+@@ -15,6 +15,9 @@ vmagent-pure-prod:
+ vmagent-linux-amd64-prod:
+ 	APP_NAME=vmagent $(MAKE) app-via-docker-linux-amd64
+ 
++vmagent-linux-loong64-prod:
++	APP_NAME=vmagent $(MAKE) app-via-docker-linux-loong64
++
+ vmagent-linux-arm-prod:
+ 	APP_NAME=vmagent $(MAKE) app-via-docker-linux-arm
+ 
+@@ -54,6 +57,9 @@ package-vmagent-pure:
+ package-vmagent-amd64:
+ 	APP_NAME=vmagent $(MAKE) package-via-docker-amd64
+ 
++package-vmagent-loong64:
++	APP_NAME=vmagent $(MAKE) package-via-docker-loong64
++
+ package-vmagent-arm:
+ 	APP_NAME=vmagent $(MAKE) package-via-docker-arm
+ 
+diff --git a/app/vmalert-tool/Makefile b/app/vmalert-tool/Makefile
+index 6ed44bc1c..f70ade0b7 100644
+--- a/app/vmalert-tool/Makefile
++++ b/app/vmalert-tool/Makefile
+@@ -15,6 +15,9 @@ vmalert-tool-pure-prod:
+ vmalert-tool-linux-amd64-prod:
+ 	APP_NAME=vmalert-tool $(MAKE) app-via-docker-linux-amd64
+ 
++vmalert-tool-linux-loong64-prod:
++	APP_NAME=vmalert-tool $(MAKE) app-via-docker-linux-loong64
++
+ vmalert-tool-linux-arm-prod:
+ 	APP_NAME=vmalert-tool $(MAKE) app-via-docker-linux-arm
+ 
+@@ -54,6 +57,9 @@ package-vmalert-tool-pure:
+ package-vmalert-tool-amd64:
+ 	APP_NAME=vmalert-tool $(MAKE) package-via-docker-amd64
+ 
++package-vmalert-tool-loong64:
++	APP_NAME=vmalert-tool $(MAKE) package-via-docker-loong64
++
+ package-vmalert-tool-arm:
+ 	APP_NAME=vmalert-tool $(MAKE) package-via-docker-arm
+ 
+diff --git a/app/vmalert/Makefile b/app/vmalert/Makefile
+index 91ec0c70f..cde0a4ddf 100644
+--- a/app/vmalert/Makefile
++++ b/app/vmalert/Makefile
+@@ -15,6 +15,9 @@ vmalert-pure-prod:
+ vmalert-linux-amd64-prod:
+ 	APP_NAME=vmalert $(MAKE) app-via-docker-linux-amd64
+ 
++vmalert-linux-loong64-prod:
++	APP_NAME=vmalert $(MAKE) app-via-docker-linux-loong64
++
+ vmalert-linux-arm-prod:
+ 	APP_NAME=vmalert $(MAKE) app-via-docker-linux-arm
+ 
+@@ -54,6 +57,9 @@ package-vmalert-pure:
+ package-vmalert-amd64:
+ 	APP_NAME=vmalert $(MAKE) package-via-docker-amd64
+ 
++package-vmalert-loong64:
++	APP_NAME=vmalert $(MAKE) package-via-docker-loong64
++
+ package-vmalert-arm:
+ 	APP_NAME=vmalert $(MAKE) package-via-docker-arm
+ 
+diff --git a/app/vmauth/Makefile b/app/vmauth/Makefile
+index 7d319264a..b3e480d6c 100644
+--- a/app/vmauth/Makefile
++++ b/app/vmauth/Makefile
+@@ -15,6 +15,9 @@ vmauth-pure-prod:
+ vmauth-linux-amd64-prod:
+ 	APP_NAME=vmauth $(MAKE) app-via-docker-linux-amd64
+ 
++vmauth-linux-loong64-prod:
++	APP_NAME=vmauth $(MAKE) app-via-docker-linux-loong64
++
+ vmauth-linux-arm-prod:
+ 	APP_NAME=vmauth $(MAKE) app-via-docker-linux-arm
+ 
+@@ -54,6 +57,9 @@ package-vmauth-pure:
+ package-vmauth-amd64:
+ 	APP_NAME=vmauth $(MAKE) package-via-docker-amd64
+ 
++package-vmauth-loong64:
++	APP_NAME=vmauth $(MAKE) package-via-docker-loong64
++
+ package-vmauth-arm:
+ 	APP_NAME=vmauth $(MAKE) package-via-docker-arm
+ 
+diff --git a/app/vmbackup/Makefile b/app/vmbackup/Makefile
+index 011a48b4b..5f1d36a51 100644
+--- a/app/vmbackup/Makefile
++++ b/app/vmbackup/Makefile
+@@ -19,6 +19,9 @@ vmbackup-pure-prod:
+ vmbackup-linux-amd64-prod:
+ 	APP_NAME=vmbackup EXTRA_GO_BUILD_TAGS=$(VMBACKUP_GO_BUILD_TAGS) $(MAKE) app-via-docker-linux-amd64
+ 
++vmbackup-linux-loong64-prod:
++	APP_NAME=vmbackup EXTRA_GO_BUILD_TAGS=$(VMBACKUP_GO_BUILD_TAGS) $(MAKE) app-via-docker-linux-loong64
++
+ vmbackup-linux-arm-prod:
+ 	APP_NAME=vmbackup EXTRA_GO_BUILD_TAGS=$(VMBACKUP_GO_BUILD_TAGS) $(MAKE) app-via-docker-linux-arm
+ 
+@@ -58,6 +61,9 @@ package-vmbackup-pure:
+ package-vmbackup-amd64:
+ 	APP_NAME=vmbackup EXTRA_GO_BUILD_TAGS=$(VMBACKUP_GO_BUILD_TAGS) $(MAKE) package-via-docker-amd64
+ 
++package-vmbackup-loong64:
++	APP_NAME=vmbackup EXTRA_GO_BUILD_TAGS=$(VMBACKUP_GO_BUILD_TAGS) $(MAKE) package-via-docker-loong64
++
+ package-vmbackup-arm:
+ 	APP_NAME=vmbackup EXTRA_GO_BUILD_TAGS=$(VMBACKUP_GO_BUILD_TAGS) $(MAKE) package-via-docker-arm
+ 
+diff --git a/app/vmctl/Makefile b/app/vmctl/Makefile
+index 216ea502f..cf9950212 100644
+--- a/app/vmctl/Makefile
++++ b/app/vmctl/Makefile
+@@ -15,6 +15,9 @@ vmctl-pure-prod:
+ vmctl-linux-amd64-prod:
+ 	APP_NAME=vmctl $(MAKE) app-via-docker-linux-amd64
+ 
++vmctl-linux-loong64-prod:
++	APP_NAME=vmctl $(MAKE) app-via-docker-linux-loong64
++
+ vmctl-linux-arm-prod:
+ 	APP_NAME=vmctl $(MAKE) app-via-docker-linux-arm
+ 
+@@ -54,6 +57,9 @@ package-vmctl-pure:
+ package-vmctl-amd64:
+ 	APP_NAME=vmctl $(MAKE) package-via-docker-amd64
+ 
++package-vmctl-loong64:
++	APP_NAME=vmctl $(MAKE) package-via-docker-loong64
++
+ package-vmctl-arm:
+ 	APP_NAME=vmctl $(MAKE) package-via-docker-arm
+ 
+diff --git a/app/vmrestore/Makefile b/app/vmrestore/Makefile
+index 000cd2178..59f5971be 100644
+--- a/app/vmrestore/Makefile
++++ b/app/vmrestore/Makefile
+@@ -19,6 +19,9 @@ vmrestore-pure-prod:
+ vmrestore-linux-amd64-prod:
+ 	APP_NAME=vmrestore EXTRA_GO_BUILD_TAGS=$(VMRESTORE_GO_BUILD_TAGS) $(MAKE) app-via-docker-linux-amd64
+ 
++vmrestore-linux-loong64-prod:
++	APP_NAME=vmrestore EXTRA_GO_BUILD_TAGS=$(VMRESTORE_GO_BUILD_TAGS) $(MAKE) app-via-docker-linux-loong64
++
+ vmrestore-linux-arm-prod:
+ 	APP_NAME=vmrestore EXTRA_GO_BUILD_TAGS=$(VMRESTORE_GO_BUILD_TAGS) $(MAKE) app-via-docker-linux-arm
+ 
+@@ -58,6 +61,9 @@ package-vmrestore-pure:
+ package-vmrestore-amd64:
+ 	APP_NAME=vmrestore EXTRA_GO_BUILD_TAGS=$(VMRESTORE_GO_BUILD_TAGS) $(MAKE) package-via-docker-amd64
+ 
++package-vmrestore-loong64:
++	APP_NAME=vmrestore EXTRA_GO_BUILD_TAGS=$(VMRESTORE_GO_BUILD_TAGS) $(MAKE) package-via-docker-loong64
++
+ package-vmrestore-arm:
+ 	APP_NAME=vmrestore EXTRA_GO_BUILD_TAGS=$(VMRESTORE_GO_BUILD_TAGS) $(MAKE) package-via-docker-arm
+ 
+diff --git a/deployment/docker/Makefile b/deployment/docker/Makefile
+index beebdec74..549a5feb5 100644
+--- a/deployment/docker/Makefile
++++ b/deployment/docker/Makefile
+@@ -5,11 +5,11 @@ DOCKER_NAMESPACE ?= victoriametrics
+ 
+ ROOT_IMAGE ?= alpine:3.22.2
+ ROOT_IMAGE_SCRATCH ?= scratch
+-CERTS_IMAGE := alpine:3.22.2
++CERTS_IMAGE ?= alpine:3.22.2
+ 
+-GO_BUILDER_IMAGE := golang:1.25.5
++GO_BUILDER_IMAGE ?= golang:1.25.5
+ 
+-BUILDER_IMAGE := local/builder:2.0.0-$(shell echo $(GO_BUILDER_IMAGE) | tr :/ __)-1
++BUILDER_IMAGE ?= local/builder:2.0.0-$(shell echo $(GO_BUILDER_IMAGE) | tr :/ __)-1
+ BASE_IMAGE := local/base:1.1.4-$(shell echo $(ROOT_IMAGE) | tr :/ __)-$(shell echo $(CERTS_IMAGE) | tr :/ __)
+ DOCKER ?= docker
+ DOCKER_RUN ?= $(DOCKER) run
+@@ -77,6 +77,29 @@ package-via-docker: package-base
+ 			--tag $(DOCKER_NAMESPACE)/$(APP_NAME):$(PKG_TAG)$(APP_SUFFIX)$(RACE) \
+ 			-f app/$(APP_NAME)/deployment/Dockerfile bin)
+ 
++package-via-docker-loong64: package-base
++	mkdir -p gocache-for-docker
++	$(DOCKER_RUN) --rm \
++		--user $(shell id -u):$(shell id -g) \
++		--mount type=bind,src="$(shell pwd)",dst=/VictoriaMetrics \
++		-w /VictoriaMetrics \
++		--mount type=bind,src="$(shell pwd)/gocache-for-docker",dst=/gocache \
++		--env GOCACHE=/gocache \
++		$(DOCKER_OPTS) \
++		$(BUILDER_IMAGE) \
++		go build $(RACE) -trimpath -buildvcs=false \
++			-ldflags "-extldflags '-static' $(GO_BUILDINFO)" \
++			-tags 'netgo osusergo $(EXTRA_GO_BUILD_TAGS)' \
++			-o bin/$(APP_NAME)$(APP_SUFFIX)-prod $(PKG_PREFIX)/app/$(APP_NAME)
++	($(DOCKER_IMAGE_LS) | grep -q '$(DOCKER_NAMESPACE)/$(APP_NAME):$(PKG_TAG)$(APP_SUFFIX)$(RACE)$$') || (\
++		$(DOCKER_BUILD) \
++			--build-arg src_binary=$(APP_NAME)$(APP_SUFFIX)-prod \
++			--build-arg base_image=$(BASE_IMAGE) \
++			--label "org.opencontainers.image.source=https://github.com/VictoriaMetrics/VictoriaMetrics" \
++			--label "org.opencontainers.image.title=$(APP_NAME)" \
++			--tag $(DOCKER_NAMESPACE)/$(APP_NAME):$(PKG_TAG)$(APP_SUFFIX)$(RACE) \
++			-f app/$(APP_NAME)/deployment/Dockerfile bin)
++
+ publish-via-docker:
+ 	$(MAKE_PARALLEL) app-via-docker-linux-amd64 \
+ 		app-via-docker-linux-arm \
+-- 
+2.50.1
+
