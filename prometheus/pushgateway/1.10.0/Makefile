@@ -30,8 +30,9 @@ src/$(SOURCE):
 build: src/$(SOURCE)
 	docker run --rm -v `pwd`/src/$(SOURCE):/v -w /v/ \
 		-e http_proxy=$(http_proxy) -e https_proxy=$(https_proxy) \
+		-e GOPROXY="https://goproxy.cn" \
 		$(GO_IMG) \
-		$(MAKE) common-build DOCKER_ARCHS=loong64 PROMU_URL=https://github.com/Loongson-Cloud-Community/promu/releases/download/v0.17.0/promu-0.17.0-linux-loong64-abi1.0.tar.gz
+		sh -c "git config --global --add safe.directory /v && $(MAKE) common-build DOCKER_ARCHS=loong64 PROMU_URL=https://github.com/Loongson-Cloud-Community/promu/releases/download/v0.17.0/promu-0.17.0-linux-loong64-abi1.0.tar.gz"
 
 image: src/$(SOURCE) build
 # Commands for building.
