@@ -3,6 +3,7 @@ FROM cr.loongnix.cn/library/buildpack-deps:buster-scm
 # install cgo-related dependencies
 RUN set -eux; \
 	apt-get update; \
+	apt-get dist-upgrade -y; \
 	apt-get install -y --no-install-recommends \
 		g++ \
 		gcc \
@@ -14,11 +15,11 @@ RUN set -eux; \
 	rm -rf /var/lib/apt/lists/*
 
 ENV PATH /usr/local/go/bin:$PATH
-ENV GOLANGVERSION 1.24.13
+ENV GOLANGVERSION 1.26.4
 
 RUN set -eux; \
-	url='http://ftp.loongnix.cn/toolchain/golang/go-1.24/abi1.0/go1.24.13.linux-loong64.tar.gz'; \
-	sha256='6fefd25b7ee0ca08de7937fb25c947fffe694160f45c2ed0cdefe84b497a8f65'; \
+	url='http://ftp.loongnix.cn/toolchain/golang/go-1.26/abi1.0/go1.26.4.linux-loong64.tar.gz'; \
+	sha256='a71684bf759ac162040f8e7cd617d0c6ed4725b55b5276cfeb367d3ab210e0e1'; \
 	wget -O go.tgz "$url" --progress=dot:giga; \
 	echo "$sha256 *go.tgz" | sha256sum -c -; \
 	tar -C /usr/local -xzf go.tgz; \
