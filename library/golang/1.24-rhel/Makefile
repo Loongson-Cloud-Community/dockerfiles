@@ -12,7 +12,7 @@ LATEST =
 default: image
 
 image:
-	docker build \
+	docker build --add-host ftp.loongnix.cn:10.130.43.243 \
 		-t $(IMAGE) \
 		.
 

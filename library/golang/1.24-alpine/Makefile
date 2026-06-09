@@ -3,17 +3,23 @@
 REGISTRY     ?= cr.loongnix.cn
 ORGANIZATION ?= library
 REPOSITORY   ?= golang
-TAG          ?= 1.24-alpine
+GOMAJOR      ?= 1.24
+GOMINOR      ?= 13
+OSVERSION    ?= alpine
+TAG          ?= $(GOMAJOR)-$(OSVERSION)
 
-IMAGE = $(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):$(TAG)
+IMAGE   = $(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):$(TAG)
+ALIAS0  = $(REGISTRY)/$(ORGANIZATION)/$(REPOSITORY):$(GOMAJOR).$(GOMINOR)-$(OSVERSION)
 
 default: image
 
 image:
-	echo "ci test latest"
-	docker build \
-		-t $(IMAGE) \
-		.
+	docker build -t $(IMAGE) .
 
-push:
+push: alias
 	docker push $(IMAGE)
+	docker push $(ALIAS0)
+
+alias:
+	docker tag $(IMAGE) $(ALIAS0)
+
