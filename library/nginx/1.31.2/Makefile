@@ -2,7 +2,7 @@
 
 REGISTRY?=cr.loongnix.cn
 ORGANIZATION?=library
-REPOSITORY?=nginx-test
+REPOSITORY?=nginx
 TAG?=1.31.2
 VERSION?=1.31.2
 

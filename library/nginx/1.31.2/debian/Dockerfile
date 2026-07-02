@@ -30,7 +30,6 @@ RUN set -x \
         pgp.mit.edu \
     ; do \
         echo "Fetching GPG key $NGINX_GPGKEY from $server"; \
-        export http_proxy=http://10.2.10.197:7890 && export http_proxy=http://10.2.10.197:7890; \
         gpg1 --keyserver "$server" --keyserver-options timeout=10 --recv-keys "$NGINX_GPGKEY" && found=yes && break; \
     done; \
     test -z "$found" && echo >&2 "error: failed to fetch GPG key $NGINX_GPGKEY" && exit 1; \
@@ -106,18 +105,8 @@ RUN set -x \
 #   E: Failed to fetch store:/var/lib/apt/lists/partial/_tmp_tmp.ODWljpQfkE_._Packages  Could not open file /var/lib/apt/lists/partial/_tmp_tmp.ODWljpQfkE_._Packages - open (13: Permission denied)
             && apt-get -o Acquire::GzipIndexes=false update \
             ;; \
-    esac 
-#    \
-
-
-RUN set -x \
-    && nginxPackages=" \
-        nginx=${NGINX_VERSION}-${PKG_RELEASE} \
-        nginx-module-xslt=${NGINX_VERSION}-${DYNPKG_RELEASE} \
-        nginx-module-geoip=${NGINX_VERSION}-${DYNPKG_RELEASE} \
-        nginx-module-image-filter=${NGINX_VERSION}-${DYNPKG_RELEASE} \
-        nginx-module-njs=${NGINX_VERSION}+${NJS_VERSION}-${NJS_RELEASE} \
-    " \
+    esac  \
+    \
     && apt-get install --no-install-recommends --no-install-suggests -y \
                         $nginxPackages \
                         gettext-base \
