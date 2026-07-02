@@ -30,7 +30,6 @@ RUN set -x \
         pgp.mit.edu \
     ; do \
         echo "Fetching GPG key $NGINX_GPGKEY from $server"; \
-        export http_proxy=http://10.2.10.197:7890 && export http_proxy=http://10.2.10.197:7890; \
         gpg1 --keyserver "$server" --keyserver-options timeout=10 --recv-keys "$NGINX_GPGKEY" && found=yes && break; \
     done; \
     test -z "$found" && echo >&2 "error: failed to fetch GPG key $NGINX_GPGKEY" && exit 1; \
