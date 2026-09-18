@@ -1,0 +1,33 @@
+FROM cr.loongnix.cn/library/golang:1.27-alpine AS builder
+
+WORKDIR /app
+
+# Download Go modules
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy source files
+COPY . ./
+
+RUN apk add --no-cache \
+    unzip \
+    ca-certificates
+
+RUN update-ca-certificates
+
+# Build
+RUN GOEXPERIMENT=nojsonv2 CGO_ENABLED=0 GOGC=75 GOOS=linux GOARCH=loong64 go build -ldflags "-w -s" -o /beszel ./internal/cmd/hub
+
+# ? -------------------------
+FROM scratch
+
+COPY --from=builder /beszel /
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+
+# Ensure data persistence across container recreations
+VOLUME ["/beszel_data"]
+
+EXPOSE 8090
+
+ENTRYPOINT [ "/beszel" ]
+CMD ["serve", "--http=0.0.0.0:8090"]
