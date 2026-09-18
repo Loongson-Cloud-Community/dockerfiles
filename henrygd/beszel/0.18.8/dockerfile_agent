@@ -1,0 +1,31 @@
+FROM cr.loongnix.cn/library/golang:1.27-alpine AS builder
+
+WORKDIR /app
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy source files
+COPY . ./
+
+# Build
+RUN CGO_ENABLED=0 GOGC=75 GOOS=linux GOARCH=loong64 go build -ldflags "-w -s" -o /agent ./internal/cmd/agent
+
+RUN rm -rf /tmp/*
+
+# --------------------------
+# Final image: default scratch-based agent
+# --------------------------
+FROM scratch
+COPY --from=builder /agent /agent
+
+# this is so we don't need to create the /tmp directory in the scratch container
+COPY --from=builder /tmp /tmp
+
+# AMD GPU name lookup (used by agent on Linux when /usr/share/libdrm/amdgpu.ids is read)
+COPY --from=builder /app/agent/test-data/amdgpu.ids /usr/share/libdrm/amdgpu.ids
+
+# Ensure data persistence across container recreations
+VOLUME ["/var/lib/beszel-agent"]
+
+ENTRYPOINT ["/agent"]
